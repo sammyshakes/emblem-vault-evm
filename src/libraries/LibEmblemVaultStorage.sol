@@ -6,6 +6,11 @@ import "../interfaces/IHandlerCallback.sol";
 
 library LibEmblemVaultStorage {
     bytes32 constant EMBLEM_VAULT_STORAGE_POSITION = keccak256("emblem.vault.storage");
+    bytes32 constant REENTRANCY_GUARD_POSITION = keccak256("emblem.vault.reentrancy.guard");
+
+    struct ReentrancyGuard {
+        bool entered;
+    }
 
     struct VaultStorage {
         // Core storage
@@ -38,11 +43,29 @@ library LibEmblemVaultStorage {
         mapping(address => mapping(uint256 => bool)) byPassableIds;
     }
 
+    function reentrancyGuard() internal pure returns (ReentrancyGuard storage r) {
+        bytes32 position = REENTRANCY_GUARD_POSITION;
+        assembly {
+            r.slot := position
+        }
+    }
+
     function vaultStorage() internal pure returns (VaultStorage storage vs) {
         bytes32 position = EMBLEM_VAULT_STORAGE_POSITION;
         assembly {
             vs.slot := position
         }
+    }
+
+    function nonReentrantBefore() internal {
+        ReentrancyGuard storage guard = reentrancyGuard();
+        require(!guard.entered, "ReentrancyGuard: reentrant call");
+        guard.entered = true;
+    }
+
+    function nonReentrantAfter() internal {
+        ReentrancyGuard storage guard = reentrancyGuard();
+        guard.entered = false;
     }
 
     function enforceIsContractOwner() internal view {
