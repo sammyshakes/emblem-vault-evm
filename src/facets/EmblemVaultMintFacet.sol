@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "../libraries/LibDiamond.sol";
-import "../libraries/LibVaultStorage.sol";
+import "../libraries/LibEmblemVaultStorage.sol";
 import "../interfaces/IERC165.sol";
 import "../interfaces/IERC721.sol";
 import "../interfaces/IERC1155.sol";
@@ -19,8 +19,8 @@ interface IIsSerialized {
     function isOverloadSerial() external view returns (bool);
 }
 
-contract MintFacet {
-    using LibVaultStorage for LibVaultStorage.VaultStorage;
+contract EmblemVaultMintFacet {
+    using LibEmblemVaultStorage for LibEmblemVaultStorage.VaultStorage;
 
     event TokenMinted(
         address indexed nftAddress,
@@ -44,7 +44,7 @@ contract MintFacet {
     }
 
     modifier nonReentrant() {
-        LibVaultStorage.VaultStorage storage vs = LibVaultStorage.vaultStorage();
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         require(!vs.initialized, "ReentrancyGuard: reentrant call");
         vs.initialized = true;
         _;
@@ -87,7 +87,7 @@ contract MintFacet {
         bytes calldata _serialNumber,
         uint256 _amount
     ) external payable nonReentrant {
-        LibVaultStorage.VaultStorage storage vs = LibVaultStorage.vaultStorage();
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         uint256 quote = IMintVaultQuote(vs.quoteContract).quoteExternalPrice(msg.sender, _price);
         uint256 totalPrice = quote * _amount;
 
@@ -95,7 +95,7 @@ contract MintFacet {
         uint256 acceptableRange = totalPrice * 2 / 100;
         require(
             msg.value >= totalPrice - acceptableRange && msg.value <= totalPrice + acceptableRange,
-            "MintFacet: Amount outside acceptable range"
+            "EmblemVaultMintFacet: Amount outside acceptable range"
         );
 
         payable(vs.recipientAddress).transfer(msg.value);
@@ -116,16 +116,17 @@ contract MintFacet {
     }
 
     function _processMint(MintParams memory params) private {
-        LibVaultStorage.enforceNotUsedNonce(params.nonce);
-        LibVaultStorage.VaultStorage storage vs = LibVaultStorage.vaultStorage();
+        LibEmblemVaultStorage.enforceNotUsedNonce(params.nonce);
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
 
         if (params.payment == address(0)) {
-            require(msg.value == params.price, "MintFacet: Incorrect ETH amount sent");
+            require(msg.value == params.price, "EmblemVaultMintFacet: Incorrect ETH amount sent");
             payable(vs.recipientAddress).transfer(params.price);
         } else {
             IERC20Token paymentToken = IERC20Token(params.payment);
             require(
-                paymentToken.transferFrom(msg.sender, vs.recipientAddress, params.price), "MintFacet: Transfer failed"
+                paymentToken.transferFrom(msg.sender, vs.recipientAddress, params.price),
+                "EmblemVaultMintFacet: Transfer failed"
             );
         }
 
@@ -144,16 +145,16 @@ contract MintFacet {
                 params.signature
             );
 
-        LibVaultStorage.enforceIsWitness(signer);
+        LibEmblemVaultStorage.enforceIsWitness(signer);
 
-        require(_mintRouter(params), "MintFacet: Mint failed");
-        LibVaultStorage.setUsedNonce(params.nonce);
+        require(_mintRouter(params), "EmblemVaultMintFacet: Mint failed");
+        LibEmblemVaultStorage.setUsedNonce(params.nonce);
 
         emit TokenMinted(params.nftAddress, params.to, params.tokenId, params.amount, params.price, params.payment);
     }
 
     function _mintRouter(MintParams memory params) private returns (bool) {
-        LibVaultStorage.VaultStorage storage vs = LibVaultStorage.vaultStorage();
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
 
         if (IERC165(params.nftAddress).supportsInterface(vs.INTERFACE_ID_ERC1155)) {
             if (IIsSerialized(params.nftAddress).isOverloadSerial()) {
@@ -202,7 +203,7 @@ contract MintFacet {
     }
 
     function recoverSigner(bytes32 hash, bytes memory sig) internal pure returns (address) {
-        require(sig.length == 65, "MintFacet: Invalid signature length");
+        require(sig.length == 65, "EmblemVaultMintFacet: Invalid signature length");
 
         bytes32 r;
         bytes32 s;
@@ -218,7 +219,7 @@ contract MintFacet {
             v += 27;
         }
 
-        require(v == 27 || v == 28, "MintFacet: Invalid signature version");
+        require(v == 27 || v == 28, "EmblemVaultMintFacet: Invalid signature version");
 
         bytes memory prefix = "\x19Ethereum Signed Message:\n32";
         bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, hash));

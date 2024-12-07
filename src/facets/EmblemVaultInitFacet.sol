@@ -2,19 +2,19 @@
 pragma solidity ^0.8.19;
 
 import "../libraries/LibDiamond.sol";
-import "../libraries/LibVaultStorage.sol";
+import "../libraries/LibEmblemVaultStorage.sol";
 import "../interfaces/IHandlerCallback.sol";
 
-contract InitializationFacet {
+contract EmblemVaultInitFacet {
     event VaultInitialized(address indexed owner, string metadataBaseUri);
     event InterfaceIdSet(bytes4 indexed interfaceId, string name);
 
     function initialize(address _owner) external {
-        require(_owner != address(0), "InitializationFacet: Owner cannot be zero address");
-        require(msg.sender == LibDiamond.contractOwner(), "InitializationFacet: Not contract owner");
+        require(_owner != address(0), "EmblemVaultInitFacet: Owner cannot be zero address");
+        require(msg.sender == LibDiamond.contractOwner(), "EmblemVaultInitFacet: Not contract owner");
 
-        LibVaultStorage.VaultStorage storage vs = LibVaultStorage.vaultStorage();
-        require(!vs.initialized, "InitializationFacet: Already initialized");
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
+        require(!vs.initialized, "EmblemVaultInitFacet: Already initialized");
 
         // Set initial configuration
         vs.metadataBaseUri = "https://v2.emblemvault.io/meta/";
@@ -42,11 +42,11 @@ contract InitializationFacet {
     }
 
     function isInitialized() external view returns (bool) {
-        return LibVaultStorage.vaultStorage().initialized;
+        return LibEmblemVaultStorage.vaultStorage().initialized;
     }
 
     function getInterfaceIds() external view returns (bytes4 erc1155, bytes4 erc20, bytes4 erc721, bytes4 erc721a) {
-        LibVaultStorage.VaultStorage storage vs = LibVaultStorage.vaultStorage();
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         return (vs.INTERFACE_ID_ERC1155, vs.INTERFACE_ID_ERC20, vs.INTERFACE_ID_ERC721, vs.INTERFACE_ID_ERC721A);
     }
 
@@ -61,7 +61,7 @@ contract InitializationFacet {
             bool byPassable
         )
     {
-        LibVaultStorage.VaultStorage storage vs = LibVaultStorage.vaultStorage();
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         return (vs.metadataBaseUri, vs.recipientAddress, vs.quoteContract, vs.allowCallbacks, vs.byPassable);
     }
 

@@ -2,28 +2,28 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import {Diamond} from "../src/Diamond.sol";
+import {EmblemVaultDiamond} from "../src/EmblemVaultDiamond.sol";
 import {IDiamondCut} from "../src/interfaces/IDiamondCut.sol";
 import {DiamondCutFacet} from "../src/facets/DiamondCutFacet.sol";
 import {DiamondLoupeFacet} from "../src/facets/DiamondLoupeFacet.sol";
 import {OwnershipFacet} from "../src/facets/OwnershipFacet.sol";
-import {VaultCoreFacet} from "../src/facets/VaultCoreFacet.sol";
-import {ClaimFacet} from "../src/facets/ClaimFacet.sol";
-import {MintFacet} from "../src/facets/MintFacet.sol";
-import {CallbackFacet} from "../src/facets/CallbackFacet.sol";
-import {InitializationFacet} from "../src/facets/InitializationFacet.sol";
+import {EmblemVaultCoreFacet} from "../src/facets/EmblemVaultCoreFacet.sol";
+import {EmblemVaultClaimFacet} from "../src/facets/EmblemVaultClaimFacet.sol";
+import {EmblemVaultMintFacet} from "../src/facets/EmblemVaultMintFacet.sol";
+import {EmblemVaultCallbackFacet} from "../src/facets/EmblemVaultCallbackFacet.sol";
+import {EmblemVaultInitFacet} from "../src/facets/EmblemVaultInitFacet.sol";
 import {IHandlerCallback} from "../src/interfaces/IHandlerCallback.sol";
 
 contract DiamondVaultTest is Test {
-    Diamond diamond;
+    EmblemVaultDiamond diamond;
     DiamondCutFacet diamondCutFacet;
     DiamondLoupeFacet diamondLoupeFacet;
     OwnershipFacet ownershipFacet;
-    VaultCoreFacet vaultCoreFacet;
-    ClaimFacet claimFacet;
-    MintFacet mintFacet;
-    CallbackFacet callbackFacet;
-    InitializationFacet initFacet;
+    EmblemVaultCoreFacet vaultCoreFacet;
+    EmblemVaultClaimFacet claimFacet;
+    EmblemVaultMintFacet mintFacet;
+    EmblemVaultCallbackFacet callbackFacet;
+    EmblemVaultInitFacet initFacet;
 
     address owner = address(this);
     address user1 = address(0x1);
@@ -34,14 +34,14 @@ contract DiamondVaultTest is Test {
         diamondCutFacet = new DiamondCutFacet();
         diamondLoupeFacet = new DiamondLoupeFacet();
         ownershipFacet = new OwnershipFacet();
-        vaultCoreFacet = new VaultCoreFacet();
-        claimFacet = new ClaimFacet();
-        mintFacet = new MintFacet();
-        callbackFacet = new CallbackFacet();
-        initFacet = new InitializationFacet();
+        vaultCoreFacet = new EmblemVaultCoreFacet();
+        claimFacet = new EmblemVaultClaimFacet();
+        mintFacet = new EmblemVaultMintFacet();
+        callbackFacet = new EmblemVaultCallbackFacet();
+        initFacet = new EmblemVaultInitFacet();
 
         // Deploy Diamond
-        diamond = new Diamond(owner, address(diamondCutFacet));
+        diamond = new EmblemVaultDiamond(owner, address(diamondCutFacet));
 
         // Build cut struct
         IDiamondCut.FacetCut[] memory cut = new IDiamondCut.FacetCut[](7);
@@ -71,19 +71,19 @@ contract DiamondVaultTest is Test {
 
         // VaultCoreFacet
         bytes4[] memory vaultCoreSelectors = new bytes4[](13);
-        vaultCoreSelectors[0] = VaultCoreFacet.lockVault.selector;
-        vaultCoreSelectors[1] = VaultCoreFacet.unlockVault.selector;
-        vaultCoreSelectors[2] = VaultCoreFacet.isVaultLocked.selector;
-        vaultCoreSelectors[3] = VaultCoreFacet.addWitness.selector;
-        vaultCoreSelectors[4] = VaultCoreFacet.removeWitness.selector;
-        vaultCoreSelectors[5] = VaultCoreFacet.setRecipientAddress.selector;
-        vaultCoreSelectors[6] = VaultCoreFacet.setQuoteContract.selector;
-        vaultCoreSelectors[7] = VaultCoreFacet.setMetadataBaseUri.selector;
-        vaultCoreSelectors[8] = VaultCoreFacet.registerContract.selector;
-        vaultCoreSelectors[9] = VaultCoreFacet.unregisterContract.selector;
-        vaultCoreSelectors[10] = VaultCoreFacet.getRegisteredContractsOfType.selector;
-        vaultCoreSelectors[11] = VaultCoreFacet.isRegistered.selector;
-        vaultCoreSelectors[12] = VaultCoreFacet.version.selector;
+        vaultCoreSelectors[0] = EmblemVaultCoreFacet.lockVault.selector;
+        vaultCoreSelectors[1] = EmblemVaultCoreFacet.unlockVault.selector;
+        vaultCoreSelectors[2] = EmblemVaultCoreFacet.isVaultLocked.selector;
+        vaultCoreSelectors[3] = EmblemVaultCoreFacet.addWitness.selector;
+        vaultCoreSelectors[4] = EmblemVaultCoreFacet.removeWitness.selector;
+        vaultCoreSelectors[5] = EmblemVaultCoreFacet.setRecipientAddress.selector;
+        vaultCoreSelectors[6] = EmblemVaultCoreFacet.setQuoteContract.selector;
+        vaultCoreSelectors[7] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
+        vaultCoreSelectors[8] = EmblemVaultCoreFacet.registerContract.selector;
+        vaultCoreSelectors[9] = EmblemVaultCoreFacet.unregisterContract.selector;
+        vaultCoreSelectors[10] = EmblemVaultCoreFacet.getRegisteredContractsOfType.selector;
+        vaultCoreSelectors[11] = EmblemVaultCoreFacet.isRegistered.selector;
+        vaultCoreSelectors[12] = EmblemVaultCoreFacet.version.selector;
         cut[2] = IDiamondCut.FacetCut({
             facetAddress: address(vaultCoreFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -92,8 +92,8 @@ contract DiamondVaultTest is Test {
 
         // ClaimFacet
         bytes4[] memory claimSelectors = new bytes4[](2);
-        claimSelectors[0] = ClaimFacet.claim.selector;
-        claimSelectors[1] = ClaimFacet.claimWithSignedPrice.selector;
+        claimSelectors[0] = EmblemVaultClaimFacet.claim.selector;
+        claimSelectors[1] = EmblemVaultClaimFacet.claimWithSignedPrice.selector;
         cut[3] = IDiamondCut.FacetCut({
             facetAddress: address(claimFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -102,8 +102,8 @@ contract DiamondVaultTest is Test {
 
         // MintFacet
         bytes4[] memory mintSelectors = new bytes4[](2);
-        mintSelectors[0] = MintFacet.buyWithSignedPrice.selector;
-        mintSelectors[1] = MintFacet.buyWithQuote.selector;
+        mintSelectors[0] = EmblemVaultMintFacet.buyWithSignedPrice.selector;
+        mintSelectors[1] = EmblemVaultMintFacet.buyWithQuote.selector;
         cut[4] = IDiamondCut.FacetCut({
             facetAddress: address(mintFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -112,12 +112,12 @@ contract DiamondVaultTest is Test {
 
         // CallbackFacet
         bytes4[] memory callbackSelectors = new bytes4[](6);
-        callbackSelectors[0] = CallbackFacet.executeCallbacks.selector;
-        callbackSelectors[1] = CallbackFacet.registerCallback.selector;
-        callbackSelectors[2] = CallbackFacet.registerWildcardCallback.selector;
-        callbackSelectors[3] = CallbackFacet.hasCallback.selector;
-        callbackSelectors[4] = CallbackFacet.unregisterCallback.selector;
-        callbackSelectors[5] = CallbackFacet.toggleAllowCallbacks.selector;
+        callbackSelectors[0] = EmblemVaultCallbackFacet.executeCallbacks.selector;
+        callbackSelectors[1] = EmblemVaultCallbackFacet.registerCallback.selector;
+        callbackSelectors[2] = EmblemVaultCallbackFacet.registerWildcardCallback.selector;
+        callbackSelectors[3] = EmblemVaultCallbackFacet.hasCallback.selector;
+        callbackSelectors[4] = EmblemVaultCallbackFacet.unregisterCallback.selector;
+        callbackSelectors[5] = EmblemVaultCallbackFacet.toggleAllowCallbacks.selector;
         cut[5] = IDiamondCut.FacetCut({
             facetAddress: address(callbackFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -126,10 +126,10 @@ contract DiamondVaultTest is Test {
 
         // InitializationFacet
         bytes4[] memory initSelectors = new bytes4[](4);
-        initSelectors[0] = InitializationFacet.initialize.selector;
-        initSelectors[1] = InitializationFacet.isInitialized.selector;
-        initSelectors[2] = InitializationFacet.getInterfaceIds.selector;
-        initSelectors[3] = InitializationFacet.getConfiguration.selector;
+        initSelectors[0] = EmblemVaultInitFacet.initialize.selector;
+        initSelectors[1] = EmblemVaultInitFacet.isInitialized.selector;
+        initSelectors[2] = EmblemVaultInitFacet.getInterfaceIds.selector;
+        initSelectors[3] = EmblemVaultInitFacet.getConfiguration.selector;
         cut[6] = IDiamondCut.FacetCut({
             facetAddress: address(initFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -140,16 +140,16 @@ contract DiamondVaultTest is Test {
         IDiamondCut(address(diamond)).diamondCut(cut, address(0), "");
 
         // Initialize the vault
-        InitializationFacet(address(diamond)).initialize(owner);
+        EmblemVaultInitFacet(address(diamond)).initialize(owner);
     }
 
-    function testInitialization() public {
-        assertTrue(InitializationFacet(address(diamond)).isInitialized());
-        (string memory baseUri,,,,) = InitializationFacet(address(diamond)).getConfiguration();
+    function testInitialization() public view {
+        assertTrue(EmblemVaultInitFacet(address(diamond)).isInitialized());
+        (string memory baseUri,,,,) = EmblemVaultInitFacet(address(diamond)).getConfiguration();
         assertEq(baseUri, "https://v2.emblemvault.io/meta/");
     }
 
-    function testOwnership() public {
+    function testOwnership() public view {
         assertEq(OwnershipFacet(address(diamond)).owner(), owner);
     }
 
@@ -158,32 +158,32 @@ contract DiamondVaultTest is Test {
         uint256 tokenId = 1;
 
         // Register mock NFT contract
-        VaultCoreFacet(address(diamond)).registerContract(mockNft, 1);
+        EmblemVaultCoreFacet(address(diamond)).registerContract(mockNft, 1);
 
         // Lock vault
-        VaultCoreFacet(address(diamond)).lockVault(mockNft, tokenId);
-        assertTrue(VaultCoreFacet(address(diamond)).isVaultLocked(mockNft, tokenId));
+        EmblemVaultCoreFacet(address(diamond)).lockVault(mockNft, tokenId);
+        assertTrue(EmblemVaultCoreFacet(address(diamond)).isVaultLocked(mockNft, tokenId));
 
         // Unlock vault
-        VaultCoreFacet(address(diamond)).unlockVault(mockNft, tokenId);
-        assertFalse(VaultCoreFacet(address(diamond)).isVaultLocked(mockNft, tokenId));
+        EmblemVaultCoreFacet(address(diamond)).unlockVault(mockNft, tokenId);
+        assertFalse(EmblemVaultCoreFacet(address(diamond)).isVaultLocked(mockNft, tokenId));
     }
 
     function testFailLockUnregisteredContract() public {
         address mockNft = address(0x123);
         uint256 tokenId = 1;
 
-        VaultCoreFacet(address(diamond)).lockVault(mockNft, tokenId);
+        EmblemVaultCoreFacet(address(diamond)).lockVault(mockNft, tokenId);
     }
 
     function testWitnessManagement() public {
         address witness = address(0x456);
 
         // Add witness
-        VaultCoreFacet(address(diamond)).addWitness(witness);
+        EmblemVaultCoreFacet(address(diamond)).addWitness(witness);
 
         // Remove witness
-        VaultCoreFacet(address(diamond)).removeWitness(witness);
+        EmblemVaultCoreFacet(address(diamond)).removeWitness(witness);
     }
 
     function testContractRegistration() public {
@@ -191,16 +191,16 @@ contract DiamondVaultTest is Test {
         uint256 contractType = 1;
 
         // Register contract
-        VaultCoreFacet(address(diamond)).registerContract(mockContract, contractType);
-        assertTrue(VaultCoreFacet(address(diamond)).isRegistered(mockContract, contractType));
+        EmblemVaultCoreFacet(address(diamond)).registerContract(mockContract, contractType);
+        assertTrue(EmblemVaultCoreFacet(address(diamond)).isRegistered(mockContract, contractType));
 
         // Get registered contracts
-        address[] memory contracts = VaultCoreFacet(address(diamond)).getRegisteredContractsOfType(contractType);
+        address[] memory contracts = EmblemVaultCoreFacet(address(diamond)).getRegisteredContractsOfType(contractType);
         assertEq(contracts.length, 1);
         assertEq(contracts[0], mockContract);
     }
 
-    function testDiamondCut() public {
+    function testDiamondCut() public view {
         // Test that all facets were properly added
         address[] memory facetAddresses = DiamondLoupeFacet(address(diamond)).facetAddresses();
         assertEq(facetAddresses.length, 8); // All facets including DiamondCut

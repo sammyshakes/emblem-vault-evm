@@ -4,8 +4,8 @@ pragma solidity ^0.8.19;
 import "./LibDiamond.sol";
 import "../interfaces/IHandlerCallback.sol";
 
-library LibVaultStorage {
-    bytes32 constant VAULT_STORAGE_POSITION = keccak256("diamond.standard.vault.storage");
+library LibEmblemVaultStorage {
+    bytes32 constant EMBLEM_VAULT_STORAGE_POSITION = keccak256("emblem.vault.storage");
 
     struct VaultStorage {
         // Core storage
@@ -39,7 +39,7 @@ library LibVaultStorage {
     }
 
     function vaultStorage() internal pure returns (VaultStorage storage vs) {
-        bytes32 position = VAULT_STORAGE_POSITION;
+        bytes32 position = EMBLEM_VAULT_STORAGE_POSITION;
         assembly {
             vs.slot := position
         }
@@ -51,17 +51,17 @@ library LibVaultStorage {
 
     function enforceIsRegisteredContract(address _contract) internal view {
         VaultStorage storage vs = vaultStorage();
-        require(vs.registeredContracts[_contract] > 0, "LibVaultStorage: Contract is not registered");
+        require(vs.registeredContracts[_contract] > 0, "LibEmblemVaultStorage: Contract is not registered");
     }
 
     function enforceIsWitness(address _witness) internal view {
         VaultStorage storage vs = vaultStorage();
-        require(vs.witnesses[_witness], "LibVaultStorage: Not a witness");
+        require(vs.witnesses[_witness], "LibEmblemVaultStorage: Not a witness");
     }
 
     function enforceNotUsedNonce(uint256 _nonce) internal view {
         VaultStorage storage vs = vaultStorage();
-        require(!vs.usedNonces[_nonce], "LibVaultStorage: Nonce already used");
+        require(!vs.usedNonces[_nonce], "LibEmblemVaultStorage: Nonce already used");
     }
 
     function setUsedNonce(uint256 _nonce) internal {
@@ -143,7 +143,7 @@ library LibVaultStorage {
 
     function initializeVaultStorage() internal {
         VaultStorage storage vs = vaultStorage();
-        require(!vs.initialized, "LibVaultStorage: Already initialized");
+        require(!vs.initialized, "LibEmblemVaultStorage: Already initialized");
 
         vs.metadataBaseUri = "https://v2.emblemvault.io/meta/";
         vs.INTERFACE_ID_ERC1155 = 0xd9b67a26;

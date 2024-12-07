@@ -2,10 +2,10 @@
 pragma solidity ^0.8.19;
 
 import "../libraries/LibDiamond.sol";
-import "../libraries/LibVaultStorage.sol";
+import "../libraries/LibEmblemVaultStorage.sol";
 import "../interfaces/IHandlerCallback.sol";
 
-contract CallbackFacet {
+contract EmblemVaultCallbackFacet {
     event CallbackExecuted(
         address indexed _from,
         address indexed _to,
@@ -38,7 +38,7 @@ contract CallbackFacet {
     }
 
     modifier isRegisteredContract(address _contract) {
-        LibVaultStorage.enforceIsRegisteredContract(_contract);
+        LibEmblemVaultStorage.enforceIsRegisteredContract(_contract);
         _;
     }
 
@@ -49,7 +49,7 @@ contract CallbackFacet {
         IHandlerCallback.CallbackType _type,
         uint256 index
     ) {
-        LibVaultStorage.VaultStorage storage vs = LibVaultStorage.vaultStorage();
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         bool registrant = false;
 
         if (hasTokenIdCallback(_contract, target, tokenId, _type)) {
@@ -58,7 +58,10 @@ contract CallbackFacet {
             registrant = vs.registeredWildcardCallbacks[_contract][_type][index].registrant == msg.sender;
         }
 
-        require(msg.sender == LibDiamond.contractOwner() || registrant, "Not owner or callback registrant");
+        require(
+            msg.sender == LibDiamond.contractOwner() || registrant,
+            "EmblemVaultCallbackFacet: Not owner or callback registrant"
+        );
         _;
     }
 
@@ -66,7 +69,7 @@ contract CallbackFacet {
         external
         isRegisteredContract(msg.sender)
     {
-        LibVaultStorage.VaultStorage storage vs = LibVaultStorage.vaultStorage();
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         if (vs.allowCallbacks) {
             IHandlerCallback.Callback[] storage callbacks = vs.registeredCallbacks[msg.sender][tokenId][_type];
             if (callbacks.length > 0) {
@@ -98,7 +101,7 @@ contract CallbackFacet {
                     emit CallbackExecuted(_from, _to, cb.target, tokenId, cb.targetFunction, _type, returnData);
                 } else if (cb.canRevert) {
                     emit CallbackReverted(_from, _to, cb.target, tokenId, cb.targetFunction, _type);
-                    revert("Callback Reverted");
+                    revert("EmblemVaultCallbackFacet: Callback Reverted");
                 } else {
                     emit CallbackFailed(_from, _to, cb.target, tokenId, cb.targetFunction, _type);
                 }
@@ -114,7 +117,7 @@ contract CallbackFacet {
         bytes4 _function,
         bool allowRevert
     ) external isRegisteredContract(_contract) onlyOwner {
-        LibVaultStorage.VaultStorage storage vs = LibVaultStorage.vaultStorage();
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         vs.registeredCallbacks[_contract][tokenId][_type].push(
             IHandlerCallback.Callback({
                 contractAddress: _contract,
@@ -133,7 +136,7 @@ contract CallbackFacet {
         bytes4 _function,
         bool allowRevert
     ) external isRegisteredContract(_contract) onlyOwner {
-        LibVaultStorage.VaultStorage storage vs = LibVaultStorage.vaultStorage();
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         vs.registeredWildcardCallbacks[_contract][_type].push(
             IHandlerCallback.Callback({
                 contractAddress: _contract,
@@ -158,7 +161,7 @@ contract CallbackFacet {
         view
         returns (bool)
     {
-        LibVaultStorage.VaultStorage storage vs = LibVaultStorage.vaultStorage();
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         IHandlerCallback.Callback[] storage callbacks = vs.registeredCallbacks[_contract][tokenId][_type];
 
         for (uint256 i = 0; i < callbacks.length; ++i) {
@@ -174,7 +177,7 @@ contract CallbackFacet {
         view
         returns (bool)
     {
-        LibVaultStorage.VaultStorage storage vs = LibVaultStorage.vaultStorage();
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         IHandlerCallback.Callback[] storage callbacks = vs.registeredWildcardCallbacks[_contract][_type];
 
         for (uint256 i = 0; i < callbacks.length; ++i) {
@@ -192,7 +195,7 @@ contract CallbackFacet {
         IHandlerCallback.CallbackType _type,
         uint256 index
     ) external isOwnerOrCallbackRegistrant(_contract, target, tokenId, _type, index) {
-        LibVaultStorage.VaultStorage storage vs = LibVaultStorage.vaultStorage();
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
 
         if (hasTokenIdCallback(_contract, target, tokenId, _type)) {
             IHandlerCallback.Callback[] storage arr = vs.registeredCallbacks[_contract][tokenId][_type];
@@ -206,6 +209,6 @@ contract CallbackFacet {
     }
 
     function toggleAllowCallbacks() external onlyOwner {
-        LibVaultStorage.toggleAllowCallbacks();
+        LibEmblemVaultStorage.toggleAllowCallbacks();
     }
 }

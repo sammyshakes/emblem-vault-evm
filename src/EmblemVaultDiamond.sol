@@ -4,10 +4,10 @@ pragma solidity ^0.8.19;
 import {LibDiamond} from "./libraries/LibDiamond.sol";
 import {IDiamondCut} from "./interfaces/IDiamondCut.sol";
 
-contract Diamond {
+contract EmblemVaultDiamond {
     constructor(address _contractOwner, address _diamondCutFacet) payable {
-        require(_diamondCutFacet != address(0), "Diamond: Diamond Cut Facet cannot be zero address");
-        require(_contractOwner != address(0), "Diamond: Owner cannot be zero address");
+        require(_diamondCutFacet != address(0), "EmblemVaultDiamond: Diamond Cut Facet cannot be zero address");
+        require(_contractOwner != address(0), "EmblemVaultDiamond: Owner cannot be zero address");
 
         LibDiamond.setContractOwner(_contractOwner);
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
@@ -44,7 +44,7 @@ contract Diamond {
         }
         // get facet from function selector
         address facet = ds.facetAddressAndSelectorPosition[msg.sig].facetAddress;
-        require(facet != address(0), "Diamond: Function does not exist");
+        require(facet != address(0), "EmblemVaultDiamond: Function does not exist");
         // Execute external function from facet using delegatecall and return any value.
         assembly {
             // copy function selector and any arguments
