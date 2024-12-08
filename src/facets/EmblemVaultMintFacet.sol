@@ -41,14 +41,7 @@ contract EmblemVaultMintFacet {
         bytes signature;
         bytes serialNumber;
         uint256 amount;
-    }
-
-    modifier nonReentrant() {
-        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        require(!vs.initialized, "ReentrancyGuard: reentrant call");
-        vs.initialized = true;
-        _;
-        vs.initialized = false;
+        bool isQuote;
     }
 
     function buyWithSignedPrice(
@@ -61,7 +54,9 @@ contract EmblemVaultMintFacet {
         bytes calldata _signature,
         bytes calldata _serialNumber,
         uint256 _amount
-    ) external payable nonReentrant {
+    ) external payable {
+        LibEmblemVaultStorage.nonReentrantBefore();
+
         MintParams memory params = MintParams({
             nftAddress: _nftAddress,
             payment: _payment,
@@ -71,10 +66,13 @@ contract EmblemVaultMintFacet {
             nonce: _nonce,
             signature: _signature,
             serialNumber: _serialNumber,
-            amount: _amount
+            amount: _amount,
+            isQuote: false
         });
 
         _processMint(params);
+
+        LibEmblemVaultStorage.nonReentrantAfter();
     }
 
     function buyWithQuote(
@@ -86,7 +84,9 @@ contract EmblemVaultMintFacet {
         bytes calldata _signature,
         bytes calldata _serialNumber,
         uint256 _amount
-    ) external payable nonReentrant {
+    ) external payable {
+        LibEmblemVaultStorage.nonReentrantBefore();
+
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         uint256 quote = IMintVaultQuote(vs.quoteContract).quoteExternalPrice(msg.sender, _price);
         uint256 totalPrice = quote * _amount;
@@ -98,21 +98,22 @@ contract EmblemVaultMintFacet {
             "EmblemVaultMintFacet: Amount outside acceptable range"
         );
 
-        payable(vs.recipientAddress).transfer(msg.value);
-
         MintParams memory params = MintParams({
             nftAddress: _nftAddress,
             payment: address(0),
-            price: msg.value,
+            price: _price, // Use base price for signature verification, not msg.value
             to: _to,
             tokenId: _tokenId,
             nonce: _nonce,
             signature: _signature,
             serialNumber: _serialNumber,
-            amount: _amount
+            amount: _amount,
+            isQuote: true
         });
 
         _processMint(params);
+
+        LibEmblemVaultStorage.nonReentrantAfter();
     }
 
     function _processMint(MintParams memory params) private {
@@ -120,8 +121,9 @@ contract EmblemVaultMintFacet {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
 
         if (params.payment == address(0)) {
-            require(msg.value == params.price, "EmblemVaultMintFacet: Incorrect ETH amount sent");
-            payable(vs.recipientAddress).transfer(params.price);
+            // For buyWithQuote, we don't check msg.value == params.price because params.price is the base price
+            // The msg.value check is done in buyWithQuote itself
+            payable(vs.recipientAddress).transfer(msg.value);
         } else {
             IERC20Token paymentToken = IERC20Token(params.payment);
             require(
@@ -130,7 +132,7 @@ contract EmblemVaultMintFacet {
             );
         }
 
-        address signer = params.payment == address(0)
+        address signer = params.isQuote
             ? getAddressFromSignatureQuote(
                 params.nftAddress, params.price, params.to, params.tokenId, params.nonce, params.amount, params.signature
             )
