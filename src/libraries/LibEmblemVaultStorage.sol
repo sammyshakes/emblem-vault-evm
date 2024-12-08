@@ -21,6 +21,7 @@ library LibEmblemVaultStorage {
         string metadataBaseUri;
         address recipientAddress;
         address quoteContract;
+        address vaultFactory; // Added for beacon pattern integration
         bool initialized;
         bool shouldBurn;
         bool allowCallbacks;
@@ -118,6 +119,10 @@ library LibEmblemVaultStorage {
 
     function setQuoteContract(address _quoteContract) internal {
         vaultStorage().quoteContract = _quoteContract;
+    }
+
+    function setVaultFactory(address _factory) internal {
+        vaultStorage().vaultFactory = _factory;
     }
 
     function setMetadataBaseUri(string memory _uri) internal {
