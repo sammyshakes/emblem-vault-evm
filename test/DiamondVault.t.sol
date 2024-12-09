@@ -202,13 +202,13 @@ contract DiamondVaultTest is Test {
         EmblemVaultCoreFacet(address(diamond)).setRecipientAddress(address(this));
     }
 
-    function testInitialization() public {
+    function testInitialization() public view {
         assertTrue(EmblemVaultInitFacet(address(diamond)).isInitialized());
         (string memory baseUri,,,,) = EmblemVaultInitFacet(address(diamond)).getConfiguration();
         assertEq(baseUri, "https://v2.emblemvault.io/meta/");
     }
 
-    function testOwnership() public {
+    function testOwnership() public view {
         assertEq(OwnershipFacet(address(diamond)).owner(), owner);
     }
 
@@ -568,7 +568,7 @@ contract DiamondVaultTest is Test {
         );
     }
 
-    function testDiamondCut() public {
+    function testDiamondCut() public view {
         // Test that all facets were properly added
         address[] memory facetAddresses = DiamondLoupeFacet(address(diamond)).facetAddresses();
         assertEq(facetAddresses.length, 8); // All facets including DiamondCut
@@ -601,7 +601,7 @@ contract DiamondVaultTest is Test {
         uint256 _nonce,
         uint256 _amount,
         uint256 _privateKey
-    ) internal view returns (bytes memory) {
+    ) internal pure returns (bytes memory) {
         bytes32 hash = keccak256(abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount));
         console.log("Test hash inputs:");
         console.log("nftAddress:", _nftAddress);

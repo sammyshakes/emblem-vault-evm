@@ -65,7 +65,7 @@ contract BeaconVaultTest is Test {
         proxy = new VaultProxy(address(beacon));
     }
 
-    function testInitialSetup() public {
+    function testInitialSetup() public view {
         assertEq(beacon.implementation(), address(implementation));
         assertEq(beacon.owner(), owner);
     }
