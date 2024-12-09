@@ -150,7 +150,7 @@ contract UpgradeDiamondFacets is Script {
     }
 
     function _getCollectionSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](7);
+        bytes4[] memory selectors = new bytes4[](9);
         selectors[0] = EmblemVaultCollectionFacet.setCollectionFactory.selector;
         selectors[1] = EmblemVaultCollectionFacet.createVaultCollection.selector;
         selectors[2] = EmblemVaultCollectionFacet.upgradeCollectionImplementation.selector;
@@ -158,6 +158,8 @@ contract UpgradeDiamondFacets is Script {
         selectors[4] = EmblemVaultCollectionFacet.getCollectionBeacon.selector;
         selectors[5] = EmblemVaultCollectionFacet.isCollection.selector;
         selectors[6] = EmblemVaultCollectionFacet.getCollectionFactory.selector;
+        selectors[7] = EmblemVaultCollectionFacet.setCollectionBaseURI.selector;
+        selectors[8] = EmblemVaultCollectionFacet.setCollectionURI.selector;
         return selectors;
     }
 
@@ -171,7 +173,11 @@ contract UpgradeDiamondFacets is Script {
         return selectors;
     }
 
-    function _split(string memory str, string memory delimiter) internal pure returns (string[] memory) {
+    function _split(string memory str, string memory delimiter)
+        internal
+        pure
+        returns (string[] memory)
+    {
         uint256 count = 1;
         for (uint256 i = 0; i < bytes(str).length; i++) {
             if (bytes(str)[i] == bytes(delimiter)[0]) count++;

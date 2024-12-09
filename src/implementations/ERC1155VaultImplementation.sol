@@ -58,6 +58,14 @@ contract ERC1155VaultImplementation is
         _nextSerial = 1; // Start serial numbers at 1
     }
 
+    /**
+     * @notice Update the base URI for token metadata
+     * @param newuri The new base URI to set
+     */
+    function setURI(string memory newuri) public onlyOwner {
+        _setURI(newuri);
+    }
+
     function registerContract(uint256 contractType, address contractAddress) external onlyOwner {
         registeredOfType[contractType].push(contractAddress);
         emit ContractRegistered(contractType, contractAddress);
@@ -79,10 +87,12 @@ contract ERC1155VaultImplementation is
         _mint(to, id, amount, data);
     }
 
-    function mintBatch(address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data)
-        external
-        onlyOwner
-    {
+    function mintBatch(
+        address to,
+        uint256[] memory ids,
+        uint256[] memory amounts,
+        bytes memory data
+    ) external onlyOwner {
         _mintBatch(to, ids, amounts, data);
     }
 
@@ -156,7 +166,11 @@ contract ERC1155VaultImplementation is
         return _tokenSerials[tokenId][index];
     }
 
-    function getFirstSerialByOwner(address owner, uint256 tokenId) external view returns (uint256) {
+    function getFirstSerialByOwner(address owner, uint256 tokenId)
+        external
+        view
+        returns (uint256)
+    {
         require(_ownerTokenSerials[owner][tokenId].length > 0, "No serials found");
         return _ownerTokenSerials[owner][tokenId][0];
     }
@@ -165,7 +179,11 @@ contract ERC1155VaultImplementation is
         return _serialOwners[serialNumber];
     }
 
-    function getSerialByOwnerAtIndex(address owner, uint256 tokenId, uint256 index) external view returns (uint256) {
+    function getSerialByOwnerAtIndex(address owner, uint256 tokenId, uint256 index)
+        external
+        view
+        returns (uint256)
+    {
         require(index < _ownerTokenSerials[owner][tokenId].length, "Invalid index");
         return _ownerTokenSerials[owner][tokenId][index];
     }
@@ -185,8 +203,8 @@ contract ERC1155VaultImplementation is
         override(ERC1155Upgradeable, IERC165)
         returns (bool)
     {
-        return interfaceId == type(IIsSerialized).interfaceId || interfaceId == type(IVaultProxy).interfaceId
-            || super.supportsInterface(interfaceId);
+        return interfaceId == type(IIsSerialized).interfaceId
+            || interfaceId == type(IVaultProxy).interfaceId || super.supportsInterface(interfaceId);
     }
 
     function version() external pure returns (string memory) {

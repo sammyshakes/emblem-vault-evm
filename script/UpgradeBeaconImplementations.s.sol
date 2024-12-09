@@ -17,7 +17,9 @@ import "../src/beacon/VaultBeacon.sol";
  */
 contract UpgradeBeaconImplementations is Script {
     // Events for tracking upgrades
-    event ImplementationUpgraded(string name, address indexed beacon, address indexed oldImpl, address indexed newImpl);
+    event ImplementationUpgraded(
+        string name, address indexed beacon, address indexed oldImpl, address indexed newImpl
+    );
 
     function run() external {
         // Get deployment private key
@@ -70,33 +72,13 @@ contract UpgradeBeaconImplementations is Script {
         }
 
         vm.stopBroadcast();
-
-        // Save new implementation addresses
-        string memory timestamp = vm.toString(uint256(block.timestamp));
-        string memory deploymentData = string(
-            abi.encodePacked(
-                "# Updated on ",
-                timestamp,
-                "\n",
-                "ERC721_IMPLEMENTATION=",
-                vm.toString(VaultBeacon(erc721Beacon).implementation()),
-                "\n",
-                "ERC1155_IMPLEMENTATION=",
-                vm.toString(VaultBeacon(erc1155Beacon).implementation()),
-                "\n",
-                "ERC721_BEACON=",
-                vm.toString(erc721Beacon),
-                "\n",
-                "ERC1155_BEACON=",
-                vm.toString(erc1155Beacon),
-                "\n"
-            )
-        );
-        vm.writeFile(".env.beacon", deploymentData);
-        console.log("\nNew implementation addresses saved to .env.beacon");
     }
 
-    function _split(string memory str, string memory delimiter) internal pure returns (string[] memory) {
+    function _split(string memory str, string memory delimiter)
+        internal
+        pure
+        returns (string[] memory)
+    {
         uint256 count = 1;
         for (uint256 i = 0; i < bytes(str).length; i++) {
             if (bytes(str)[i] == bytes(delimiter)[0]) count++;

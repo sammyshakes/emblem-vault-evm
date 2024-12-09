@@ -5,6 +5,7 @@ import "../beacon/VaultBeacon.sol";
 import "../beacon/VaultProxy.sol";
 import "../interfaces/IVaultBeacon.sol";
 import "../interfaces/IVaultProxy.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * @title VaultCollectionFactory
@@ -18,13 +19,18 @@ contract VaultCollectionFactory {
     // Events
     event ERC721CollectionCreated(address indexed collection, string name, string symbol);
     event ERC1155CollectionCreated(address indexed collection, string uri);
-    event BeaconUpdated(uint8 indexed collectionType, address indexed oldBeacon, address indexed newBeacon);
+    event BeaconUpdated(
+        uint8 indexed collectionType, address indexed oldBeacon, address indexed newBeacon
+    );
+    event CollectionOwnershipTransferred(address indexed collection, address indexed newOwner);
 
     // Custom errors
     error InvalidCollectionType();
     error ZeroAddress();
     error NotOwner();
     error InitializationFailed();
+    error NotACollection();
+    error TransferFailed();
 
     // State variables
     address public immutable owner;
@@ -53,7 +59,10 @@ contract VaultCollectionFactory {
      * @param symbol The symbol of the collection
      * @return collection The address of the new collection contract that can mint individual vaults
      */
-    function createERC721Collection(string memory name, string memory symbol) external returns (address collection) {
+    function createERC721Collection(string memory name, string memory symbol)
+        external
+        returns (address collection)
+    {
         // Deploy proxy
         collection = address(new ERC721VaultProxy(erc721Beacon));
 
@@ -79,6 +88,24 @@ contract VaultCollectionFactory {
             emit ERC1155CollectionCreated(collection, uri);
         } catch {
             revert InitializationFailed();
+        }
+    }
+
+    /**
+     * @notice Transfer ownership of a collection to a new owner
+     * @param collection The collection address
+     * @param newOwner The new owner address
+     */
+    function transferCollectionOwnership(address collection, address newOwner) external {
+        if (msg.sender != owner) revert NotOwner();
+        if (!isCollection(collection)) revert NotACollection();
+        if (newOwner == address(0)) revert ZeroAddress();
+
+        // Transfer ownership
+        try OwnableUpgradeable(collection).transferOwnership(newOwner) {
+            emit CollectionOwnershipTransferred(collection, newOwner);
+        } catch {
+            revert TransferFailed();
         }
     }
 
@@ -136,7 +163,7 @@ contract VaultCollectionFactory {
      * @param collection The address to check
      * @return bool True if the address is a vault collection contract
      */
-    function isCollection(address collection) external view returns (bool) {
+    function isCollection(address collection) public view returns (bool) {
         if (collection.code.length == 0) return false;
 
         try IVaultProxy(collection).beacon() returns (address beaconAddress) {

@@ -5,6 +5,9 @@ import "../libraries/LibDiamond.sol";
 import "../libraries/LibEmblemVaultStorage.sol";
 import "../factories/VaultCollectionFactory.sol";
 import "../interfaces/IVaultBeacon.sol";
+import "../implementations/ERC721VaultImplementation.sol";
+import "../implementations/ERC1155VaultImplementation.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * @title EmblemVaultCollectionFacet
@@ -14,14 +17,23 @@ import "../interfaces/IVaultBeacon.sol";
 contract EmblemVaultCollectionFacet {
     // Events
     event CollectionFactorySet(address indexed oldFactory, address indexed newFactory);
-    event CollectionImplementationUpgraded(uint8 indexed collectionType, address indexed newImplementation);
-    event VaultCollectionCreated(address indexed collection, uint8 indexed collectionType, string name);
+    event CollectionImplementationUpgraded(
+        uint8 indexed collectionType, address indexed newImplementation
+    );
+    event VaultCollectionCreated(
+        address indexed collection, uint8 indexed collectionType, string name
+    );
+    event CollectionBaseURIUpdated(address indexed collection, string newBaseURI);
+    event CollectionURIUpdated(address indexed collection, string newURI);
 
     // Custom errors
     error InvalidCollectionType();
     error ZeroAddress();
     error FactoryNotSet();
     error InitializationFailed();
+    error NotACollection();
+    error InvalidCollectionOperation();
+    error NotCollectionOwner();
 
     // Constants
     uint8 public constant ERC721_TYPE = 1;
@@ -29,6 +41,11 @@ contract EmblemVaultCollectionFacet {
 
     modifier onlyOwner() {
         LibDiamond.enforceIsContractOwner();
+        _;
+    }
+
+    modifier onlyValidCollection(address collection) {
+        if (!isCollection(collection)) revert NotACollection();
         _;
     }
 
@@ -78,11 +95,66 @@ contract EmblemVaultCollectionFacet {
     }
 
     /**
+     * @notice Set base URI for an ERC721 collection
+     * @param collection The collection address
+     * @param newBaseURI The new base URI
+     */
+    function setCollectionBaseURI(address collection, string memory newBaseURI)
+        external
+        onlyOwner
+        onlyValidCollection(collection)
+    {
+        // Get collection type from storage
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
+        uint256 collectionType = vs.registeredContracts[collection];
+        if (collectionType != ERC721_TYPE) revert InvalidCollectionOperation();
+
+        // Verify diamond owns the collection
+        if (OwnableUpgradeable(collection).owner() != address(this)) {
+            revert NotCollectionOwner();
+        }
+
+        // Update base URI
+        ERC721VaultImplementation(collection).setBaseURI(newBaseURI);
+
+        emit CollectionBaseURIUpdated(collection, newBaseURI);
+    }
+
+    /**
+     * @notice Set URI for an ERC1155 collection
+     * @param collection The collection address
+     * @param newURI The new URI
+     */
+    function setCollectionURI(address collection, string memory newURI)
+        external
+        onlyOwner
+        onlyValidCollection(collection)
+    {
+        // Get collection type from storage
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
+        uint256 collectionType = vs.registeredContracts[collection];
+        if (collectionType != ERC1155_TYPE) revert InvalidCollectionOperation();
+
+        // Verify diamond owns the collection
+        if (OwnableUpgradeable(collection).owner() != address(this)) {
+            revert NotCollectionOwner();
+        }
+
+        // Update URI using setURI from ERC1155VaultImplementation
+        ERC1155VaultImplementation(collection).setURI(newURI);
+
+        emit CollectionURIUpdated(collection, newURI);
+    }
+
+    /**
      * @notice Upgrade collection implementation
      * @param collectionType The type of collection to upgrade
      * @param newImplementation Address of the new implementation
      */
-    function upgradeCollectionImplementation(uint8 collectionType, address newImplementation) external onlyOwner {
+    function upgradeCollectionImplementation(uint8 collectionType, address newImplementation)
+        external
+        onlyOwner
+    {
         if (newImplementation == address(0)) revert ZeroAddress();
 
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
@@ -133,7 +205,7 @@ contract EmblemVaultCollectionFacet {
      * @param collection The address to check
      * @return bool True if the address is a vault collection
      */
-    function isCollection(address collection) external view returns (bool) {
+    function isCollection(address collection) public view returns (bool) {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         if (vs.vaultFactory == address(0)) return false;
 

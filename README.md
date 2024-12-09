@@ -123,6 +123,28 @@ forge script script/UpgradeDiamondFacets.s.sol:UpgradeDiamondFacets --rpc-url $R
 forge script script/UpgradeBeaconImplementations.s.sol:UpgradeBeaconImplementations --rpc-url $RPC_URL --broadcast
 ```
 
+## Collection Management
+
+1. Update Collection URIs:
+
+```bash
+# For ERC721 collections:
+forge script script/UpdateCollectionBaseURI.s.sol:UpdateCollectionBaseURI --rpc-url $RPC_URL --broadcast -vvvv --sig "run(address,string,uint8)" <collection_address> <new_base_uri> 1
+
+# For ERC1155 collections:
+forge script script/UpdateCollectionBaseURI.s.sol:UpdateCollectionBaseURI --rpc-url $RPC_URL --broadcast -vvvv --sig "run(address,string,uint8)" <collection_address> <new_uri> 2
+```
+
+Example:
+
+```bash
+# Update ERC721 collection URI
+forge script script/UpdateCollectionBaseURI.s.sol:UpdateCollectionBaseURI --rpc-url $RPC_URL --broadcast -vvvv --sig "run(address,string,uint8)" 0x7587d6A2e67eD18cA8279820e608894cC5c145A5 "https://api.emblem.finance/erc721/metadata/" 1
+
+# Update ERC1155 collection URI
+forge script script/UpdateCollectionBaseURI.s.sol:UpdateCollectionBaseURI --rpc-url $RPC_URL --broadcast -vvvv --sig "run(address,string,uint8)" 0x064724D71E0B3C2bB03384d1188A2F34144a13bd "https://api.emblem.finance/erc1155/metadata/{id}.json" 2
+```
+
 ## Project Structure
 
 ```
@@ -142,7 +164,9 @@ emblem-vault/
 │   ├── DeployDiamondSystem.s.sol
 │   ├── DeployBeaconSystem.s.sol
 │   ├── UpgradeDiamondFacets.s.sol
-│   └── UpgradeBeaconImplementations.s.sol
+│   ├── UpgradeBeaconImplementations.s.sol
+│   ├── UpdateCollectionBaseURI.s.sol
+│   └── README.md
 └── docs/                # Additional documentation
 ```
 
@@ -187,6 +211,7 @@ Additional documentation can be found in:
 - [script/README.md](script/README.md) - Deployment and upgrade instructions
 - [docs/BEACON_DIAMOND_INTEGRATION.md](docs/BEACON_DIAMOND_INTEGRATION.md) - System architecture
 - [docs/DIAMOND_VAULT_IMPROVEMENTS.md](docs/DIAMOND_VAULT_IMPROVEMENTS.md) - Improvement proposals
+- [DEPLOYMENT_REPORT.md](DEPLOYMENT_REPORT.md) - Deployment details and contract addresses
 
 ## License
 

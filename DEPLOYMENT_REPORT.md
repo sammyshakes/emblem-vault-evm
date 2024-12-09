@@ -19,6 +19,8 @@ BSC Testnet Deployment - Chain ID: 97
 - `DeployDiamondSystem.s.sol`: Diamond system deployment
 - `DeployBeaconSystem.s.sol`: Beacon system deployment
 - `SetupCollectionFactory.s.sol`: Post-deployment configuration
+- `UpgradeBeaconImplementations.s.sol`: Implementation upgrades
+- `UpdateCollectionBaseURI.s.sol`: Collection URI updates
 
 ### Deployment Parameters
 
@@ -75,7 +77,7 @@ The Emblem Vault system consists of two main components:
   - Initializes vaults with correct parameters
   - Links to appropriate beacon
 
-## Deployment Process
+## Initial Deployment Process
 
 ### Step 1: Diamond System Deployment
 
@@ -131,11 +133,11 @@ forge script script/DeployDiamondSystem.s.sol:DeployDiamondSystem --rpc-url bsc_
    - Hook system
    - [View on BSCScan](https://testnet.bscscan.com/address/0x2e428d2fe37aa70f8d19139fb25c1e3f0d56058b)
 
-8. EmblemVaultCollectionFacet: `0x038a0b83f013106f8436191ad7beadd8ec59347c`
+8. EmblemVaultCollectionFacet: `0xfBF38C976877D866f433437734a13b84360e0a2C`
 
    - Collection management
    - Implementation upgrades
-   - [View on BSCScan](https://testnet.bscscan.com/address/0x038a0b83f013106f8436191ad7beadd8ec59347c)
+   - [View on BSCScan](https://testnet.bscscan.com/address/0xfBF38C976877D866f433437734a13b84360e0a2C)
 
 9. EmblemVaultInitFacet: `0xc7241f821dba320ebe611c65bdc17f71d5907f12`
    - Initialization logic
@@ -160,7 +162,7 @@ Command used:
 forge script script/DeployBeaconSystem.s.sol:DeployBeaconSystem --rpc-url bsc_testnet --broadcast --slow --verify -vvvv
 ```
 
-#### Vault Implementations:
+#### Initial Vault Implementations:
 
 1. ERC721VaultImplementation: `0x499374687048E68Dc7aE35966B4e0FBa5e17C77B`
 
@@ -241,6 +243,42 @@ The transaction successfully:
   - oldFactory: 0x0000000000000000000000000000000000000000
   - newFactory: 0xbcFcBC144f0ac1C695ADad8A38B48f040eC73d96
 
+## Recent Updates
+
+### ERC1155 Implementation Upgrade
+
+The ERC1155 implementation was upgraded to support URI updates:
+
+- New Implementation: `0xB4693aE4453c65D0aD7F80D5609af75baa673087`
+- Deployment Block: 46338856
+- Transaction Hash: 0x73725c1cb3c2af5167eefb5e60086045a32a96de363230f7822c2ad070e1e473
+- Changes:
+  - Added public setURI function with onlyOwner modifier
+  - Improved URI update functionality
+  - Maintained all existing functionality
+
+### Collection URI Updates
+
+#### ERC721 Collection
+
+- Collection Address: `0x7587d6A2e67eD18cA8279820e608894cC5c145A5`
+- New Base URI: `https://api.emblem.finance/erc721/metadata/`
+- Update Block: 46338884
+- Transaction Hash: 0x3e7aa8a9c02dcf02c2bd7f9cf0856c4ac0cf7bb63d2215315c51916c8a4212b4
+- Gas Used: 70,875 gas
+- Gas Price: 10 gwei
+- Total Cost: 0.00070875 ETH
+
+#### ERC1155 Collection
+
+- Collection Address: `0x064724D71E0B3C2bB03384d1188A2F34144a13bd`
+- New URI: `https://api.emblem.finance/erc1155/metadata/{id}.json`
+- Update Block: 46338977
+- Transaction Hash: 0x72beeb93e604f0a705030166388de1de20e6fa916c6a3cefe76de845345de9d9
+- Gas Used: 72,558 gas
+- Gas Price: 20 gwei
+- Total Cost: 0.00145116 ETH
+
 ## Contract Verification
 
 All contracts have been verified on BSCScan and can be viewed at their respective addresses. Each contract's source code and constructor arguments are publicly available for review.
@@ -262,10 +300,11 @@ All contracts have been verified on BSCScan and can be viewed at their respectiv
 ## Next Steps
 
 1. ✅ Set the collection factory in the diamond by calling setCollectionFactory on the CollectionFacet
-2. Test vault collection creation through the factory
-3. Verify all system functionalities through the Diamond proxy
-4. Set up necessary access controls and permissions
-5. Configure any system parameters through the CoreFacet
+2. ✅ Update collection URIs to point to the correct metadata endpoints
+3. Test vault collection creation through the factory
+4. Verify all system functionalities through the Diamond proxy
+5. Set up necessary access controls and permissions
+6. Configure any system parameters through the CoreFacet
 
 ## Gas Usage Summary
 
@@ -278,12 +317,20 @@ Total gas used: Approximately 6.9M gas
 
 ### Beacon System
 
+Initial Deployment:
+
 - ERC721VaultImplementation: 2,865,770 gas (0.2292616 ETH @ 80 gwei)
 - ERC1155VaultImplementation: 2,542,956 gas (0.20343648 ETH @ 80 gwei)
 - ERC721VaultBeacon: 264,577 gas (0.02116616 ETH @ 80 gwei)
 - ERC1155VaultBeacon: 264,594 gas (0.02116752 ETH @ 80 gwei)
 - VaultCollectionFactory: 875,833 gas (0.07006664 ETH @ 80 gwei)
-  Total gas used: 6,813,730 gas (0.5450984 ETH @ 80 gwei)
+  Total initial gas used: 6,813,730 gas (0.5450984 ETH @ 80 gwei)
+
+Recent Updates:
+
+- ERC1155 Implementation Upgrade: 764,949 gas (0.00764949 ETH @ 10 gwei)
+- ERC721 URI Update: 70,875 gas (0.00070875 ETH @ 10 gwei)
+- ERC1155 URI Update: 72,558 gas (0.00145116 ETH @ 20 gwei)
 
 ### Post-Deployment Configuration
 
@@ -298,3 +345,5 @@ Total gas used: Approximately 6.9M gas
 - Upgrade mechanisms in place for both systems
 - Security considerations implemented in all contracts
 - Deployment transactions and blocks recorded for future reference
+- URI updates completed for both ERC721 and ERC1155 collections
+- ERC1155 implementation successfully upgraded to support URI updates
