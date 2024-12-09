@@ -7,6 +7,10 @@ on:
 
 env:
   FOUNDRY_PROFILE: ci
+  PRIVATE_KEY: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" # Default anvil private key
+  RPC_URL: "http://localhost:8545" # Default anvil RPC
+  DIAMOND_ADDRESS: "0x0000000000000000000000000000000000000000" # Placeholder for tests
+  ETHERSCAN_API_KEY: "DUMMY_KEY" # Placeholder for tests
 
 jobs:
   check:
@@ -25,9 +29,35 @@ jobs:
         with:
           version: nightly
 
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18.x"
+          cache: "npm"
+
+      - name: Cache Forge dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            lib/
+            node_modules/
+            out/
+          key: ${{ runner.os }}-forge-${{ hashFiles('**/foundry.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-forge-
+
       - name: Show Forge version
         run: |
           forge --version
+
+      - name: Install Dependencies
+        run: |
+          forge install
+          npm install
 
       - name: Run Forge fmt
         run: |
@@ -38,8 +68,23 @@ jobs:
         run: |
           forge build --sizes
         id: build
+        env:
+          FOUNDRY_SOLC_VERSION: 0.8.28
+
+      - name: Start Anvil
+        run: |
+          anvil &
+          sleep 5
+        id: anvil
 
       - name: Run Forge tests
         run: |
           forge test -vvv
         id: test
+        env:
+          FOUNDRY_SOLC_VERSION: 0.8.28
+
+      - name: Stop Anvil
+        if: always()
+        run: |
+          pkill anvil || true
