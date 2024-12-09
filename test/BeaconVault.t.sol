@@ -6,7 +6,7 @@ import "../src/beacon/VaultBeacon.sol";
 import "../src/beacon/VaultProxy.sol";
 import "../src/interfaces/IVaultBeacon.sol";
 import "../src/interfaces/IVaultProxy.sol";
-import "../src/interfaces/IERC165.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 // Mock implementation for testing
 contract MockImplementation is IERC165 {
@@ -21,7 +21,7 @@ contract MockImplementation is IERC165 {
         initialized = true;
     }
 
-    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+    function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
         return interfaceId == type(IERC165).interfaceId;
     }
 }
@@ -40,7 +40,7 @@ contract MockImplementationV2 is IERC165 {
         initialized = true;
     }
 
-    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+    function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
         return interfaceId == type(IERC165).interfaceId;
     }
 }

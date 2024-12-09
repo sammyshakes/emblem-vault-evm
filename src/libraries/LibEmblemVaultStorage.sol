@@ -179,6 +179,7 @@ library LibEmblemVaultStorage {
         vs.INTERFACE_ID_ERC721 = 0x80ac58cd;
         vs.INTERFACE_ID_ERC721A = 0xf4a95f26;
         vs.recipientAddress = msg.sender;
+        vs.vaultFactory = msg.sender;
         vs.allowCallbacks = true;
         vs.initialized = true;
     }

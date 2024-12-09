@@ -16,4 +16,6 @@ interface IHandlerCallback {
         bytes4 targetFunction;
         bool canRevert;
     }
+
+    function executeCallbacks(address from, address to, uint256 tokenId, CallbackType callbackType) external;
 }

@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+
 /**
  * @title IVaultBeacon
  * @notice Interface for vault beacon contracts
  */
-interface IVaultBeacon {
+interface IVaultBeacon is IERC165 {
     /**
      * @notice Get the current implementation address
      * @return The address of the current implementation
@@ -29,13 +31,6 @@ interface IVaultBeacon {
      * @param newOwner Address of the new owner
      */
     function transferOwnership(address newOwner) external;
-
-    /**
-     * @notice Check if interface is supported
-     * @param interfaceId The interface identifier
-     * @return bool True if the interface is supported
-     */
-    function supportsInterface(bytes4 interfaceId) external view returns (bool);
 
     /**
      * @dev Custom errors

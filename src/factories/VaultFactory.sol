@@ -53,7 +53,7 @@ contract VaultFactory {
         // Deploy proxy
         vault = address(new ERC721VaultProxy(erc721Beacon));
 
-        // Initialize vault
+        // Initialize vault with default base URI
         try IERC721VaultProxy(vault).initialize(name, symbol) {
             emit ERC721VaultCreated(vault, name, symbol);
         } catch {

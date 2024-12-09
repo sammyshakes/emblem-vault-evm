@@ -104,7 +104,7 @@ contract BeaconSystemTest is Test {
 
         // Test minting (factory is the owner)
         vm.prank(address(factory));
-        ERC1155VaultImplementation(vault).mint(user1, 1, 5);
+        ERC1155VaultImplementation(vault).mint(user1, 1, 5, "");
         assertEq(ERC1155VaultImplementation(vault).balanceOf(user1, 1), 5);
 
         // Test transfers
@@ -132,7 +132,7 @@ contract BeaconSystemTest is Test {
         amounts[1] = 3;
 
         vm.prank(address(factory));
-        ERC1155VaultImplementation(vault).mintBatch(user1, ids, amounts);
+        ERC1155VaultImplementation(vault).mintBatch(user1, ids, amounts, "");
 
         assertEq(ERC1155VaultImplementation(vault).balanceOf(user1, 1), 5);
         assertEq(ERC1155VaultImplementation(vault).balanceOf(user1, 2), 3);
@@ -169,7 +169,7 @@ contract BeaconSystemTest is Test {
         address vault1155 = factory.createERC1155Vault("https://test.uri/");
 
         vm.prank(address(factory));
-        ERC1155VaultImplementation(vault1155).mint(user1, 1, 5);
+        ERC1155VaultImplementation(vault1155).mint(user1, 1, 5, "");
 
         vm.prank(user1);
         ERC1155VaultImplementation(vault1155).burn(user1, 1, 2);
@@ -212,7 +212,7 @@ contract BeaconSystemTest is Test {
 
         // Mint tokens before upgrade
         vm.prank(address(factory));
-        ERC1155VaultImplementation(vault).mint(user1, 1, 5);
+        ERC1155VaultImplementation(vault).mint(user1, 1, 5, "");
 
         // Upgrade implementation (beacon owner is this contract)
         erc1155Beacon.upgrade(address(newImplementation));
@@ -225,7 +225,7 @@ contract BeaconSystemTest is Test {
 
         // Verify new minting still works
         vm.prank(address(factory));
-        ERC1155VaultImplementation(vault).mint(user2, 2, 3);
+        ERC1155VaultImplementation(vault).mint(user2, 2, 3, "");
         assertEq(ERC1155VaultImplementation(vault).balanceOf(user2, 2), 3);
     }
 
@@ -240,7 +240,7 @@ contract BeaconSystemTest is Test {
         address vault = factory.createERC1155Vault("https://test.uri/");
 
         vm.prank(user1); // Not the owner
-        ERC1155VaultImplementation(vault).mint(user1, 1, 5);
+        ERC1155VaultImplementation(vault).mint(user1, 1, 5, "");
     }
 
     receive() external payable {}

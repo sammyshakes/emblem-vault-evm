@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "./VaultBeacon.sol";
-import "../interfaces/IERC165.sol";
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /**
  * @title VaultProxy

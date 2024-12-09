@@ -59,7 +59,6 @@ contract DiamondVaultTest is Test {
     function setUp() public {
         // Derive witness address from private key
         witness = vm.addr(witnessPrivateKey);
-        console.log("Witness address:", witness);
 
         // Deploy mock contracts
         paymentToken = new MockERC20("Payment Token", "PAY");
