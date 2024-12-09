@@ -70,6 +70,11 @@ contract UpgradeDiamondFacets is Script {
                 bytes4[] memory selectors = _getCollectionSelectors();
                 cut[cutIndex++] = _createFacetCut(address(newFacet), selectors);
                 emit FacetUpgraded("CollectionFacet", address(newFacet));
+            } else if (_strEquals(facetName, "InitFacet")) {
+                EmblemVaultInitFacet newFacet = new EmblemVaultInitFacet();
+                bytes4[] memory selectors = _getInitSelectors();
+                cut[cutIndex++] = _createFacetCut(address(newFacet), selectors);
+                emit FacetUpgraded("InitFacet", address(newFacet));
             }
         }
 
@@ -77,6 +82,12 @@ contract UpgradeDiamondFacets is Script {
         IDiamondCut(diamond).diamondCut(cut, address(0), "");
 
         vm.stopBroadcast();
+
+        // Log upgrade summary
+        console.log("\nDiamond Facets Upgrade Summary:");
+        console.log("--------------------------------");
+        console.log("Diamond:", diamond);
+        console.log("Facets upgraded:", facetsToUpgrade);
     }
 
     function _createFacetCut(address facet, bytes4[] memory selectors)
@@ -92,7 +103,7 @@ contract UpgradeDiamondFacets is Script {
     }
 
     function _getCoreSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](13);
+        bytes4[] memory selectors = new bytes4[](17);
         selectors[0] = EmblemVaultCoreFacet.lockVault.selector;
         selectors[1] = EmblemVaultCoreFacet.unlockVault.selector;
         selectors[2] = EmblemVaultCoreFacet.isVaultLocked.selector;
@@ -103,9 +114,13 @@ contract UpgradeDiamondFacets is Script {
         selectors[7] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
         selectors[8] = EmblemVaultCoreFacet.registerContract.selector;
         selectors[9] = EmblemVaultCoreFacet.unregisterContract.selector;
-        selectors[10] = EmblemVaultCoreFacet.getRegisteredContractsOfType.selector;
-        selectors[11] = EmblemVaultCoreFacet.isRegistered.selector;
-        selectors[12] = EmblemVaultCoreFacet.version.selector;
+        selectors[10] = EmblemVaultCoreFacet.toggleAllowCallbacks.selector;
+        selectors[11] = EmblemVaultCoreFacet.toggleBypassability.selector;
+        selectors[12] = EmblemVaultCoreFacet.addBypassRule.selector;
+        selectors[13] = EmblemVaultCoreFacet.removeBypassRule.selector;
+        selectors[14] = EmblemVaultCoreFacet.getRegisteredContractsOfType.selector;
+        selectors[15] = EmblemVaultCoreFacet.isRegistered.selector;
+        selectors[16] = EmblemVaultCoreFacet.version.selector;
         return selectors;
     }
 
@@ -135,7 +150,7 @@ contract UpgradeDiamondFacets is Script {
     }
 
     function _getCollectionSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](8);
+        bytes4[] memory selectors = new bytes4[](7);
         selectors[0] = EmblemVaultCollectionFacet.setCollectionFactory.selector;
         selectors[1] = EmblemVaultCollectionFacet.createVaultCollection.selector;
         selectors[2] = EmblemVaultCollectionFacet.upgradeCollectionImplementation.selector;
@@ -143,6 +158,16 @@ contract UpgradeDiamondFacets is Script {
         selectors[4] = EmblemVaultCollectionFacet.getCollectionBeacon.selector;
         selectors[5] = EmblemVaultCollectionFacet.isCollection.selector;
         selectors[6] = EmblemVaultCollectionFacet.getCollectionFactory.selector;
+        return selectors;
+    }
+
+    function _getInitSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory selectors = new bytes4[](5);
+        selectors[0] = EmblemVaultInitFacet.initialize.selector;
+        selectors[1] = EmblemVaultInitFacet.isInitialized.selector;
+        selectors[2] = EmblemVaultInitFacet.getInterfaceIds.selector;
+        selectors[3] = EmblemVaultInitFacet.getConfiguration.selector;
+        selectors[4] = EmblemVaultInitFacet.version.selector;
         return selectors;
     }
 

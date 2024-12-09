@@ -44,7 +44,8 @@ contract DeployBeaconSystem is Script {
         console.log("ERC1155VaultBeacon deployed at:", address(erc1155Beacon));
 
         // 3. Deploy Factory
-        VaultCollectionFactory factory = new VaultCollectionFactory(address(erc721Beacon), address(erc1155Beacon));
+        VaultCollectionFactory factory =
+            new VaultCollectionFactory(address(erc721Beacon), address(erc1155Beacon));
         emit Deployed("VaultCollectionFactory", address(factory));
         console.log("VaultCollectionFactory deployed at:", address(factory));
 
@@ -58,28 +59,5 @@ contract DeployBeaconSystem is Script {
         console.log("ERC721 Beacon:", address(erc721Beacon));
         console.log("ERC1155 Beacon:", address(erc1155Beacon));
         console.log("Collection Factory:", address(factory));
-
-        // Save deployment addresses to file for upgrade scripts
-        string memory deploymentData = string(
-            abi.encodePacked(
-                "ERC721_IMPLEMENTATION=",
-                vm.toString(address(erc721Implementation)),
-                "\n",
-                "ERC1155_IMPLEMENTATION=",
-                vm.toString(address(erc1155Implementation)),
-                "\n",
-                "ERC721_BEACON=",
-                vm.toString(address(erc721Beacon)),
-                "\n",
-                "ERC1155_BEACON=",
-                vm.toString(address(erc1155Beacon)),
-                "\n",
-                "COLLECTION_FACTORY=",
-                vm.toString(address(factory)),
-                "\n"
-            )
-        );
-        vm.writeFile(".env.beacon", deploymentData);
-        console.log("\nDeployment addresses saved to .env.beacon");
     }
 }

@@ -24,7 +24,7 @@ contract UpgradeBeaconImplementations is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         string memory implementationsToUpgrade = vm.envString("IMPLEMENTATIONS_TO_UPGRADE");
 
-        // Load beacon addresses from .env.beacon
+        // Load beacon addresses from environment file
         address erc721Beacon = vm.envAddress("ERC721_BEACON");
         address erc1155Beacon = vm.envAddress("ERC1155_BEACON");
 
@@ -72,10 +72,11 @@ contract UpgradeBeaconImplementations is Script {
         vm.stopBroadcast();
 
         // Save new implementation addresses
+        string memory timestamp = vm.toString(uint256(block.timestamp));
         string memory deploymentData = string(
             abi.encodePacked(
                 "# Updated on ",
-                vm.toString(block.timestamp),
+                timestamp,
                 "\n",
                 "ERC721_IMPLEMENTATION=",
                 vm.toString(VaultBeacon(erc721Beacon).implementation()),

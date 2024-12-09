@@ -91,7 +91,7 @@ contract DeployDiamondSystem is Script {
         });
 
         // VaultCoreFacet
-        bytes4[] memory vaultCoreSelectors = new bytes4[](13);
+        bytes4[] memory vaultCoreSelectors = new bytes4[](15);
         vaultCoreSelectors[0] = EmblemVaultCoreFacet.lockVault.selector;
         vaultCoreSelectors[1] = EmblemVaultCoreFacet.unlockVault.selector;
         vaultCoreSelectors[2] = EmblemVaultCoreFacet.isVaultLocked.selector;
@@ -102,9 +102,11 @@ contract DeployDiamondSystem is Script {
         vaultCoreSelectors[7] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
         vaultCoreSelectors[8] = EmblemVaultCoreFacet.registerContract.selector;
         vaultCoreSelectors[9] = EmblemVaultCoreFacet.unregisterContract.selector;
-        vaultCoreSelectors[10] = EmblemVaultCoreFacet.getRegisteredContractsOfType.selector;
-        vaultCoreSelectors[11] = EmblemVaultCoreFacet.isRegistered.selector;
-        vaultCoreSelectors[12] = EmblemVaultCoreFacet.version.selector;
+        vaultCoreSelectors[10] = EmblemVaultCoreFacet.toggleBypassability.selector;
+        vaultCoreSelectors[11] = EmblemVaultCoreFacet.addBypassRule.selector;
+        vaultCoreSelectors[12] = EmblemVaultCoreFacet.removeBypassRule.selector;
+        vaultCoreSelectors[13] = EmblemVaultCoreFacet.getRegisteredContractsOfType.selector;
+        vaultCoreSelectors[14] = EmblemVaultCoreFacet.isRegistered.selector;
         cut[2] = IDiamondCut.FacetCut({
             facetAddress: address(vaultCoreFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -146,7 +148,7 @@ contract DeployDiamondSystem is Script {
         });
 
         // CollectionFacet
-        bytes4[] memory collectionSelectors = new bytes4[](8);
+        bytes4[] memory collectionSelectors = new bytes4[](7);
         collectionSelectors[0] = EmblemVaultCollectionFacet.setCollectionFactory.selector;
         collectionSelectors[1] = EmblemVaultCollectionFacet.createVaultCollection.selector;
         collectionSelectors[2] = EmblemVaultCollectionFacet.upgradeCollectionImplementation.selector;
@@ -161,11 +163,12 @@ contract DeployDiamondSystem is Script {
         });
 
         // InitializationFacet
-        bytes4[] memory initSelectors = new bytes4[](4);
+        bytes4[] memory initSelectors = new bytes4[](5);
         initSelectors[0] = EmblemVaultInitFacet.initialize.selector;
         initSelectors[1] = EmblemVaultInitFacet.isInitialized.selector;
         initSelectors[2] = EmblemVaultInitFacet.getInterfaceIds.selector;
         initSelectors[3] = EmblemVaultInitFacet.getConfiguration.selector;
+        initSelectors[4] = EmblemVaultInitFacet.version.selector;
         cut[7] = IDiamondCut.FacetCut({
             facetAddress: address(initFacet),
             action: IDiamondCut.FacetCutAction.Add,
