@@ -5,11 +5,11 @@ import "forge-std/Script.sol";
 import "../src/implementations/ERC721VaultImplementation.sol";
 import "../src/implementations/ERC1155VaultImplementation.sol";
 import "../src/beacon/VaultBeacon.sol";
-import "../src/factories/VaultFactory.sol";
+import "../src/factories/VaultCollectionFactory.sol";
 
 /**
  * @title DeployBeaconSystem
- * @notice Script to deploy the complete beacon system for vaults
+ * @notice Script to deploy the complete beacon system for vault collections
  * @dev Run with `forge script script/DeployBeaconSystem.s.sol:DeployBeaconSystem --rpc-url <your_rpc_url> --broadcast`
  */
 contract DeployBeaconSystem is Script {
@@ -44,75 +44,42 @@ contract DeployBeaconSystem is Script {
         console.log("ERC1155VaultBeacon deployed at:", address(erc1155Beacon));
 
         // 3. Deploy Factory
-        VaultFactory factory = new VaultFactory(address(erc721Beacon), address(erc1155Beacon));
-        emit Deployed("VaultFactory", address(factory));
-        console.log("VaultFactory deployed at:", address(factory));
-
-        // 4. Deploy test vaults if on testnet
-        if (block.chainid != 1) {
-            // Not mainnet
-            // Deploy test ERC721 vault
-            address erc721Vault = factory.createERC721Vault("Test Vault", "TEST");
-            emit Deployed("TestERC721Vault", erc721Vault);
-            console.log("Test ERC721 Vault deployed at:", erc721Vault);
-
-            // Deploy test ERC1155 vault
-            address erc1155Vault = factory.createERC1155Vault("https://test.uri/");
-            emit Deployed("TestERC1155Vault", erc1155Vault);
-            console.log("Test ERC1155 Vault deployed at:", erc1155Vault);
-        }
+        VaultCollectionFactory factory = new VaultCollectionFactory(address(erc721Beacon), address(erc1155Beacon));
+        emit Deployed("VaultCollectionFactory", address(factory));
+        console.log("VaultCollectionFactory deployed at:", address(factory));
 
         vm.stopBroadcast();
 
         // Log deployment summary
-        console.log("\nDeployment Summary:");
-        console.log("------------------");
+        console.log("\nBeacon System Deployment Summary:");
+        console.log("--------------------------------");
         console.log("ERC721 Implementation:", address(erc721Implementation));
         console.log("ERC1155 Implementation:", address(erc1155Implementation));
         console.log("ERC721 Beacon:", address(erc721Beacon));
         console.log("ERC1155 Beacon:", address(erc1155Beacon));
-        console.log("Factory:", address(factory));
-    }
-}
+        console.log("Collection Factory:", address(factory));
 
-/**
- * @title UpgradeBeaconSystem
- * @notice Script to upgrade implementations in the beacon system
- * @dev Run with `forge script script/DeployBeaconSystem.s.sol:UpgradeBeaconSystem --rpc-url <your_rpc_url> --broadcast`
- */
-contract UpgradeBeaconSystem is Script {
-    function run() external {
-        // Get deployment private key
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-
-        // Get existing beacon addresses from environment
-        address erc721Beacon = vm.envAddress("ERC721_BEACON_ADDRESS");
-        address erc1155Beacon = vm.envAddress("ERC1155_BEACON_ADDRESS");
-
-        vm.startBroadcast(deployerPrivateKey);
-
-        // Deploy new implementations
-        ERC721VaultImplementation newErc721Implementation = new ERC721VaultImplementation();
-        console.log("New ERC721VaultImplementation deployed at:", address(newErc721Implementation));
-
-        ERC1155VaultImplementation newErc1155Implementation = new ERC1155VaultImplementation();
-        console.log("New ERC1155VaultImplementation deployed at:", address(newErc1155Implementation));
-
-        // Upgrade beacons
-        VaultBeacon(erc721Beacon).upgrade(address(newErc721Implementation));
-        console.log("ERC721 Beacon upgraded to new implementation");
-
-        VaultBeacon(erc1155Beacon).upgrade(address(newErc1155Implementation));
-        console.log("ERC1155 Beacon upgraded to new implementation");
-
-        vm.stopBroadcast();
-
-        // Log upgrade summary
-        console.log("\nUpgrade Summary:");
-        console.log("---------------");
-        console.log("New ERC721 Implementation:", address(newErc721Implementation));
-        console.log("New ERC1155 Implementation:", address(newErc1155Implementation));
-        console.log("ERC721 Beacon:", erc721Beacon);
-        console.log("ERC1155 Beacon:", erc1155Beacon);
+        // Save deployment addresses to file for upgrade scripts
+        string memory deploymentData = string(
+            abi.encodePacked(
+                "ERC721_IMPLEMENTATION=",
+                vm.toString(address(erc721Implementation)),
+                "\n",
+                "ERC1155_IMPLEMENTATION=",
+                vm.toString(address(erc1155Implementation)),
+                "\n",
+                "ERC721_BEACON=",
+                vm.toString(address(erc721Beacon)),
+                "\n",
+                "ERC1155_BEACON=",
+                vm.toString(address(erc1155Beacon)),
+                "\n",
+                "COLLECTION_FACTORY=",
+                vm.toString(address(factory)),
+                "\n"
+            )
+        );
+        vm.writeFile(".env.beacon", deploymentData);
+        console.log("\nDeployment addresses saved to .env.beacon");
     }
 }
