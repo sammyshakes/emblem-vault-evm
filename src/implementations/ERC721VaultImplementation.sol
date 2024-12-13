@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721BurnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
+import "ERC721A-Upgradeable/ERC721AUpgradeable.sol";
+import "ERC721A-Upgradeable/extensions/ERC721ABurnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
@@ -14,15 +13,13 @@ import "../interfaces/IVaultProxy.sol";
 
 /**
  * @title ERC721VaultImplementation
- * @notice Implementation of the ERC721 vault token with serial number tracking
- * @dev Implements ERC721 with enumerable extension and callback support
- * TODO: Discuss with team about royalties enforcement strategy
+ * @notice Implementation of the ERC721A vault token with serial number tracking
+ * @dev Implements ERC721A with callback support and gas-optimized batch minting
  */
 contract ERC721VaultImplementation is
     Initializable,
-    ERC721Upgradeable,
-    ERC721BurnableUpgradeable,
-    ERC721EnumerableUpgradeable,
+    ERC721AUpgradeable,
+    ERC721ABurnableUpgradeable,
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
     IIsSerialized,
@@ -52,10 +49,13 @@ contract ERC721VaultImplementation is
         _disableInitializers();
     }
 
-    function initialize(string memory name_, string memory symbol_) public initializer {
-        __ERC721_init(name_, symbol_);
-        __ERC721Burnable_init();
-        __ERC721Enumerable_init();
+    function initialize(string memory name_, string memory symbol_)
+        public
+        initializerERC721A
+        initializer
+    {
+        __ERC721A_init(name_, symbol_);
+        __ERC721ABurnable_init();
         __Ownable_init(msg.sender);
         __ReentrancyGuard_init();
 
@@ -81,90 +81,113 @@ contract ERC721VaultImplementation is
     }
 
     function mint(address to, uint256 tokenId) external onlyOwner {
-        _safeMint(to, tokenId);
-    }
+        require(_externalTokenIdMap[tokenId] == 0, "External ID already minted");
+        _externalTokenIdMap[tokenId] = tokenId;
+        _mint(to, 1);
 
-    function mintMany(address[] memory to, uint256[] memory tokenId) external onlyOwner {
-        require(to.length == tokenId.length, "Invalid input");
-        for (uint256 i = 0; i < to.length; i++) {
-            _safeMint(to[i], tokenId[i]);
+        // Assign serial number to the minted token
+        uint256 actualTokenId = _nextTokenId() - 1;
+        uint256 serialNumber = _nextSerial++;
+        _tokenIdToSerial[actualTokenId] = serialNumber;
+        _serialToTokenId[serialNumber] = actualTokenId;
+        _serialOwners[serialNumber] = to;
+        _ownerTokenSerials[to][actualTokenId].push(serialNumber);
+
+        emit SerialNumberAssigned(actualTokenId, serialNumber);
+
+        // Execute callbacks if called by handler
+        if (registeredOfType[3].length > 0 && registeredOfType[3][0] == _msgSender()) {
+            IHandlerCallback(_msgSender()).executeCallbacks(
+                address(0), to, actualTokenId, IHandlerCallback.CallbackType.MINT
+            );
         }
     }
 
-    function _update(address to, uint256 tokenId, address auth)
-        internal
-        virtual
-        override(ERC721Upgradeable, ERC721EnumerableUpgradeable)
-        returns (address)
-    {
-        address from = super._update(to, tokenId, auth);
+    function mintMany(address[] memory to, uint256[] memory tokenIds) external onlyOwner {
+        require(to.length == tokenIds.length, "Invalid input");
+        for (uint256 i = 0; i < to.length; i++) {
+            require(_externalTokenIdMap[tokenIds[i]] == 0, "External ID already minted");
+            _externalTokenIdMap[tokenIds[i]] = tokenIds[i];
+            _mint(to[i], 1);
 
-        // Handle minting
-        if (from == address(0) && to != address(0)) {
-            require(_externalTokenIdMap[tokenId] == 0, "External ID already minted");
-            _externalTokenIdMap[tokenId] = tokenId;
-
-            // Create and assign serial number
+            // Assign serial number to the minted token
+            uint256 actualTokenId = _nextTokenId() - 1;
             uint256 serialNumber = _nextSerial++;
-            _tokenIdToSerial[tokenId] = serialNumber;
-            _serialToTokenId[serialNumber] = tokenId;
-            _serialOwners[serialNumber] = to;
-            _ownerTokenSerials[to][tokenId].push(serialNumber);
+            _tokenIdToSerial[actualTokenId] = serialNumber;
+            _serialToTokenId[serialNumber] = actualTokenId;
+            _serialOwners[serialNumber] = to[i];
+            _ownerTokenSerials[to[i]][actualTokenId].push(serialNumber);
 
-            emit SerialNumberAssigned(tokenId, serialNumber);
+            emit SerialNumberAssigned(actualTokenId, serialNumber);
 
             // Execute callbacks if called by handler
             if (registeredOfType[3].length > 0 && registeredOfType[3][0] == _msgSender()) {
                 IHandlerCallback(_msgSender()).executeCallbacks(
-                    address(0), to, tokenId, IHandlerCallback.CallbackType.MINT
+                    address(0), to[i], actualTokenId, IHandlerCallback.CallbackType.MINT
                 );
             }
         }
-        // Handle burning
-        else if (to == address(0) && from != address(0)) {
-            // Clear serial number data
-            uint256 serialNumber = _tokenIdToSerial[tokenId];
-            delete _tokenIdToSerial[tokenId];
-            delete _serialToTokenId[serialNumber];
-            delete _serialOwners[serialNumber];
-            delete _externalTokenIdMap[tokenId];
+    }
 
-            // Remove from owner's serial list
-            uint256[] storage serials = _ownerTokenSerials[from][tokenId];
-            for (uint256 i = 0; i < serials.length; i++) {
-                if (serials[i] == serialNumber) {
-                    serials[i] = serials[serials.length - 1];
-                    serials.pop();
-                    break;
-                }
-            }
+    function burn(uint256 tokenId) public override {
+        address owner = ownerOf(tokenId);
+        require(_msgSender() == owner || isApprovedForAll(owner, _msgSender()), "Not authorized");
 
-            // Execute callbacks if handler is registered
-            if (registeredOfType[3].length > 0 && registeredOfType[3][0] != address(0)) {
-                IHandlerCallback(registeredOfType[3][0]).executeCallbacks(
-                    _msgSender(), address(0), tokenId, IHandlerCallback.CallbackType.BURN
-                );
-            }
-        }
-        // Handle transfers
-        else if (from != address(0) && to != address(0)) {
-            // Update serial number ownership
-            uint256 serialNumber = _tokenIdToSerial[tokenId];
-            _serialOwners[serialNumber] = to;
-            _ownerTokenSerials[to][tokenId].push(serialNumber);
+        // Clear serial number data
+        uint256 serialNumber = _tokenIdToSerial[tokenId];
+        delete _tokenIdToSerial[tokenId];
+        delete _serialToTokenId[serialNumber];
+        delete _serialOwners[serialNumber];
+        delete _externalTokenIdMap[tokenId];
 
-            // Remove from previous owner's serial list
-            uint256[] storage serials = _ownerTokenSerials[from][tokenId];
-            for (uint256 i = 0; i < serials.length; i++) {
-                if (serials[i] == serialNumber) {
-                    serials[i] = serials[serials.length - 1];
-                    serials.pop();
-                    break;
-                }
+        // Remove from owner's serial list
+        uint256[] storage serials = _ownerTokenSerials[owner][tokenId];
+        for (uint256 i = 0; i < serials.length; i++) {
+            if (serials[i] == serialNumber) {
+                serials[i] = serials[serials.length - 1];
+                serials.pop();
+                break;
             }
         }
 
-        return from;
+        super.burn(tokenId);
+
+        // Execute callbacks if handler is registered
+        if (registeredOfType[3].length > 0 && registeredOfType[3][0] != address(0)) {
+            IHandlerCallback(registeredOfType[3][0]).executeCallbacks(
+                _msgSender(), address(0), tokenId, IHandlerCallback.CallbackType.BURN
+            );
+        }
+    }
+
+    function _beforeTokenTransfers(address from, address to, uint256 startTokenId, uint256 quantity)
+        internal
+        virtual
+        override
+    {
+        super._beforeTokenTransfers(from, to, startTokenId, quantity);
+
+        // Handle transfers (excluding mints and burns)
+        if (from != address(0) && to != address(0)) {
+            for (uint256 i = 0; i < quantity; i++) {
+                uint256 tokenId = startTokenId + i;
+                uint256 serialNumber = _tokenIdToSerial[tokenId];
+
+                // Update serial number ownership
+                _serialOwners[serialNumber] = to;
+                _ownerTokenSerials[to][tokenId].push(serialNumber);
+
+                // Remove from previous owner's serial list
+                uint256[] storage serials = _ownerTokenSerials[from][tokenId];
+                for (uint256 j = 0; j < serials.length; j++) {
+                    if (serials[j] == serialNumber) {
+                        serials[j] = serials[serials.length - 1];
+                        serials.pop();
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     // Base URI
@@ -187,7 +210,11 @@ contract ERC721VaultImplementation is
         return _ownerTokenSerials[owner][tokenId][index];
     }
 
-    function getFirstSerialByOwner(address owner, uint256 tokenId) external view returns (uint256) {
+    function getFirstSerialByOwner(address owner, uint256 tokenId)
+        external
+        view
+        returns (uint256)
+    {
         require(_ownerTokenSerials[owner][tokenId].length > 0, "No serials found");
         return _ownerTokenSerials[owner][tokenId][0];
     }
@@ -196,7 +223,11 @@ contract ERC721VaultImplementation is
         return _serialOwners[serialNumber];
     }
 
-    function getSerialByOwnerAtIndex(address owner, uint256 tokenId, uint256 index) external view returns (uint256) {
+    function getSerialByOwnerAtIndex(address owner, uint256 tokenId, uint256 index)
+        external
+        view
+        returns (uint256)
+    {
         require(index < _ownerTokenSerials[owner][tokenId].length, "Invalid index");
         return _ownerTokenSerials[owner][tokenId][index];
     }
@@ -218,23 +249,15 @@ contract ERC721VaultImplementation is
         public
         view
         virtual
-        override(ERC721Upgradeable, ERC721EnumerableUpgradeable, IERC165)
+        override(ERC721AUpgradeable, IERC165, IERC721AUpgradeable)
         returns (bool)
     {
-        return interfaceId == type(IIsSerialized).interfaceId || interfaceId == type(IVaultProxy).interfaceId
-            || super.supportsInterface(interfaceId);
+        return interfaceId == type(IIsSerialized).interfaceId
+            || interfaceId == type(IVaultProxy).interfaceId || super.supportsInterface(interfaceId);
     }
 
     function version() external pure returns (string memory) {
         return "2.0.0";
-    }
-
-    function _increaseBalance(address account, uint128 value)
-        internal
-        virtual
-        override(ERC721Upgradeable, ERC721EnumerableUpgradeable)
-    {
-        super._increaseBalance(account, value);
     }
 
     // IVaultProxy Implementation
@@ -250,5 +273,9 @@ contract ERC721VaultImplementation is
 
     function implementation() external view returns (address) {
         return address(this);
+    }
+
+    function _startTokenId() internal pure override returns (uint256) {
+        return 1;
     }
 }
