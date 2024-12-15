@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "../libraries/LibDiamond.sol";
 import "../libraries/LibEmblemVaultStorage.sol";
+import "../libraries/LibErrors.sol";
+import "../libraries/LibCollectionTypes.sol";
 import "../interfaces/IVaultBeacon.sol";
 import "../interfaces/IVaultCollectionFactory.sol";
-import "../implementations/ERC721VaultImplementation.sol";
-import "../implementations/ERC1155VaultImplementation.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * @title EmblemVaultCollectionFacet
@@ -15,6 +15,8 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
  * @dev Integrates with beacon proxy pattern for collection management
  */
 contract EmblemVaultCollectionFacet {
+    using LibCollectionTypes for uint8;
+
     // Events
     event CollectionFactorySet(address indexed oldFactory, address indexed newFactory);
     event CollectionImplementationUpgraded(
@@ -26,19 +28,6 @@ contract EmblemVaultCollectionFacet {
     event CollectionBaseURIUpdated(address indexed collection, string newBaseURI);
     event CollectionURIUpdated(address indexed collection, string newURI);
 
-    // Custom errors
-    error InvalidCollectionType();
-    error ZeroAddress();
-    error FactoryNotSet();
-    error InitializationFailed();
-    error NotACollection();
-    error InvalidCollectionOperation();
-    error NotCollectionOwner();
-
-    // Constants
-    uint8 public constant ERC721_TYPE = 1;
-    uint8 public constant ERC1155_TYPE = 2;
-
     modifier onlyOwner() {
         LibDiamond.enforceIsContractOwner();
         _;
@@ -46,10 +35,10 @@ contract EmblemVaultCollectionFacet {
 
     modifier onlyValidCollection(address collection) {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        if (vs.vaultFactory == address(0)) revert FactoryNotSet();
-        if (!IVaultCollectionFactory(vs.vaultFactory).isCollection(collection)) {
-            revert NotACollection();
-        }
+        LibErrors.revertIfFactoryNotSet(vs.vaultFactory);
+        LibErrors.revertIfInvalidCollection(
+            collection, IVaultCollectionFactory(vs.vaultFactory).isCollection(collection)
+        );
         _;
     }
 
@@ -58,7 +47,7 @@ contract EmblemVaultCollectionFacet {
      * @param _factory Address of the new factory
      */
     function setCollectionFactory(address _factory) external onlyOwner {
-        if (_factory == address(0)) revert ZeroAddress();
+        LibErrors.revertIfZeroAddress(_factory);
 
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         address oldFactory = vs.vaultFactory;
@@ -79,17 +68,19 @@ contract EmblemVaultCollectionFacet {
         onlyOwner
         returns (address collection)
     {
+        if (!collectionType.isValidCollectionType()) {
+            revert LibErrors.InvalidCollectionType(collectionType);
+        }
+
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        if (vs.vaultFactory == address(0)) revert FactoryNotSet();
+        LibErrors.revertIfFactoryNotSet(vs.vaultFactory);
 
         IVaultCollectionFactory factory = IVaultCollectionFactory(vs.vaultFactory);
 
-        if (collectionType == ERC721_TYPE) {
+        if (collectionType.isERC721Type()) {
             collection = factory.createERC721Collection(name, symbol);
-        } else if (collectionType == ERC1155_TYPE) {
-            collection = factory.createERC1155Collection(symbol); // symbol parameter used as URI for ERC1155
         } else {
-            revert InvalidCollectionType();
+            collection = factory.createERC1155Collection(symbol); // symbol parameter used as URI for ERC1155
         }
 
         emit VaultCollectionCreated(collection, collectionType, name);
@@ -107,17 +98,19 @@ contract EmblemVaultCollectionFacet {
     {
         IVaultCollectionFactory factory =
             IVaultCollectionFactory(LibEmblemVaultStorage.vaultStorage().vaultFactory);
-        if (factory.getCollectionType(collection) != ERC721_TYPE) {
-            revert InvalidCollectionOperation();
+        uint8 collectionType = factory.getCollectionType(collection);
+        if (!collectionType.isERC721Type()) {
+            revert LibErrors.InvalidCollectionOperation(collection);
         }
 
         // Verify diamond owns the collection
         if (OwnableUpgradeable(collection).owner() != address(this)) {
-            revert NotCollectionOwner();
+            revert LibErrors.NotCollectionOwner(collection, address(this));
         }
 
         // Update base URI
-        ERC721VaultImplementation(collection).setBaseURI(newBaseURI);
+        (bool success,) = collection.call(abi.encodeWithSignature("setBaseURI(string)", newBaseURI));
+        require(success, "setBaseURI failed");
 
         emit CollectionBaseURIUpdated(collection, newBaseURI);
     }
@@ -134,44 +127,47 @@ contract EmblemVaultCollectionFacet {
     {
         IVaultCollectionFactory factory =
             IVaultCollectionFactory(LibEmblemVaultStorage.vaultStorage().vaultFactory);
-        if (factory.getCollectionType(collection) != ERC1155_TYPE) {
-            revert InvalidCollectionOperation();
+        uint8 collectionType = factory.getCollectionType(collection);
+        if (!collectionType.isERC1155Type()) {
+            revert LibErrors.InvalidCollectionOperation(collection);
         }
 
         // Verify diamond owns the collection
         if (OwnableUpgradeable(collection).owner() != address(this)) {
-            revert NotCollectionOwner();
+            revert LibErrors.NotCollectionOwner(collection, address(this));
         }
 
-        // Update URI using setURI from ERC1155VaultImplementation
-        ERC1155VaultImplementation(collection).setURI(newURI);
+        // Update URI using setURI
+        (bool success,) = collection.call(abi.encodeWithSignature("setURI(string)", newURI));
+        require(success, "setURI failed");
 
         emit CollectionURIUpdated(collection, newURI);
     }
 
     /**
      * @notice Upgrade collection implementation
-     * @param collectionType The type of collection to upgrade
+     * @param collectionType The type of collection (1 for ERC721, 2 for ERC1155)
      * @param newImplementation Address of the new implementation
      */
     function upgradeCollectionImplementation(uint8 collectionType, address newImplementation)
         external
         onlyOwner
     {
-        if (newImplementation == address(0)) revert ZeroAddress();
+        LibErrors.revertIfZeroAddress(newImplementation);
+        if (!collectionType.isValidCollectionType()) {
+            revert LibErrors.InvalidCollectionType(collectionType);
+        }
 
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        if (vs.vaultFactory == address(0)) revert FactoryNotSet();
+        LibErrors.revertIfFactoryNotSet(vs.vaultFactory);
 
         IVaultCollectionFactory factory = IVaultCollectionFactory(vs.vaultFactory);
         address beacon;
 
-        if (collectionType == ERC721_TYPE) {
+        if (collectionType.isERC721Type()) {
             beacon = factory.erc721Beacon();
-        } else if (collectionType == ERC1155_TYPE) {
-            beacon = factory.erc1155Beacon();
         } else {
-            revert InvalidCollectionType();
+            beacon = factory.erc1155Beacon();
         }
 
         IVaultBeacon(beacon).upgrade(newImplementation);
@@ -185,8 +181,12 @@ contract EmblemVaultCollectionFacet {
      * @return The current implementation address
      */
     function getCollectionImplementation(uint8 collectionType) external view returns (address) {
+        if (!collectionType.isValidCollectionType()) {
+            revert LibErrors.InvalidCollectionType(collectionType);
+        }
+
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        if (vs.vaultFactory == address(0)) revert FactoryNotSet();
+        LibErrors.revertIfFactoryNotSet(vs.vaultFactory);
 
         return IVaultCollectionFactory(vs.vaultFactory).getImplementation(collectionType);
     }
@@ -197,8 +197,12 @@ contract EmblemVaultCollectionFacet {
      * @return The beacon address
      */
     function getCollectionBeacon(uint8 collectionType) external view returns (address) {
+        if (!collectionType.isValidCollectionType()) {
+            revert LibErrors.InvalidCollectionType(collectionType);
+        }
+
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        if (vs.vaultFactory == address(0)) revert FactoryNotSet();
+        LibErrors.revertIfFactoryNotSet(vs.vaultFactory);
 
         return IVaultCollectionFactory(vs.vaultFactory).getBeacon(collectionType);
     }
@@ -222,7 +226,7 @@ contract EmblemVaultCollectionFacet {
      */
     function getCollectionType(address collection) external view returns (uint8) {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        if (vs.vaultFactory == address(0)) revert FactoryNotSet();
+        LibErrors.revertIfFactoryNotSet(vs.vaultFactory);
 
         return IVaultCollectionFactory(vs.vaultFactory).getCollectionType(collection);
     }

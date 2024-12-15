@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "../libraries/LibErrors.sol";
 
 /**
  * @title VaultBeacon
@@ -10,21 +11,18 @@ import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
  */
 contract VaultBeacon is IERC165 {
     // Events
-    event ImplementationUpgraded(address indexed oldImplementation, address indexed newImplementation);
+    event ImplementationUpgraded(
+        address indexed oldImplementation, address indexed newImplementation
+    );
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     // State variables
     address public implementation;
     address public owner;
 
-    // Custom errors
-    error NotOwner();
-    error ZeroAddress();
-    error InvalidImplementation();
-
     // Modifiers
     modifier onlyOwner() {
-        if (msg.sender != owner) revert NotOwner();
+        if (msg.sender != owner) revert LibErrors.Unauthorized(msg.sender);
         _;
     }
 
@@ -33,11 +31,11 @@ contract VaultBeacon is IERC165 {
      * @param _implementation Initial implementation address
      */
     constructor(address _implementation) {
-        if (_implementation == address(0)) revert ZeroAddress();
+        LibErrors.revertIfZeroAddress(_implementation);
 
         // Verify implementation supports required interfaces
         if (!IERC165(_implementation).supportsInterface(type(IERC165).interfaceId)) {
-            revert InvalidImplementation();
+            revert LibErrors.InvalidImplementation();
         }
 
         implementation = _implementation;
@@ -50,11 +48,11 @@ contract VaultBeacon is IERC165 {
      * @param newImplementation Address of the new implementation
      */
     function upgrade(address newImplementation) external onlyOwner {
-        if (newImplementation == address(0)) revert ZeroAddress();
+        LibErrors.revertIfZeroAddress(newImplementation);
 
         // Verify new implementation supports required interfaces
         if (!IERC165(newImplementation).supportsInterface(type(IERC165).interfaceId)) {
-            revert InvalidImplementation();
+            revert LibErrors.InvalidImplementation();
         }
 
         emit ImplementationUpgraded(implementation, newImplementation);
@@ -66,7 +64,7 @@ contract VaultBeacon is IERC165 {
      * @param newOwner Address of the new owner
      */
     function transferOwnership(address newOwner) external onlyOwner {
-        if (newOwner == address(0)) revert ZeroAddress();
+        LibErrors.revertIfZeroAddress(newOwner);
         emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;
     }

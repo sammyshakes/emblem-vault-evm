@@ -13,6 +13,12 @@ library LibInterfaceIds {
     bytes4 constant INTERFACE_ID_ERC1155 = 0xd9b67a26;
     bytes4 constant INTERFACE_ID_SERIALIZED = bytes4(keccak256("IsSerialized"));
 
+    // Token Standards (for getTokenStandard return values)
+    uint8 constant TOKEN_STANDARD_ERC721A = 1;
+    uint8 constant TOKEN_STANDARD_ERC1155 = 2;
+    uint8 constant TOKEN_STANDARD_ERC721 = 3;
+    uint8 constant TOKEN_STANDARD_UNKNOWN = 0;
+
     /// @notice Check if a contract supports ERC721A
     /// @param contractAddress The contract to check
     /// @return True if the contract supports ERC721A
@@ -43,11 +49,23 @@ library LibInterfaceIds {
 
     /// @notice Get the token standard type
     /// @param contractAddress The contract to check
-    /// @return 1 for ERC721A, 2 for ERC1155, 3 for ERC721, 0 for unsupported
+    /// @return Token standard type (see TOKEN_STANDARD constants)
     function getTokenStandard(address contractAddress) internal view returns (uint8) {
-        if (isERC721A(contractAddress)) return 1;
-        if (isERC1155(contractAddress)) return 2;
-        if (isERC721(contractAddress)) return 3;
-        return 0;
+        if (isERC721A(contractAddress)) return TOKEN_STANDARD_ERC721A;
+        if (isERC1155(contractAddress)) return TOKEN_STANDARD_ERC1155;
+        if (isERC721(contractAddress)) return TOKEN_STANDARD_ERC721;
+        return TOKEN_STANDARD_UNKNOWN;
+    }
+
+    /// @notice Check if a contract supports a specific interface
+    /// @param contractAddress The contract to check
+    /// @param interfaceId The interface ID to check for
+    /// @return True if the contract supports the interface
+    function supportsInterface(address contractAddress, bytes4 interfaceId)
+        internal
+        view
+        returns (bool)
+    {
+        return IERC165(contractAddress).supportsInterface(interfaceId);
     }
 }

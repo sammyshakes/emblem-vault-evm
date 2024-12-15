@@ -7,6 +7,7 @@ import "../src/implementations/ERC1155VaultImplementation.sol";
 import "../src/beacon/VaultBeacon.sol";
 import "../src/beacon/VaultProxy.sol";
 import "../src/factories/VaultCollectionFactory.sol";
+import "../src/libraries/LibErrors.sol";
 
 contract BeaconSystemTest is Test {
     // Core contracts
@@ -47,15 +48,6 @@ contract BeaconSystemTest is Test {
     );
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event CollectionOwnershipTransferred(address indexed collection, address indexed newOwner);
-
-    // Custom errors
-    error ZeroAddress();
-    error NotOwner();
-    error InitializationFailed();
-    error NotACollection();
-    error InvalidImplementation();
-    error InvalidCollectionType();
-    error TransferFailed();
 
     function setUp() public {
         // Deploy implementations
@@ -113,7 +105,7 @@ contract BeaconSystemTest is Test {
 
     function testRevertUnauthorizedBeaconOwnershipTransfer() public {
         vm.startPrank(user1);
-        vm.expectRevert(NotOwner.selector);
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.Unauthorized.selector, user1));
         erc721Beacon.transferOwnership(newOwner);
         vm.stopPrank();
     }
@@ -122,20 +114,20 @@ contract BeaconSystemTest is Test {
         address collection = factory.createERC721Collection("Test Collection", "TEST");
 
         vm.startPrank(user1);
-        vm.expectRevert(NotOwner.selector);
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.Unauthorized.selector, user1));
         factory.transferCollectionOwnership(collection, newOwner);
         vm.stopPrank();
     }
 
     function testRevertTransferBeaconOwnershipToZero() public {
-        vm.expectRevert(ZeroAddress.selector);
+        vm.expectRevert(LibErrors.ZeroAddress.selector);
         erc721Beacon.transferOwnership(address(0));
     }
 
     function testRevertTransferCollectionOwnershipToZero() public {
         address collection = factory.createERC721Collection("Test Collection", "TEST");
 
-        vm.expectRevert(ZeroAddress.selector);
+        vm.expectRevert(LibErrors.ZeroAddress.selector);
         factory.transferCollectionOwnership(collection, address(0));
     }
 
@@ -147,7 +139,7 @@ contract BeaconSystemTest is Test {
         ERC721VaultImplementation newImplementation = new ERC721VaultImplementation();
 
         // Try to upgrade from non-owner
-        vm.expectRevert(NotOwner.selector);
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.Unauthorized.selector, address(this)));
         erc721Beacon.upgrade(address(newImplementation));
 
         // Upgrade from new owner
@@ -375,7 +367,7 @@ contract BeaconSystemTest is Test {
     }
 
     function testRevertInvalidZeroAddressImplementation() public {
-        vm.expectRevert(ZeroAddress.selector);
+        vm.expectRevert(LibErrors.ZeroAddress.selector);
         erc721Beacon.upgrade(address(0));
     }
 

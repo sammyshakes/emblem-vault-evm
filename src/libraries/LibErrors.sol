@@ -22,6 +22,20 @@ library LibErrors {
     /// @notice Transfer operation failed
     error TransferFailed();
 
+    /// @notice Invalid implementation contract
+    error InvalidImplementation();
+
+    // ============ Collection Errors ============
+
+    /// @notice Invalid collection type provided
+    error InvalidCollectionType(uint8 collectionType);
+
+    /// @notice Invalid operation for collection type
+    error InvalidCollectionOperation(address collection);
+
+    /// @notice Not the owner of the collection
+    error NotCollectionOwner(address collection, address caller);
+
     // ============ Vault State Errors ============
 
     /// @notice Vault is already locked
@@ -91,11 +105,6 @@ library LibErrors {
     /// @notice Initialization failed
     error InitializationFailed();
 
-    // ============ Bypass Errors ============
-
-    /// @notice Invalid bypass rule
-    error InvalidBypassRule();
-
     // ============ Helper Functions ============
 
     /// @notice Check for zero address
@@ -154,5 +163,13 @@ library LibErrors {
         address owner
     ) internal pure {
         if (caller != owner) revert NotVaultOwner(collection, tokenId, caller);
+    }
+
+    /// @notice Check for collection ownership
+    function revertIfNotCollectionOwner(address collection, address caller, address owner)
+        internal
+        pure
+    {
+        if (caller != owner) revert NotCollectionOwner(collection, caller);
     }
 }

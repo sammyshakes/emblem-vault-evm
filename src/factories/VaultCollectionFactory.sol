@@ -5,6 +5,9 @@ import "../beacon/VaultBeacon.sol";
 import "../beacon/VaultProxy.sol";
 import "../interfaces/IVaultBeacon.sol";
 import "../interfaces/IVaultProxy.sol";
+import "../interfaces/IVaultCollectionFactory.sol";
+import "../libraries/LibCollectionTypes.sol";
+import "../libraries/LibErrors.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
@@ -15,31 +18,13 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
  *      parent container for individual vaults. The factory manages these collection contracts
  *      through the beacon proxy pattern for upgradeability.
  */
-contract VaultCollectionFactory {
-    // Events
-    event ERC721CollectionCreated(address indexed collection, string name, string symbol);
-    event ERC1155CollectionCreated(address indexed collection, string uri);
-    event BeaconUpdated(
-        uint8 indexed collectionType, address indexed oldBeacon, address indexed newBeacon
-    );
-    event CollectionOwnershipTransferred(address indexed collection, address indexed newOwner);
-
-    // Custom errors
-    error InvalidCollectionType();
-    error ZeroAddress();
-    error NotOwner();
-    error InitializationFailed();
-    error NotACollection();
-    error TransferFailed();
+contract VaultCollectionFactory is IVaultCollectionFactory {
+    using LibCollectionTypes for uint8;
 
     // State variables
     address public immutable owner;
     address public erc721Beacon;
     address public erc1155Beacon;
-
-    // Constants
-    uint8 public constant ERC721_TYPE = 1;
-    uint8 public constant ERC1155_TYPE = 2;
 
     /**
      * @notice Constructor
@@ -47,7 +32,8 @@ contract VaultCollectionFactory {
      * @param _erc1155Beacon Address of the ERC1155 collection beacon
      */
     constructor(address _erc721Beacon, address _erc1155Beacon) {
-        if (_erc721Beacon == address(0) || _erc1155Beacon == address(0)) revert ZeroAddress();
+        LibErrors.revertIfZeroAddress(_erc721Beacon);
+        LibErrors.revertIfZeroAddress(_erc1155Beacon);
         owner = msg.sender;
         erc721Beacon = _erc721Beacon;
         erc1155Beacon = _erc1155Beacon;
@@ -70,7 +56,7 @@ contract VaultCollectionFactory {
         try IERC721VaultProxy(collection).initialize(name, symbol) {
             emit ERC721CollectionCreated(collection, name, symbol);
         } catch {
-            revert InitializationFailed();
+            revert LibErrors.InitializationFailed();
         }
     }
 
@@ -87,7 +73,7 @@ contract VaultCollectionFactory {
         try IERC1155VaultProxy(collection).initialize(uri) {
             emit ERC1155CollectionCreated(collection, uri);
         } catch {
-            revert InitializationFailed();
+            revert LibErrors.InitializationFailed();
         }
     }
 
@@ -97,15 +83,15 @@ contract VaultCollectionFactory {
      * @param newOwner The new owner address
      */
     function transferCollectionOwnership(address collection, address newOwner) external {
-        if (msg.sender != owner) revert NotOwner();
-        if (!isCollection(collection)) revert NotACollection();
-        if (newOwner == address(0)) revert ZeroAddress();
+        if (msg.sender != owner) revert LibErrors.Unauthorized(msg.sender);
+        if (!isCollection(collection)) revert LibErrors.InvalidCollection(collection);
+        LibErrors.revertIfZeroAddress(newOwner);
 
         // Transfer ownership
         try OwnableUpgradeable(collection).transferOwnership(newOwner) {
             emit CollectionOwnershipTransferred(collection, newOwner);
         } catch {
-            revert TransferFailed();
+            revert LibErrors.TransferFailed();
         }
     }
 
@@ -115,18 +101,20 @@ contract VaultCollectionFactory {
      * @param newBeacon The address of the new beacon
      */
     function updateBeacon(uint8 collectionType, address newBeacon) external {
-        if (msg.sender != owner) revert NotOwner();
-        if (newBeacon == address(0)) revert ZeroAddress();
+        if (msg.sender != owner) revert LibErrors.Unauthorized(msg.sender);
+        LibErrors.revertIfZeroAddress(newBeacon);
+
+        if (!collectionType.isValidCollectionType()) {
+            revert LibErrors.InvalidCollectionType(collectionType);
+        }
 
         address oldBeacon;
-        if (collectionType == ERC721_TYPE) {
+        if (collectionType.isERC721Type()) {
             oldBeacon = erc721Beacon;
             erc721Beacon = newBeacon;
-        } else if (collectionType == ERC1155_TYPE) {
+        } else {
             oldBeacon = erc1155Beacon;
             erc1155Beacon = newBeacon;
-        } else {
-            revert InvalidCollectionType();
         }
 
         emit BeaconUpdated(collectionType, oldBeacon, newBeacon);
@@ -138,13 +126,11 @@ contract VaultCollectionFactory {
      * @return The beacon address
      */
     function getBeacon(uint8 collectionType) external view returns (address) {
-        if (collectionType == ERC721_TYPE) {
-            return erc721Beacon;
-        } else if (collectionType == ERC1155_TYPE) {
-            return erc1155Beacon;
-        } else {
-            revert InvalidCollectionType();
+        if (!collectionType.isValidCollectionType()) {
+            revert LibErrors.InvalidCollectionType(collectionType);
         }
+
+        return collectionType.isERC721Type() ? erc721Beacon : erc1155Beacon;
     }
 
     /**
@@ -153,8 +139,11 @@ contract VaultCollectionFactory {
      * @return The implementation address
      */
     function getImplementation(uint8 collectionType) external view returns (address) {
-        address beacon = collectionType == ERC721_TYPE ? erc721Beacon : erc1155Beacon;
-        if (beacon == address(0)) revert InvalidCollectionType();
+        if (!collectionType.isValidCollectionType()) {
+            revert LibErrors.InvalidCollectionType(collectionType);
+        }
+
+        address beacon = collectionType.isERC721Type() ? erc721Beacon : erc1155Beacon;
         return IVaultBeacon(beacon).implementation();
     }
 
@@ -164,15 +153,13 @@ contract VaultCollectionFactory {
      * @return The collection type (1 for ERC721, 2 for ERC1155)
      */
     function getCollectionType(address collection) external view returns (uint8) {
-        if (!isCollection(collection)) revert NotACollection();
+        if (!isCollection(collection)) revert LibErrors.InvalidCollection(collection);
 
         address beaconAddress = IVaultProxy(collection).beacon();
         if (beaconAddress == erc721Beacon) {
-            return ERC721_TYPE;
-        } else if (beaconAddress == erc1155Beacon) {
-            return ERC1155_TYPE;
+            return LibCollectionTypes.ERC721_TYPE;
         } else {
-            revert InvalidCollectionType();
+            return LibCollectionTypes.ERC1155_TYPE;
         }
     }
 

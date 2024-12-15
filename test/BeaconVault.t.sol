@@ -7,6 +7,7 @@ import "../src/beacon/VaultProxy.sol";
 import "../src/implementations/ERC721VaultImplementation.sol";
 import "../src/interfaces/IVaultBeacon.sol";
 import "../src/interfaces/IVaultProxy.sol";
+import "../src/libraries/LibErrors.sol";
 
 // Simple contract without implementation() function for testing
 contract NonBeaconContract {
@@ -30,13 +31,6 @@ contract BeaconVaultTest is Test {
     );
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event BeaconSet(address indexed beacon);
-
-    // Custom errors from contracts
-    error ZeroAddress();
-    error NotOwner();
-    error InvalidImplementation();
-    error InitializationFailed();
-    error DelegationFailed();
 
     function setUp() public {
         // Deploy implementation
@@ -98,13 +92,13 @@ contract BeaconVaultTest is Test {
 
     function testRevertUpgradeUnauthorized() public {
         vm.startPrank(user);
-        vm.expectRevert(abi.encodeWithSignature("NotOwner()"));
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.Unauthorized.selector, user));
         beacon.upgrade(address(0));
         vm.stopPrank();
     }
 
     function testRevertUpgradeToZeroAddress() public {
-        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
+        vm.expectRevert(LibErrors.ZeroAddress.selector);
         beacon.upgrade(address(0));
     }
 
@@ -125,13 +119,13 @@ contract BeaconVaultTest is Test {
 
     function testRevertTransferOwnershipUnauthorized() public {
         vm.startPrank(user);
-        vm.expectRevert(abi.encodeWithSignature("NotOwner()"));
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.Unauthorized.selector, user));
         beacon.transferOwnership(newOwner);
         vm.stopPrank();
     }
 
     function testRevertTransferOwnershipToZeroAddress() public {
-        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
+        vm.expectRevert(LibErrors.ZeroAddress.selector);
         beacon.transferOwnership(address(0));
     }
 
@@ -177,14 +171,14 @@ contract BeaconVaultTest is Test {
         beacon.transferOwnership(newOwner);
 
         // Try to upgrade with old owner
-        vm.expectRevert(abi.encodeWithSignature("NotOwner()"));
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.Unauthorized.selector, address(this)));
         beacon.upgrade(address(0));
     }
 
     // ============ Proxy Initialization Tests ============
 
     function testRevertProxyWithZeroBeacon() public {
-        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
+        vm.expectRevert(LibErrors.ZeroAddress.selector);
         new ERC721VaultProxy(address(0));
     }
 
