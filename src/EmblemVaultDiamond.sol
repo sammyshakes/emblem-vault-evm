@@ -52,7 +52,7 @@ contract EmblemVaultDiamond {
             ds.slot := position
         }
         // get facet from function selector
-        address facet = ds.facetAddressAndSelectorPosition[msg.sig].facetAddress;
+        address facet = ds.selectorToFacet[msg.sig].facetAddress;
         LibErrors.revertIfFunctionNotFound(msg.sig, facet);
 
         // Execute external function from facet using delegatecall and return any value.

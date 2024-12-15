@@ -41,8 +41,7 @@ contract DiamondLoupeFacet {
     /// @param _functionSelector The function selector to get the facet for
     /// @return The facet address
     function getFacetAddress(bytes4 _functionSelector) external view returns (address) {
-        return LibDiamond.diamondStorage().facetAddressAndSelectorPosition[_functionSelector]
-            .facetAddress;
+        return LibDiamond.diamondStorage().selectorToFacet[_functionSelector].facetAddress;
     }
 
     /// @notice Query if a contract implements an interface

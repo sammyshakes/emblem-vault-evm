@@ -7,25 +7,22 @@ import {LibErrors} from "./LibErrors.sol";
 library LibDiamond {
     bytes32 constant DIAMOND_STORAGE_POSITION = keccak256("diamond.standard.diamond.storage");
 
-    struct FacetAddressAndSelectorPosition {
-        address facetAddress;
-        uint96 selectorPosition;
+    struct FacetAddressAndPosition {
+        address facetAddress; // 20 bytes
+        uint32 arrayPosition; // 4 bytes
+        uint32 selectorIndex; // 4 bytes
+        uint32 flags; // 4 bytes (reserved for future use)
     }
 
     struct DiamondStorage {
-        // function selector => facet address and selector position in selectors array
-        mapping(bytes4 => FacetAddressAndSelectorPosition) facetAddressAndSelectorPosition;
-        // facet addresses
+        // Packed storage (32 bytes)
+        address contractOwner; // 20 bytes
+        uint96 totalSelectors; // 12 bytes
+        // Arrays and mappings (separate slots)
+        mapping(bytes4 => FacetAddressAndPosition) selectorToFacet;
         address[] facetAddresses;
-        // Used to query if a contract implements an interface.
-        // Used to implement ERC-165.
         mapping(bytes4 => bool) supportedInterfaces;
-        // owner of the contract
-        address contractOwner;
-        // Selector cache
-        mapping(address => bytes4[]) facetSelectors; // Cache of selectors per facet
-        mapping(bytes4 => uint256) selectorToIndex; // Position of selector in facetSelectors array
-        uint256 totalSelectors; // Total number of selectors
+        mapping(address => bytes4[]) facetSelectors;
     }
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -84,13 +81,14 @@ library LibDiamond {
     function addFunctions(address _facetAddress, bytes4[] memory _functionSelectors) internal {
         LibErrors.revertIfZeroAddress(_facetAddress);
         DiamondStorage storage ds = diamondStorage();
-        uint96 selectorPosition = uint96(ds.facetAddresses.length);
+        uint32 arrayPosition = uint32(ds.facetAddresses.length);
 
         // Add new facet address if it does not exist
         bool facetAddressExists;
         for (uint256 i; i < ds.facetAddresses.length; i++) {
             if (ds.facetAddresses[i] == _facetAddress) {
                 facetAddressExists = true;
+                arrayPosition = uint32(i);
                 break;
             }
         }
@@ -100,34 +98,37 @@ library LibDiamond {
 
         for (uint256 selectorIndex; selectorIndex < _functionSelectors.length; selectorIndex++) {
             bytes4 selector = _functionSelectors[selectorIndex];
-            address oldFacetAddress = ds.facetAddressAndSelectorPosition[selector].facetAddress;
+            address oldFacetAddress = ds.selectorToFacet[selector].facetAddress;
             if (oldFacetAddress != address(0)) {
                 revert LibErrors.FunctionAlreadyExists(selector);
             }
 
             // Update selector mappings
-            ds.facetAddressAndSelectorPosition[selector] =
-                FacetAddressAndSelectorPosition(_facetAddress, selectorPosition);
+            uint32 position = uint32(ds.facetSelectors[_facetAddress].length);
+            ds.selectorToFacet[selector] = FacetAddressAndPosition({
+                facetAddress: _facetAddress,
+                arrayPosition: arrayPosition,
+                selectorIndex: position,
+                flags: 0
+            });
 
             // Update selector cache
             ds.facetSelectors[_facetAddress].push(selector);
-            ds.selectorToIndex[selector] = ds.facetSelectors[_facetAddress].length - 1;
             ds.totalSelectors++;
-
-            selectorPosition++;
         }
     }
 
     function replaceFunctions(address _facetAddress, bytes4[] memory _functionSelectors) internal {
         LibErrors.revertIfZeroAddress(_facetAddress);
         DiamondStorage storage ds = diamondStorage();
-        uint96 selectorPosition = uint96(ds.facetAddresses.length);
+        uint32 arrayPosition = uint32(ds.facetAddresses.length);
 
         // Add new facet address if it does not exist
         bool facetAddressExists;
         for (uint256 i; i < ds.facetAddresses.length; i++) {
             if (ds.facetAddresses[i] == _facetAddress) {
                 facetAddressExists = true;
+                arrayPosition = uint32(i);
                 break;
             }
         }
@@ -137,35 +138,34 @@ library LibDiamond {
 
         for (uint256 selectorIndex; selectorIndex < _functionSelectors.length; selectorIndex++) {
             bytes4 selector = _functionSelectors[selectorIndex];
-            address oldFacetAddress = ds.facetAddressAndSelectorPosition[selector].facetAddress;
-            if (oldFacetAddress == _facetAddress) {
+            FacetAddressAndPosition memory oldFacet = ds.selectorToFacet[selector];
+            if (oldFacet.facetAddress == _facetAddress) {
                 revert LibErrors.CannotReplaceSameFunction(selector);
             }
-            if (oldFacetAddress == address(0)) {
+            if (oldFacet.facetAddress == address(0)) {
                 revert LibErrors.FunctionDoesNotExist(selector);
             }
 
             // Remove from old facet's cache
-            uint256 oldSelectorIndex = ds.selectorToIndex[selector];
-            bytes4[] storage oldFacetSelectorCache = ds.facetSelectors[oldFacetAddress];
+            bytes4[] storage oldFacetSelectorCache = ds.facetSelectors[oldFacet.facetAddress];
             uint256 lastIndex = oldFacetSelectorCache.length - 1;
-            if (oldSelectorIndex != lastIndex) {
+            if (oldFacet.selectorIndex != lastIndex) {
                 bytes4 lastSelector = oldFacetSelectorCache[lastIndex];
-                oldFacetSelectorCache[oldSelectorIndex] = lastSelector;
-                ds.selectorToIndex[lastSelector] = oldSelectorIndex;
+                oldFacetSelectorCache[oldFacet.selectorIndex] = lastSelector;
+                ds.selectorToFacet[lastSelector].selectorIndex = oldFacet.selectorIndex;
             }
             oldFacetSelectorCache.pop();
-            delete ds.selectorToIndex[selector];
+            delete ds.selectorToFacet[selector];
 
-            // Update selector mappings
-            ds.facetAddressAndSelectorPosition[selector] =
-                FacetAddressAndSelectorPosition(_facetAddress, selectorPosition);
-
-            // Add to new facet's cache
+            // Add to new facet
+            uint32 position = uint32(ds.facetSelectors[_facetAddress].length);
+            ds.selectorToFacet[selector] = FacetAddressAndPosition({
+                facetAddress: _facetAddress,
+                arrayPosition: arrayPosition,
+                selectorIndex: position,
+                flags: 0
+            });
             ds.facetSelectors[_facetAddress].push(selector);
-            ds.selectorToIndex[selector] = ds.facetSelectors[_facetAddress].length - 1;
-
-            selectorPosition++;
         }
     }
 
@@ -174,28 +174,26 @@ library LibDiamond {
             revert LibErrors.InvalidFacetCutAction(uint8(IDiamondCut.FacetCutAction.Remove));
         }
         DiamondStorage storage ds = diamondStorage();
-        uint256 selectorCount = _functionSelectors.length;
 
-        for (uint256 selectorIndex; selectorIndex < selectorCount; selectorIndex++) {
+        for (uint256 selectorIndex; selectorIndex < _functionSelectors.length; selectorIndex++) {
             bytes4 selector = _functionSelectors[selectorIndex];
-            address facetAddress = ds.facetAddressAndSelectorPosition[selector].facetAddress;
+            FacetAddressAndPosition memory facetAndPosition = ds.selectorToFacet[selector];
+            address facetAddress = facetAndPosition.facetAddress;
 
             if (facetAddress == address(0)) {
                 revert LibErrors.FunctionDoesNotExist(selector);
             }
 
             // Remove from facet's cache
-            uint256 oldSelectorIndex = ds.selectorToIndex[selector];
             bytes4[] storage facetSelectorCache = ds.facetSelectors[facetAddress];
             uint256 lastIndex = facetSelectorCache.length - 1;
-            if (oldSelectorIndex != lastIndex) {
+            if (facetAndPosition.selectorIndex != lastIndex) {
                 bytes4 lastSelector = facetSelectorCache[lastIndex];
-                facetSelectorCache[oldSelectorIndex] = lastSelector;
-                ds.selectorToIndex[lastSelector] = oldSelectorIndex;
+                facetSelectorCache[facetAndPosition.selectorIndex] = lastSelector;
+                ds.selectorToFacet[lastSelector].selectorIndex = facetAndPosition.selectorIndex;
             }
             facetSelectorCache.pop();
-            delete ds.selectorToIndex[selector];
-            delete ds.facetAddressAndSelectorPosition[selector];
+            delete ds.selectorToFacet[selector];
             ds.totalSelectors--;
         }
     }
