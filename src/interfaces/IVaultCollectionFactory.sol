@@ -15,7 +15,6 @@ interface IVaultCollectionFactory {
         external
         returns (address collection);
     function createERC1155Collection(string memory uri) external returns (address collection);
-    function transferCollectionOwnership(address collection, address newOwner) external;
     function updateBeacon(uint8 collectionType, address newBeacon) external;
     function getBeacon(uint8 collectionType) external view returns (address);
     function getImplementation(uint8 collectionType) external view returns (address);
@@ -23,4 +22,5 @@ interface IVaultCollectionFactory {
     function getCollectionType(address collection) external view returns (uint8);
     function erc721Beacon() external view returns (address);
     function erc1155Beacon() external view returns (address);
+    function diamond() external view returns (address);
 }

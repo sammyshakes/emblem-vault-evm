@@ -64,12 +64,17 @@ contract DeployDiamondSystem is Script {
         IDiamondCut.FacetCut[] memory cut = new IDiamondCut.FacetCut[](7);
 
         // DiamondLoupeFacet
-        bytes4[] memory loupeSelectors = new bytes4[](5);
+        bytes4[] memory loupeSelectors = new bytes4[](9);
         loupeSelectors[0] = DiamondLoupeFacet.facets.selector;
         loupeSelectors[1] = DiamondLoupeFacet.facetFunctionSelectors.selector;
         loupeSelectors[2] = DiamondLoupeFacet.facetAddresses.selector;
         loupeSelectors[3] = DiamondLoupeFacet.getFacetAddress.selector;
         loupeSelectors[4] = DiamondLoupeFacet.supportsInterface.selector;
+        // Add batch function selectors
+        loupeSelectors[5] = DiamondLoupeFacet.getFacetAddresses.selector;
+        loupeSelectors[6] = DiamondLoupeFacet.batchFacetFunctionSelectors.selector;
+        loupeSelectors[7] = DiamondLoupeFacet.supportsInterfaces.selector;
+        loupeSelectors[8] = DiamondLoupeFacet.batchFacets.selector;
         cut[0] = IDiamondCut.FacetCut({
             facetAddress: address(diamondLoupeFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -87,7 +92,7 @@ contract DeployDiamondSystem is Script {
         });
 
         // VaultCoreFacet
-        bytes4[] memory vaultCoreSelectors = new bytes4[](11);
+        bytes4[] memory vaultCoreSelectors = new bytes4[](13);
         vaultCoreSelectors[0] = EmblemVaultCoreFacet.lockVault.selector;
         vaultCoreSelectors[1] = EmblemVaultCoreFacet.unlockVault.selector;
         vaultCoreSelectors[2] = EmblemVaultCoreFacet.isVaultLocked.selector;
@@ -99,6 +104,8 @@ contract DeployDiamondSystem is Script {
         vaultCoreSelectors[8] = EmblemVaultCoreFacet.isWitness.selector;
         vaultCoreSelectors[9] = EmblemVaultCoreFacet.getWitnessCount.selector;
         vaultCoreSelectors[10] = EmblemVaultCoreFacet.version.selector;
+        vaultCoreSelectors[11] = EmblemVaultCoreFacet.setVaultFactory.selector;
+        vaultCoreSelectors[12] = EmblemVaultCoreFacet.getVaultFactory.selector;
         cut[2] = IDiamondCut.FacetCut({
             facetAddress: address(vaultCoreFacet),
             action: IDiamondCut.FacetCutAction.Add,

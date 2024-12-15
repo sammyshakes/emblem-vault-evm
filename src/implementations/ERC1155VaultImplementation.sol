@@ -8,15 +8,13 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import "../interfaces/IHandlerCallback.sol";
 import "../interfaces/IIsSerialized.sol";
 import "../interfaces/IVaultProxy.sol";
 
 /**
  * @title ERC1155VaultImplementation
  * @notice Implementation of the ERC1155 vault token with serial number tracking
- * @dev Implements ERC1155 with supply tracking and callback support
- * TODO: Discuss with team about royalties enforcement strategy
+ * @dev Implements ERC1155 with supply tracking
  */
 contract ERC1155VaultImplementation is
     Initializable,
@@ -35,13 +33,8 @@ contract ERC1155VaultImplementation is
     mapping(uint256 => address) private _serialOwners; // serialNumber => owner
     uint256 private _nextSerial;
 
-    // Registered contracts by type
-    mapping(uint256 => address[]) public registeredOfType;
-
     // Events
     event SerialNumberAssigned(uint256 indexed tokenId, uint256 indexed serialNumber);
-    event ContractRegistered(uint256 indexed contractType, address indexed contractAddress);
-    event ContractUnregistered(uint256 indexed contractType, address indexed contractAddress);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -64,23 +57,6 @@ contract ERC1155VaultImplementation is
      */
     function setURI(string memory newuri) public onlyOwner {
         _setURI(newuri);
-    }
-
-    function registerContract(uint256 contractType, address contractAddress) external onlyOwner {
-        registeredOfType[contractType].push(contractAddress);
-        emit ContractRegistered(contractType, contractAddress);
-    }
-
-    function unregisterContract(uint256 contractType, address contractAddress) external onlyOwner {
-        address[] storage contracts = registeredOfType[contractType];
-        for (uint256 i = 0; i < contracts.length; i++) {
-            if (contracts[i] == contractAddress) {
-                contracts[i] = contracts[contracts.length - 1];
-                contracts.pop();
-                emit ContractUnregistered(contractType, contractAddress);
-                break;
-            }
-        }
     }
 
     function mint(address to, uint256 id, uint256 amount, bytes memory data) external onlyOwner {
@@ -114,13 +90,6 @@ contract ERC1155VaultImplementation is
                     _serialOwners[serialNumber] = to;
                     emit SerialNumberAssigned(ids[i], serialNumber);
                 }
-
-                // Execute callbacks if called by handler
-                if (registeredOfType[3].length > 0 && registeredOfType[3][0] == _msgSender()) {
-                    IHandlerCallback(_msgSender()).executeCallbacks(
-                        address(0), to, ids[i], IHandlerCallback.CallbackType.MINT
-                    );
-                }
             }
         }
         // Handle burning
@@ -132,13 +101,6 @@ contract ERC1155VaultImplementation is
                     delete _serialToTokenId[serialNumber];
                     delete _serialOwners[serialNumber];
                     serials.pop();
-                }
-
-                // Execute callbacks if handler is registered
-                if (registeredOfType[3].length > 0 && registeredOfType[3][0] != address(0)) {
-                    IHandlerCallback(registeredOfType[3][0]).executeCallbacks(
-                        _msgSender(), address(0), ids[i], IHandlerCallback.CallbackType.BURN
-                    );
                 }
             }
         }

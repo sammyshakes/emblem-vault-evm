@@ -22,7 +22,7 @@ contract VaultCollectionFactory is IVaultCollectionFactory {
     using LibCollectionTypes for uint8;
 
     // State variables
-    address public immutable owner;
+    address public immutable diamond;
     address public erc721Beacon;
     address public erc1155Beacon;
 
@@ -30,11 +30,13 @@ contract VaultCollectionFactory is IVaultCollectionFactory {
      * @notice Constructor
      * @param _erc721Beacon Address of the ERC721 collection beacon
      * @param _erc1155Beacon Address of the ERC1155 collection beacon
+     * @param _diamond Address of the Diamond that will own all collections
      */
-    constructor(address _erc721Beacon, address _erc1155Beacon) {
+    constructor(address _erc721Beacon, address _erc1155Beacon, address _diamond) {
         LibErrors.revertIfZeroAddress(_erc721Beacon);
         LibErrors.revertIfZeroAddress(_erc1155Beacon);
-        owner = msg.sender;
+        LibErrors.revertIfZeroAddress(_diamond);
+        diamond = _diamond;
         erc721Beacon = _erc721Beacon;
         erc1155Beacon = _erc1155Beacon;
     }
@@ -49,12 +51,21 @@ contract VaultCollectionFactory is IVaultCollectionFactory {
         external
         returns (address collection)
     {
+        // Only Diamond can create collections
+        if (msg.sender != diamond) revert LibErrors.Unauthorized(msg.sender);
+
         // Deploy proxy
         collection = address(new ERC721VaultProxy(erc721Beacon));
 
-        // Initialize collection contract
+        // Initialize collection contract with Diamond as owner
         try IERC721VaultProxy(collection).initialize(name, symbol) {
-            emit ERC721CollectionCreated(collection, name, symbol);
+            // Transfer ownership to Diamond immediately after initialization
+            try OwnableUpgradeable(collection).transferOwnership(diamond) {
+                emit CollectionOwnershipTransferred(collection, diamond);
+                emit ERC721CollectionCreated(collection, name, symbol);
+            } catch {
+                revert LibErrors.TransferFailed();
+            }
         } catch {
             revert LibErrors.InitializationFailed();
         }
@@ -66,32 +77,23 @@ contract VaultCollectionFactory is IVaultCollectionFactory {
      * @return collection The address of the new collection contract that can mint individual vaults
      */
     function createERC1155Collection(string memory uri) external returns (address collection) {
+        // Only Diamond can create collections
+        if (msg.sender != diamond) revert LibErrors.Unauthorized(msg.sender);
+
         // Deploy proxy
         collection = address(new ERC1155VaultProxy(erc1155Beacon));
 
-        // Initialize collection contract
+        // Initialize collection contract with Diamond as owner
         try IERC1155VaultProxy(collection).initialize(uri) {
-            emit ERC1155CollectionCreated(collection, uri);
+            // Transfer ownership to Diamond immediately after initialization
+            try OwnableUpgradeable(collection).transferOwnership(diamond) {
+                emit CollectionOwnershipTransferred(collection, diamond);
+                emit ERC1155CollectionCreated(collection, uri);
+            } catch {
+                revert LibErrors.TransferFailed();
+            }
         } catch {
             revert LibErrors.InitializationFailed();
-        }
-    }
-
-    /**
-     * @notice Transfer ownership of a collection to a new owner
-     * @param collection The collection address
-     * @param newOwner The new owner address
-     */
-    function transferCollectionOwnership(address collection, address newOwner) external {
-        if (msg.sender != owner) revert LibErrors.Unauthorized(msg.sender);
-        if (!isCollection(collection)) revert LibErrors.InvalidCollection(collection);
-        LibErrors.revertIfZeroAddress(newOwner);
-
-        // Transfer ownership
-        try OwnableUpgradeable(collection).transferOwnership(newOwner) {
-            emit CollectionOwnershipTransferred(collection, newOwner);
-        } catch {
-            revert LibErrors.TransferFailed();
         }
     }
 
@@ -101,7 +103,8 @@ contract VaultCollectionFactory is IVaultCollectionFactory {
      * @param newBeacon The address of the new beacon
      */
     function updateBeacon(uint8 collectionType, address newBeacon) external {
-        if (msg.sender != owner) revert LibErrors.Unauthorized(msg.sender);
+        // Only Diamond can update beacons
+        if (msg.sender != diamond) revert LibErrors.Unauthorized(msg.sender);
         LibErrors.revertIfZeroAddress(newBeacon);
 
         if (!collectionType.isValidCollectionType()) {
