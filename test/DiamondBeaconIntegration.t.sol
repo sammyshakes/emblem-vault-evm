@@ -18,16 +18,7 @@ import {
 import {ERC721VaultImplementation} from "../src/implementations/ERC721VaultImplementation.sol";
 import {ERC1155VaultImplementation} from "../src/implementations/ERC1155VaultImplementation.sol";
 import {VaultCollectionFactory} from "../src/factories/VaultCollectionFactory.sol";
-import {IHandlerCallback} from "../src/interfaces/IHandlerCallback.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-
-// Mock handler callback implementation
-contract MockHandlerCallback is IHandlerCallback {
-    function executeCallbacks(address from, address to, uint256 tokenId, CallbackType callbackType)
-        external
-        override
-    {}
-}
 
 contract DiamondBeaconIntegrationTest is Test {
     // Diamond components
@@ -45,22 +36,25 @@ contract DiamondBeaconIntegrationTest is Test {
     ERC721VaultBeacon erc721Beacon;
     ERC1155VaultBeacon erc1155Beacon;
     VaultCollectionFactory factory;
-    MockHandlerCallback mockHandler;
 
     // Test addresses
     address owner = address(this);
     address user1 = address(0x1);
     address user2 = address(0x2);
 
-    // Contract types
-    uint256 constant HANDLER_TYPE = 3; // Type 3 is for handler/factory
-    uint256 constant ERC721_TYPE = 1;
-    uint256 constant ERC1155_TYPE = 2;
+    // Events to test
+    event VaultLocked(address indexed nftAddress, uint256 indexed tokenId, address indexed owner);
+    event VaultUnlocked(address indexed nftAddress, uint256 indexed tokenId, address indexed owner);
+    event VaultFactorySet(address indexed oldFactory, address indexed newFactory);
+
+    // Custom errors
+    error InvalidCollection();
+    error FactoryNotSet();
+    error VaultAlreadyLocked();
+    error VaultNotLocked();
+    error ZeroAddress();
 
     function setUp() public {
-        // Deploy mock handler
-        mockHandler = new MockHandlerCallback();
-
         // Deploy diamond facets
         diamondCutFacet = new DiamondCutFacet();
         diamondLoupeFacet = new DiamondLoupeFacet();
@@ -108,10 +102,10 @@ contract DiamondBeaconIntegrationTest is Test {
         vaultCoreSelectors[5] = EmblemVaultCoreFacet.setRecipientAddress.selector;
         vaultCoreSelectors[6] = EmblemVaultCoreFacet.setQuoteContract.selector;
         vaultCoreSelectors[7] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
-        vaultCoreSelectors[8] = EmblemVaultCoreFacet.registerContract.selector;
-        vaultCoreSelectors[9] = EmblemVaultCoreFacet.unregisterContract.selector;
-        vaultCoreSelectors[10] = EmblemVaultCoreFacet.getRegisteredContractsOfType.selector;
-        vaultCoreSelectors[11] = EmblemVaultCoreFacet.isRegistered.selector;
+        vaultCoreSelectors[8] = EmblemVaultCoreFacet.isWitness.selector;
+        vaultCoreSelectors[9] = EmblemVaultCoreFacet.getWitnessCount.selector;
+        vaultCoreSelectors[10] = EmblemVaultCoreFacet.setVaultFactory.selector;
+        vaultCoreSelectors[11] = EmblemVaultCoreFacet.getVaultFactory.selector;
         vaultCoreSelectors[12] = EmblemVaultCoreFacet.version.selector;
         cut[2] = IDiamondCut.FacetCut({
             facetAddress: address(vaultCoreFacet),
@@ -130,11 +124,12 @@ contract DiamondBeaconIntegrationTest is Test {
         });
 
         // InitializationFacet
-        bytes4[] memory initSelectors = new bytes4[](4);
+        bytes4[] memory initSelectors = new bytes4[](5);
         initSelectors[0] = EmblemVaultInitFacet.initialize.selector;
         initSelectors[1] = EmblemVaultInitFacet.isInitialized.selector;
         initSelectors[2] = EmblemVaultInitFacet.getInterfaceIds.selector;
         initSelectors[3] = EmblemVaultInitFacet.getConfiguration.selector;
+        initSelectors[4] = EmblemVaultInitFacet.getInitializationDetails.selector;
         cut[4] = IDiamondCut.FacetCut({
             facetAddress: address(initFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -162,63 +157,67 @@ contract DiamondBeaconIntegrationTest is Test {
         erc721Beacon.transferOwnership(address(factory));
         erc1155Beacon.transferOwnership(address(factory));
 
-        // Register factory with diamond as handler (type 3)
-        EmblemVaultCoreFacet(address(diamond)).registerContract(address(mockHandler), HANDLER_TYPE);
+        // Set factory in diamond
+        vm.expectEmit(true, true, true, true);
+        emit VaultFactorySet(address(0), address(factory));
+        EmblemVaultCoreFacet(address(diamond)).setVaultFactory(address(factory));
 
         // Setup test accounts
         vm.deal(user1, 100 ether);
         vm.deal(user2, 100 ether);
     }
 
-    function _setupVault(address vault) internal {
-        // Register vault with diamond
-        EmblemVaultCoreFacet(address(diamond)).registerContract(vault, ERC721_TYPE);
+    function testInitialization() public view {
+        assertTrue(EmblemVaultInitFacet(address(diamond)).isInitialized());
+        (
+            string memory baseUri,
+            address recipientAddr,
+            address quoteAddr,
+            address claimerAddr,
+            bool byPassable,
+            uint256 witnessCount
+        ) = EmblemVaultInitFacet(address(diamond)).getConfiguration();
 
-        // Register mock handler in the vault
-        vm.startPrank(OwnableUpgradeable(vault).owner());
-        ERC721VaultImplementation(vault).registerContract(HANDLER_TYPE, address(mockHandler));
-        vm.stopPrank();
-
-        // Transfer ownership to factory
-        vm.startPrank(OwnableUpgradeable(vault).owner());
-        OwnableUpgradeable(vault).transferOwnership(address(factory));
-        vm.stopPrank();
+        assertEq(baseUri, "https://v2.emblemvault.io/meta/");
+        assertEq(witnessCount, 1); // owner is initial witness
+        assertEq(recipientAddr, address(this)); // Set to owner during initialization
+        assertEq(quoteAddr, address(0)); // Not set in initialization
+        assertEq(claimerAddr, address(0)); // Not set in initialization
+        assertFalse(byPassable); // Default to false
+        assertEq(EmblemVaultCoreFacet(address(diamond)).getVaultFactory(), address(factory));
     }
 
-    function _setupVault1155(address vault) internal {
-        // Register vault with diamond
-        EmblemVaultCoreFacet(address(diamond)).registerContract(vault, ERC1155_TYPE);
+    function testFactoryManagement() public {
+        // Deploy new factory
+        VaultCollectionFactory newFactory =
+            new VaultCollectionFactory(address(erc721Beacon), address(erc1155Beacon));
 
-        // Register mock handler in the vault
-        vm.startPrank(OwnableUpgradeable(vault).owner());
-        ERC1155VaultImplementation(vault).registerContract(HANDLER_TYPE, address(mockHandler));
-        vm.stopPrank();
+        // Update factory
+        vm.expectEmit(true, true, true, true);
+        emit VaultFactorySet(address(factory), address(newFactory));
+        EmblemVaultCoreFacet(address(diamond)).setVaultFactory(address(newFactory));
 
-        // Transfer ownership to factory
-        vm.startPrank(OwnableUpgradeable(vault).owner());
-        OwnableUpgradeable(vault).transferOwnership(address(factory));
-        vm.stopPrank();
+        // Verify update
+        assertEq(EmblemVaultCoreFacet(address(diamond)).getVaultFactory(), address(newFactory));
     }
 
-    function testCreateVaultThroughDiamond() public {
-        // Create ERC721 vault collection through diamond
+    function testRevertSetZeroFactory() public {
+        vm.expectRevert(ZeroAddress.selector);
+        EmblemVaultCoreFacet(address(diamond)).setVaultFactory(address(0));
+    }
+
+    function testCreateVaultThroughFactory() public {
+        // Create ERC721 vault collection
         string memory name = "Test Vault";
         string memory symbol = "TVLT";
 
         address vault = factory.createERC721Collection(name, symbol);
-        _setupVault(vault);
 
-        // Verify vault creation and registration
-        assertTrue(EmblemVaultCoreFacet(address(diamond)).isRegistered(vault, ERC721_TYPE));
+        // Verify vault creation
+        assertTrue(factory.isCollection(vault));
         assertEq(ERC721VaultImplementation(vault).name(), name);
         assertEq(ERC721VaultImplementation(vault).symbol(), symbol);
         assertEq(OwnableUpgradeable(vault).owner(), address(factory));
-
-        // Verify mock handler is registered
-        address[] memory registeredHandlers =
-            EmblemVaultCoreFacet(address(diamond)).getRegisteredContractsOfType(HANDLER_TYPE);
-        assertEq(registeredHandlers.length, 1);
-        assertEq(registeredHandlers[0], address(mockHandler));
 
         // Verify beacon ownership
         assertEq(erc721Beacon.owner(), address(factory));
@@ -228,7 +227,6 @@ contract DiamondBeaconIntegrationTest is Test {
     function testUpgradeVaultImplementation() public {
         // Create initial vault
         address vault = factory.createERC721Collection("Test Vault", "TVLT");
-        _setupVault(vault);
 
         // Deploy new implementation
         ERC721VaultImplementation newImplementation = new ERC721VaultImplementation();
@@ -251,14 +249,15 @@ contract DiamondBeaconIntegrationTest is Test {
     function testFullSystemFlow() public {
         // 1. Create vault collection
         address vault = factory.createERC721Collection("Test Vault", "TVLT");
-        _setupVault(vault);
 
-        // 2. Mint token through factory (simulating diamond mint)
+        // 2. Mint token through factory
         vm.startPrank(address(factory));
         ERC721VaultImplementation(vault).mint(user1, 1);
         vm.stopPrank();
 
         // 3. Lock vault through diamond
+        vm.expectEmit(true, true, true, true);
+        emit VaultLocked(vault, 1, address(this));
         EmblemVaultCoreFacet(address(diamond)).lockVault(vault, 1);
         assertTrue(EmblemVaultCoreFacet(address(diamond)).isVaultLocked(vault, 1));
 
@@ -273,6 +272,8 @@ contract DiamondBeaconIntegrationTest is Test {
         assertEq(ERC721VaultImplementation(vault).ownerOf(1), user1);
 
         // 6. Unlock vault and transfer
+        vm.expectEmit(true, true, true, true);
+        emit VaultUnlocked(vault, 1, address(this));
         EmblemVaultCoreFacet(address(diamond)).unlockVault(vault, 1);
 
         vm.startPrank(user1);
@@ -285,7 +286,6 @@ contract DiamondBeaconIntegrationTest is Test {
         // 1. Create ERC1155 vault collection
         string memory uri = "https://test.uri/";
         address vault = factory.createERC1155Collection(uri);
-        _setupVault1155(vault);
 
         // 2. Mint tokens through factory
         vm.startPrank(address(factory));
@@ -308,6 +308,32 @@ contract DiamondBeaconIntegrationTest is Test {
         // 6. Verify state after upgrade
         assertTrue(EmblemVaultCoreFacet(address(diamond)).isVaultLocked(vault, 1));
         assertEq(ERC1155VaultImplementation(vault).balanceOf(user1, 1), 5);
+    }
+
+    function testRevertLockInvalidCollection() public {
+        address invalidCollection = address(0x999);
+        vm.expectRevert(InvalidCollection.selector);
+        EmblemVaultCoreFacet(address(diamond)).lockVault(invalidCollection, 1);
+    }
+
+    function testRevertWithoutFactory() public {
+        // Create new diamond without setting factory
+        EmblemVaultDiamond newDiamond = new EmblemVaultDiamond(owner, address(diamondCutFacet));
+
+        // Add core facet to new diamond
+        IDiamondCut.FacetCut[] memory cut = new IDiamondCut.FacetCut[](1);
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = EmblemVaultCoreFacet.lockVault.selector;
+        cut[0] = IDiamondCut.FacetCut({
+            facetAddress: address(vaultCoreFacet),
+            action: IDiamondCut.FacetCutAction.Add,
+            functionSelectors: selectors
+        });
+        IDiamondCut(address(newDiamond)).diamondCut(cut, address(0), "");
+
+        // Try to lock vault without setting factory
+        vm.expectRevert(FactoryNotSet.selector);
+        EmblemVaultCoreFacet(address(newDiamond)).lockVault(address(0x1), 1);
     }
 
     receive() external payable {}

@@ -159,6 +159,24 @@ contract VaultCollectionFactory {
     }
 
     /**
+     * @notice Get the type of a collection
+     * @param collection The collection address
+     * @return The collection type (1 for ERC721, 2 for ERC1155)
+     */
+    function getCollectionType(address collection) external view returns (uint8) {
+        if (!isCollection(collection)) revert NotACollection();
+
+        address beaconAddress = IVaultProxy(collection).beacon();
+        if (beaconAddress == erc721Beacon) {
+            return ERC721_TYPE;
+        } else if (beaconAddress == erc1155Beacon) {
+            return ERC1155_TYPE;
+        } else {
+            revert InvalidCollectionType();
+        }
+    }
+
+    /**
      * @notice Check if an address is a vault collection contract created by this factory
      * @param collection The address to check
      * @return bool True if the address is a vault collection contract

@@ -10,7 +10,7 @@ import {OwnershipFacet} from "../src/facets/OwnershipFacet.sol";
 import {EmblemVaultCoreFacet} from "../src/facets/EmblemVaultCoreFacet.sol";
 import {EmblemVaultClaimFacet} from "../src/facets/EmblemVaultClaimFacet.sol";
 import {EmblemVaultMintFacet} from "../src/facets/EmblemVaultMintFacet.sol";
-import {EmblemVaultCallbackFacet} from "../src/facets/EmblemVaultCallbackFacet.sol";
+import {EmblemVaultCollectionFacet} from "../src/facets/EmblemVaultCollectionFacet.sol";
 import {EmblemVaultInitFacet} from "../src/facets/EmblemVaultInitFacet.sol";
 
 contract DeployDiamond is Script {
@@ -25,7 +25,7 @@ contract DeployDiamond is Script {
         EmblemVaultCoreFacet vaultCoreFacet = new EmblemVaultCoreFacet();
         EmblemVaultClaimFacet claimFacet = new EmblemVaultClaimFacet();
         EmblemVaultMintFacet mintFacet = new EmblemVaultMintFacet();
-        EmblemVaultCallbackFacet callbackFacet = new EmblemVaultCallbackFacet();
+        EmblemVaultCollectionFacet collectionFacet = new EmblemVaultCollectionFacet();
         EmblemVaultInitFacet initFacet = new EmblemVaultInitFacet();
 
         // Deploy Diamond
@@ -58,7 +58,7 @@ contract DeployDiamond is Script {
         });
 
         // VaultCoreFacet
-        bytes4[] memory vaultCoreSelectors = new bytes4[](13);
+        bytes4[] memory vaultCoreSelectors = new bytes4[](11);
         vaultCoreSelectors[0] = EmblemVaultCoreFacet.lockVault.selector;
         vaultCoreSelectors[1] = EmblemVaultCoreFacet.unlockVault.selector;
         vaultCoreSelectors[2] = EmblemVaultCoreFacet.isVaultLocked.selector;
@@ -67,11 +67,9 @@ contract DeployDiamond is Script {
         vaultCoreSelectors[5] = EmblemVaultCoreFacet.setRecipientAddress.selector;
         vaultCoreSelectors[6] = EmblemVaultCoreFacet.setQuoteContract.selector;
         vaultCoreSelectors[7] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
-        vaultCoreSelectors[8] = EmblemVaultCoreFacet.registerContract.selector;
-        vaultCoreSelectors[9] = EmblemVaultCoreFacet.unregisterContract.selector;
-        vaultCoreSelectors[10] = EmblemVaultCoreFacet.getRegisteredContractsOfType.selector;
-        vaultCoreSelectors[11] = EmblemVaultCoreFacet.isRegistered.selector;
-        vaultCoreSelectors[12] = EmblemVaultCoreFacet.version.selector;
+        vaultCoreSelectors[8] = EmblemVaultCoreFacet.isWitness.selector;
+        vaultCoreSelectors[9] = EmblemVaultCoreFacet.getWitnessCount.selector;
+        vaultCoreSelectors[10] = EmblemVaultCoreFacet.version.selector;
         cut[2] = IDiamondCut.FacetCut({
             facetAddress: address(vaultCoreFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -79,9 +77,10 @@ contract DeployDiamond is Script {
         });
 
         // ClaimFacet
-        bytes4[] memory claimSelectors = new bytes4[](2);
+        bytes4[] memory claimSelectors = new bytes4[](3);
         claimSelectors[0] = EmblemVaultClaimFacet.claim.selector;
         claimSelectors[1] = EmblemVaultClaimFacet.claimWithSignedPrice.selector;
+        claimSelectors[2] = EmblemVaultClaimFacet.setClaimerContract.selector;
         cut[3] = IDiamondCut.FacetCut({
             facetAddress: address(claimFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -98,26 +97,30 @@ contract DeployDiamond is Script {
             functionSelectors: mintSelectors
         });
 
-        // CallbackFacet
-        bytes4[] memory callbackSelectors = new bytes4[](6);
-        callbackSelectors[0] = EmblemVaultCallbackFacet.executeCallbacks.selector;
-        callbackSelectors[1] = EmblemVaultCallbackFacet.registerCallback.selector;
-        callbackSelectors[2] = EmblemVaultCallbackFacet.registerWildcardCallback.selector;
-        callbackSelectors[3] = EmblemVaultCallbackFacet.hasCallback.selector;
-        callbackSelectors[4] = EmblemVaultCallbackFacet.unregisterCallback.selector;
-        callbackSelectors[5] = EmblemVaultCallbackFacet.toggleAllowCallbacks.selector;
+        // CollectionFacet
+        bytes4[] memory collectionSelectors = new bytes4[](9);
+        collectionSelectors[0] = EmblemVaultCollectionFacet.setCollectionFactory.selector;
+        collectionSelectors[1] = EmblemVaultCollectionFacet.createVaultCollection.selector;
+        collectionSelectors[2] = EmblemVaultCollectionFacet.upgradeCollectionImplementation.selector;
+        collectionSelectors[3] = EmblemVaultCollectionFacet.getCollectionImplementation.selector;
+        collectionSelectors[4] = EmblemVaultCollectionFacet.getCollectionBeacon.selector;
+        collectionSelectors[5] = EmblemVaultCollectionFacet.isCollection.selector;
+        collectionSelectors[6] = EmblemVaultCollectionFacet.getCollectionFactory.selector;
+        collectionSelectors[7] = EmblemVaultCollectionFacet.setCollectionBaseURI.selector;
+        collectionSelectors[8] = EmblemVaultCollectionFacet.setCollectionURI.selector;
         cut[5] = IDiamondCut.FacetCut({
-            facetAddress: address(callbackFacet),
+            facetAddress: address(collectionFacet),
             action: IDiamondCut.FacetCutAction.Add,
-            functionSelectors: callbackSelectors
+            functionSelectors: collectionSelectors
         });
 
         // InitializationFacet
-        bytes4[] memory initSelectors = new bytes4[](4);
+        bytes4[] memory initSelectors = new bytes4[](5);
         initSelectors[0] = EmblemVaultInitFacet.initialize.selector;
         initSelectors[1] = EmblemVaultInitFacet.isInitialized.selector;
         initSelectors[2] = EmblemVaultInitFacet.getInterfaceIds.selector;
         initSelectors[3] = EmblemVaultInitFacet.getConfiguration.selector;
+        initSelectors[4] = EmblemVaultInitFacet.getInitializationDetails.selector;
         cut[6] = IDiamondCut.FacetCut({
             facetAddress: address(initFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -139,7 +142,7 @@ contract DeployDiamond is Script {
         console.log("VaultCoreFacet deployed at:", address(vaultCoreFacet));
         console.log("ClaimFacet deployed at:", address(claimFacet));
         console.log("MintFacet deployed at:", address(mintFacet));
-        console.log("CallbackFacet deployed at:", address(callbackFacet));
-        console.log("InitializationFacet deployed at:", address(initFacet));
+        console.log("CollectionFacet deployed at:", address(collectionFacet));
+        console.log("InitFacet deployed at:", address(initFacet));
     }
 }

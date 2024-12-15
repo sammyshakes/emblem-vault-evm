@@ -4,151 +4,205 @@ pragma solidity ^0.8.19;
 import "forge-std/Test.sol";
 import "../src/beacon/VaultBeacon.sol";
 import "../src/beacon/VaultProxy.sol";
+import "../src/implementations/ERC721VaultImplementation.sol";
 import "../src/interfaces/IVaultBeacon.sol";
 import "../src/interfaces/IVaultProxy.sol";
-import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
-// Mock implementation for testing
-contract MockImplementation is IERC165 {
-    bool public initialized;
-    string public name;
-    string public symbol;
-
-    function initialize(string memory _name, string memory _symbol) external {
-        require(!initialized, "Already initialized");
-        name = _name;
-        symbol = _symbol;
-        initialized = true;
-    }
-
-    function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-        return interfaceId == type(IERC165).interfaceId;
-    }
-}
-
-// Updated implementation for testing upgrades
-contract MockImplementationV2 is IERC165 {
-    bool public initialized;
-    string public name;
-    string public symbol;
-    uint256 public constant version = 2;
-
-    function initialize(string memory _name, string memory _symbol) external {
-        require(!initialized, "Already initialized");
-        name = _name;
-        symbol = _symbol;
-        initialized = true;
-    }
-
-    function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-        return interfaceId == type(IERC165).interfaceId;
-    }
+// Simple contract without implementation() function for testing
+contract NonBeaconContract {
+    function initialize(string memory, string memory) external pure {}
 }
 
 contract BeaconVaultTest is Test {
     VaultBeacon public beacon;
-    VaultProxy public proxy;
-    MockImplementation public implementation;
-    MockImplementationV2 public implementationV2;
+    ERC721VaultProxy public proxy;
+    ERC721VaultImplementation public implementation;
+    ERC721VaultImplementation public implementationV2;
+    NonBeaconContract public nonBeacon;
 
     address owner = address(this);
     address user = address(0x1);
+    address newOwner = address(0x2);
+
+    // Events
+    event ImplementationUpgraded(
+        address indexed oldImplementation, address indexed newImplementation
+    );
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event BeaconSet(address indexed beacon);
+
+    // Custom errors from contracts
+    error ZeroAddress();
+    error NotOwner();
+    error InvalidImplementation();
+    error InitializationFailed();
+    error DelegationFailed();
 
     function setUp() public {
         // Deploy implementation
-        implementation = new MockImplementation();
+        implementation = new ERC721VaultImplementation();
 
         // Deploy beacon
         beacon = new VaultBeacon(address(implementation));
 
         // Deploy proxy
-        proxy = new VaultProxy(address(beacon));
+        proxy = new ERC721VaultProxy(address(beacon));
+
+        // Deploy non-beacon contract
+        nonBeacon = new NonBeaconContract();
+
+        // Initialize the proxy
+        ERC721VaultImplementation(address(proxy)).initialize("TestVault", "TEST");
     }
+
+    // ============ Initial Setup Tests ============
 
     function testInitialSetup() public view {
         assertEq(beacon.implementation(), address(implementation));
         assertEq(beacon.owner(), owner);
+        assertEq(address(IVaultProxy(address(proxy)).beacon()), address(beacon));
+
+        // Check initialization worked
+        assertEq(ERC721VaultImplementation(address(proxy)).name(), "TestVault");
+        assertEq(ERC721VaultImplementation(address(proxy)).symbol(), "TEST");
     }
 
     function testProxyDelegation() public {
-        // Initialize through proxy
-        MockImplementation(address(proxy)).initialize("Test", "TST");
-
-        // Check values through proxy
-        assertEq(MockImplementation(address(proxy)).name(), "Test");
-        assertEq(MockImplementation(address(proxy)).symbol(), "TST");
-        assertTrue(MockImplementation(address(proxy)).initialized());
+        // Test minting through proxy
+        ERC721VaultImplementation(address(proxy)).mint(user, 1);
+        assertEq(ERC721VaultImplementation(address(proxy)).ownerOf(1), user);
+        assertEq(ERC721VaultImplementation(address(proxy)).getInternalTokenId(1), 1);
     }
+
+    // ============ Upgrade Tests ============
 
     function testUpgrade() public {
         // Deploy new implementation
-        implementationV2 = new MockImplementationV2();
+        implementationV2 = new ERC721VaultImplementation();
 
-        // Initialize first version
-        MockImplementation(address(proxy)).initialize("Test", "TST");
+        // Mint a token before upgrade
+        ERC721VaultImplementation(address(proxy)).mint(user, 1);
 
         // Upgrade beacon
+        vm.expectEmit(true, true, true, true);
+        emit ImplementationUpgraded(address(implementation), address(implementationV2));
         beacon.upgrade(address(implementationV2));
 
         // Check new implementation
         assertEq(beacon.implementation(), address(implementationV2));
 
-        // Check version through proxy (should be 2 without re-initialization)
-        assertEq(MockImplementationV2(address(proxy)).version(), 2);
+        // Verify state persisted through upgrade
+        assertEq(ERC721VaultImplementation(address(proxy)).ownerOf(1), user);
+        assertEq(ERC721VaultImplementation(address(proxy)).getInternalTokenId(1), 1);
     }
 
-    function testFailUpgradeUnauthorized() public {
-        vm.prank(user);
-        beacon.upgrade(address(implementationV2));
+    function testRevertUpgradeUnauthorized() public {
+        vm.startPrank(user);
+        vm.expectRevert(abi.encodeWithSignature("NotOwner()"));
+        beacon.upgrade(address(0));
+        vm.stopPrank();
     }
 
-    function testFailUpgradeToZeroAddress() public {
+    function testRevertUpgradeToZeroAddress() public {
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
         beacon.upgrade(address(0));
     }
 
-    function testFailUpgradeToInvalidImplementation() public {
-        // Deploy invalid implementation (doesn't support IERC165)
-        InvalidImplementation invalid = new InvalidImplementation();
-        beacon.upgrade(address(invalid));
-    }
+    // ============ Ownership Tests ============
 
     function testTransferOwnership() public {
-        beacon.transferOwnership(user);
-        assertEq(beacon.owner(), user);
+        vm.expectEmit(true, true, true, true);
+        emit OwnershipTransferred(owner, newOwner);
+        beacon.transferOwnership(newOwner);
+        assertEq(beacon.owner(), newOwner);
+
+        // Verify new owner can upgrade implementation
+        vm.startPrank(newOwner);
+        implementationV2 = new ERC721VaultImplementation();
+        beacon.upgrade(address(implementationV2));
+        vm.stopPrank();
     }
 
-    function testFailTransferOwnershipUnauthorized() public {
-        vm.prank(user);
-        beacon.transferOwnership(user);
+    function testRevertTransferOwnershipUnauthorized() public {
+        vm.startPrank(user);
+        vm.expectRevert(abi.encodeWithSignature("NotOwner()"));
+        beacon.transferOwnership(newOwner);
+        vm.stopPrank();
     }
 
-    function testFailTransferOwnershipToZeroAddress() public {
+    function testRevertTransferOwnershipToZeroAddress() public {
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
         beacon.transferOwnership(address(0));
     }
 
+    // ============ Multiple Proxies Tests ============
+
     function testMultipleProxies() public {
         // Deploy second proxy
-        VaultProxy proxy2 = new VaultProxy(address(beacon));
+        ERC721VaultProxy proxy2 = new ERC721VaultProxy(address(beacon));
+        ERC721VaultImplementation(address(proxy2)).initialize("TestVault2", "TEST2");
 
-        // Initialize both proxies
-        MockImplementation(address(proxy)).initialize("Test1", "TST1");
-        MockImplementation(address(proxy2)).initialize("Test2", "TST2");
+        // Mint tokens on both proxies
+        ERC721VaultImplementation(address(proxy)).mint(user, 1);
+        ERC721VaultImplementation(address(proxy2)).mint(user, 2);
 
-        // Check values
-        assertEq(MockImplementation(address(proxy)).name(), "Test1");
-        assertEq(MockImplementation(address(proxy2)).name(), "Test2");
+        // Verify independent state
+        assertEq(ERC721VaultImplementation(address(proxy)).name(), "TestVault");
+        assertEq(ERC721VaultImplementation(address(proxy2)).name(), "TestVault2");
+        assertEq(ERC721VaultImplementation(address(proxy)).ownerOf(1), user);
+        assertEq(ERC721VaultImplementation(address(proxy2)).ownerOf(1), user);
 
         // Upgrade implementation
-        implementationV2 = new MockImplementationV2();
+        implementationV2 = new ERC721VaultImplementation();
+        vm.expectEmit(true, true, true, true);
+        emit ImplementationUpgraded(address(implementation), address(implementationV2));
         beacon.upgrade(address(implementationV2));
 
-        // Both proxies should now use new implementation and have version 2
-        assertEq(MockImplementationV2(address(proxy)).version(), 2);
-        assertEq(MockImplementationV2(address(proxy2)).version(), 2);
+        // Verify state persisted in both proxies
+        assertEq(ERC721VaultImplementation(address(proxy)).ownerOf(1), user);
+        assertEq(ERC721VaultImplementation(address(proxy2)).ownerOf(1), user);
+        assertEq(ERC721VaultImplementation(address(proxy)).name(), "TestVault");
+        assertEq(ERC721VaultImplementation(address(proxy2)).name(), "TestVault2");
     }
-}
 
-// Invalid implementation for testing
-contract InvalidImplementation {
-    function initialize(string memory, string memory) external pure {}
+    // ============ Failure Tests ============
+
+    function testRevertDoubleInitialization() public {
+        vm.expectRevert("ERC721A__Initializable: contract is already initialized");
+        ERC721VaultImplementation(address(proxy)).initialize("TestVault2", "TEST2");
+    }
+
+    function testRevertUpgradeAfterOwnershipTransfer() public {
+        // Transfer ownership
+        beacon.transferOwnership(newOwner);
+
+        // Try to upgrade with old owner
+        vm.expectRevert(abi.encodeWithSignature("NotOwner()"));
+        beacon.upgrade(address(0));
+    }
+
+    // ============ Proxy Initialization Tests ============
+
+    function testRevertProxyWithZeroBeacon() public {
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
+        new ERC721VaultProxy(address(0));
+    }
+
+    function testRevertProxyWithNonContractBeacon() public {
+        // Create proxy with EOA as beacon
+        ERC721VaultProxy invalidProxy = new ERC721VaultProxy(user);
+
+        // First call should fail since EOA can't respond to implementation()
+        vm.expectRevert();
+        ERC721VaultImplementation(address(invalidProxy)).initialize("Test", "TST");
+    }
+
+    function testRevertProxyWithNonBeaconContract() public {
+        // Create proxy with non-beacon contract
+        ERC721VaultProxy invalidProxy = new ERC721VaultProxy(address(nonBeacon));
+
+        // First call should fail since contract doesn't have implementation()
+        vm.expectRevert();
+        ERC721VaultImplementation(address(invalidProxy)).initialize("Test", "TST");
+    }
 }

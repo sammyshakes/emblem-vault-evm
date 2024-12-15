@@ -27,7 +27,12 @@ interface IMintVaultQuote {
     /// @param _discountToken New discount token address
     /// @param amount New amount required for discount
     /// @param discount New discount percentage (basis points)
-    function updateDiscountToken(uint256 index, address _discountToken, uint256 amount, uint256 discount) external;
+    function updateDiscountToken(
+        uint256 index,
+        address _discountToken,
+        uint256 amount,
+        uint256 discount
+    ) external;
 
     /// @notice Remove a discount token configuration
     /// @param index Index of the discount token to remove
@@ -44,7 +49,8 @@ interface IMintVaultQuote {
     /// @param _mintPass New mint pass contract address
     /// @param tokenId New token ID
     /// @param price New special price
-    function updateMintPass(uint256 index, address _mintPass, uint256 tokenId, uint256 price) external;
+    function updateMintPass(uint256 index, address _mintPass, uint256 tokenId, uint256 price)
+        external;
 
     /// @notice Remove a mint pass configuration
     /// @param index Index of the mint pass to remove

@@ -6,18 +6,11 @@ import "../libraries/LibEmblemVaultStorage.sol";
 import "../interfaces/IERC165.sol";
 import "../interfaces/IERC721.sol";
 import "../interfaces/IERC1155.sol";
-
-interface IERC20Token {
-    function transferFrom(address from, address to, uint256 value) external returns (bool);
-}
-
-interface IMintVaultQuote {
-    function quoteExternalPrice(address buyer, uint256 price) external view returns (uint256);
-}
-
-interface IIsSerialized {
-    function isOverloadSerial() external view returns (bool);
-}
+import "../interfaces/IERC20Token.sol";
+import "../interfaces/IMintVaultQuote.sol";
+import "../interfaces/IIsSerialized.sol";
+import "../interfaces/IERC721A.sol";
+import "../interfaces/IVaultCollectionFactory.sol";
 
 contract EmblemVaultMintFacet {
     using LibEmblemVaultStorage for LibEmblemVaultStorage.VaultStorage;
@@ -28,8 +21,19 @@ contract EmblemVaultMintFacet {
         uint256 indexed tokenId,
         uint256 amount,
         uint256 price,
-        address paymentToken
+        address paymentToken,
+        bytes data
     );
+
+    // Custom errors
+    error InvalidCollection();
+    error FactoryNotSet();
+    error InvalidSignature();
+    error TransferFailed();
+    error MintFailed();
+    error InvalidAmount();
+    error InvalidNonce();
+    error PriceOutOfRange();
 
     struct MintParams {
         address nftAddress;
@@ -44,6 +48,15 @@ contract EmblemVaultMintFacet {
         bool isQuote;
     }
 
+    modifier onlyValidCollection(address collection) {
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
+        if (vs.vaultFactory == address(0)) revert FactoryNotSet();
+        if (!IVaultCollectionFactory(vs.vaultFactory).isCollection(collection)) {
+            revert InvalidCollection();
+        }
+        _;
+    }
+
     function buyWithSignedPrice(
         address _nftAddress,
         address _payment,
@@ -54,7 +67,7 @@ contract EmblemVaultMintFacet {
         bytes calldata _signature,
         bytes calldata _serialNumber,
         uint256 _amount
-    ) external payable {
+    ) external payable onlyValidCollection(_nftAddress) {
         LibEmblemVaultStorage.nonReentrantBefore();
 
         MintParams memory params = MintParams({
@@ -84,7 +97,7 @@ contract EmblemVaultMintFacet {
         bytes calldata _signature,
         bytes calldata _serialNumber,
         uint256 _amount
-    ) external payable {
+    ) external payable onlyValidCollection(_nftAddress) {
         LibEmblemVaultStorage.nonReentrantBefore();
 
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
@@ -93,10 +106,9 @@ contract EmblemVaultMintFacet {
 
         // Calculate the acceptable range for the msg.value (2% tolerance)
         uint256 acceptableRange = totalPrice * 2 / 100;
-        require(
-            msg.value >= totalPrice - acceptableRange && msg.value <= totalPrice + acceptableRange,
-            "EmblemVaultMintFacet: Amount outside acceptable range"
-        );
+        if (msg.value < totalPrice - acceptableRange || msg.value > totalPrice + acceptableRange) {
+            revert PriceOutOfRange();
+        }
 
         MintParams memory params = MintParams({
             nftAddress: _nftAddress,
@@ -121,20 +133,26 @@ contract EmblemVaultMintFacet {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
 
         if (params.payment == address(0)) {
-            // For buyWithQuote, we don't check msg.value == params.price because params.price is the base price
-            // The msg.value check is done in buyWithQuote itself
             payable(vs.recipientAddress).transfer(msg.value);
         } else {
-            IERC20Token paymentToken = IERC20Token(params.payment);
-            require(
-                paymentToken.transferFrom(msg.sender, vs.recipientAddress, params.price),
-                "EmblemVaultMintFacet: Transfer failed"
-            );
+            if (
+                !IERC20Token(params.payment).transferFrom(
+                    msg.sender, vs.recipientAddress, params.price
+                )
+            ) {
+                revert TransferFailed();
+            }
         }
 
         address signer = params.isQuote
             ? getAddressFromSignatureQuote(
-                params.nftAddress, params.price, params.to, params.tokenId, params.nonce, params.amount, params.signature
+                params.nftAddress,
+                params.price,
+                params.to,
+                params.tokenId,
+                params.nonce,
+                params.amount,
+                params.signature
             )
             : getAddressFromSignature(
                 params.nftAddress,
@@ -149,10 +167,21 @@ contract EmblemVaultMintFacet {
 
         LibEmblemVaultStorage.enforceIsWitness(signer);
 
-        require(_mintRouter(params), "EmblemVaultMintFacet: Mint failed");
+        if (!_mintRouter(params)) {
+            revert MintFailed();
+        }
+
         LibEmblemVaultStorage.setUsedNonce(params.nonce);
 
-        emit TokenMinted(params.nftAddress, params.to, params.tokenId, params.amount, params.price, params.payment);
+        emit TokenMinted(
+            params.nftAddress,
+            params.to,
+            params.tokenId,
+            params.amount,
+            params.price,
+            params.payment,
+            params.serialNumber
+        );
     }
 
     function _mintRouter(MintParams memory params) private returns (bool) {
@@ -168,9 +197,16 @@ contract EmblemVaultMintFacet {
             }
         } else {
             if (IERC165(params.nftAddress).supportsInterface(vs.INTERFACE_ID_ERC721A)) {
-                IERC721A(params.nftAddress).mint(params.to, params.tokenId);
+                if (params.serialNumber.length > 0) {
+                    IERC721A(params.nftAddress).mintWithData(
+                        params.to, params.tokenId, params.serialNumber
+                    );
+                } else {
+                    IERC721A(params.nftAddress).mint(params.to, params.tokenId);
+                }
             } else {
-                string memory uri = string(abi.encodePacked(vs.metadataBaseUri, uintToStr(params.tokenId)));
+                string memory uri =
+                    string(abi.encodePacked(vs.metadataBaseUri, uintToStr(params.tokenId)));
                 IERC721(params.nftAddress).mint(params.to, params.tokenId, uri, "");
             }
         }
@@ -187,7 +223,9 @@ contract EmblemVaultMintFacet {
         uint256 _amount,
         bytes memory _signature
     ) internal pure returns (address) {
-        bytes32 hash = keccak256(abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount));
+        bytes32 hash = keccak256(
+            abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount)
+        );
         return recoverSigner(hash, _signature);
     }
 
@@ -200,12 +238,13 @@ contract EmblemVaultMintFacet {
         uint256 _amount,
         bytes memory _signature
     ) internal pure returns (address) {
-        bytes32 hash = keccak256(abi.encodePacked(_nftAddress, _price, _to, _tokenId, _nonce, _amount));
+        bytes32 hash =
+            keccak256(abi.encodePacked(_nftAddress, _price, _to, _tokenId, _nonce, _amount));
         return recoverSigner(hash, _signature);
     }
 
     function recoverSigner(bytes32 hash, bytes memory sig) internal pure returns (address) {
-        require(sig.length == 65, "EmblemVaultMintFacet: Invalid signature length");
+        if (sig.length != 65) revert InvalidSignature();
 
         bytes32 r;
         bytes32 s;
@@ -221,7 +260,7 @@ contract EmblemVaultMintFacet {
             v += 27;
         }
 
-        require(v == 27 || v == 28, "EmblemVaultMintFacet: Invalid signature version");
+        if (v != 27 && v != 28) revert InvalidSignature();
 
         bytes memory prefix = "\x19Ethereum Signed Message:\n32";
         bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, hash));
@@ -249,8 +288,4 @@ contract EmblemVaultMintFacet {
         }
         return string(bstr);
     }
-}
-
-interface IERC721A {
-    function mint(address _to, uint256 _tokenId) external;
 }
