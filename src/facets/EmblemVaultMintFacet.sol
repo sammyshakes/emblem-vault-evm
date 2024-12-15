@@ -3,7 +3,8 @@ pragma solidity ^0.8.19;
 
 import "../libraries/LibDiamond.sol";
 import "../libraries/LibEmblemVaultStorage.sol";
-import "../interfaces/IERC165.sol";
+import "../libraries/LibSignature.sol";
+import "../libraries/LibInterfaceIds.sol";
 import "../interfaces/IERC721.sol";
 import "../interfaces/IERC1155.sol";
 import "../interfaces/IERC20Token.sol";
@@ -28,7 +29,6 @@ contract EmblemVaultMintFacet {
     // Custom errors
     error InvalidCollection();
     error FactoryNotSet();
-    error InvalidSignature();
     error TransferFailed();
     error MintFailed();
     error InvalidAmount();
@@ -145,7 +145,7 @@ contract EmblemVaultMintFacet {
         }
 
         address signer = params.isQuote
-            ? getAddressFromSignatureQuote(
+            ? LibSignature.verifyQuoteSignature(
                 params.nftAddress,
                 params.price,
                 params.to,
@@ -154,7 +154,7 @@ contract EmblemVaultMintFacet {
                 params.amount,
                 params.signature
             )
-            : getAddressFromSignature(
+            : LibSignature.verifyStandardSignature(
                 params.nftAddress,
                 params.payment,
                 params.price,
@@ -185,9 +185,7 @@ contract EmblemVaultMintFacet {
     }
 
     function _mintRouter(MintParams memory params) private returns (bool) {
-        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-
-        if (IERC165(params.nftAddress).supportsInterface(vs.INTERFACE_ID_ERC1155)) {
+        if (LibInterfaceIds.isERC1155(params.nftAddress)) {
             if (IIsSerialized(params.nftAddress).isOverloadSerial()) {
                 IERC1155(params.nftAddress).mintWithSerial(
                     params.to, params.tokenId, params.amount, params.serialNumber
@@ -196,7 +194,7 @@ contract EmblemVaultMintFacet {
                 IERC1155(params.nftAddress).mint(params.to, params.tokenId, params.amount);
             }
         } else {
-            if (IERC165(params.nftAddress).supportsInterface(vs.INTERFACE_ID_ERC721A)) {
+            if (LibInterfaceIds.isERC721A(params.nftAddress)) {
                 if (params.serialNumber.length > 0) {
                     IERC721A(params.nftAddress).mintWithData(
                         params.to, params.tokenId, params.serialNumber
@@ -205,69 +203,16 @@ contract EmblemVaultMintFacet {
                     IERC721A(params.nftAddress).mint(params.to, params.tokenId);
                 }
             } else {
+                LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
                 string memory uri =
-                    string(abi.encodePacked(vs.metadataBaseUri, uintToStr(params.tokenId)));
+                    string(abi.encodePacked(vs.metadataBaseUri, _uintToStr(params.tokenId)));
                 IERC721(params.nftAddress).mint(params.to, params.tokenId, uri, "");
             }
         }
         return true;
     }
 
-    function getAddressFromSignature(
-        address _nftAddress,
-        address _payment,
-        uint256 _price,
-        address _to,
-        uint256 _tokenId,
-        uint256 _nonce,
-        uint256 _amount,
-        bytes memory _signature
-    ) internal pure returns (address) {
-        bytes32 hash = keccak256(
-            abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount)
-        );
-        return recoverSigner(hash, _signature);
-    }
-
-    function getAddressFromSignatureQuote(
-        address _nftAddress,
-        uint256 _price,
-        address _to,
-        uint256 _tokenId,
-        uint256 _nonce,
-        uint256 _amount,
-        bytes memory _signature
-    ) internal pure returns (address) {
-        bytes32 hash =
-            keccak256(abi.encodePacked(_nftAddress, _price, _to, _tokenId, _nonce, _amount));
-        return recoverSigner(hash, _signature);
-    }
-
-    function recoverSigner(bytes32 hash, bytes memory sig) internal pure returns (address) {
-        if (sig.length != 65) revert InvalidSignature();
-
-        bytes32 r;
-        bytes32 s;
-        uint8 v;
-
-        assembly {
-            r := mload(add(sig, 32))
-            s := mload(add(sig, 64))
-            v := byte(0, mload(add(sig, 96)))
-        }
-
-        if (v < 27) {
-            v += 27;
-        }
-
-        if (v != 27 && v != 28) revert InvalidSignature();
-
-        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
-        bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, hash));
-        return ecrecover(prefixedHash, v, r, s);
-    }
-
-    function uintToStr(uint256 _i) internal pure returns (string memory) {
+    function _uintToStr(uint256 _i) internal pure returns (string memory) {
         if (_i == 0) {
             return "0";
         }

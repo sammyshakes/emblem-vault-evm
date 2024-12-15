@@ -3,7 +3,8 @@ pragma solidity ^0.8.19;
 
 import "../libraries/LibDiamond.sol";
 import "../libraries/LibEmblemVaultStorage.sol";
-import "../interfaces/IERC165.sol";
+import "../libraries/LibSignature.sol";
+import "../libraries/LibInterfaceIds.sol";
 import "../interfaces/IERC721.sol";
 import "../interfaces/IERC1155.sol";
 import "../interfaces/IERC20Token.sol";
@@ -42,7 +43,6 @@ contract EmblemVaultClaimFacet {
     error VaultNotLocked();
     error ClaimerNotSet();
     error BurnFailed();
-    error InvalidSignature();
     error TransferFailed();
     error InvalidTokenId();
     error NotVaultOwner();
@@ -101,11 +101,11 @@ contract EmblemVaultClaimFacet {
 
         address signer;
         if (LibEmblemVaultStorage.isVaultLocked(_nftAddress, _tokenId)) {
-            signer = getAddressFromSignatureLocked(
+            signer = LibSignature.verifyLockedSignature(
                 _nftAddress, _payment, _price, msg.sender, _tokenId, _nonce, 1, _signature
             );
         } else {
-            signer = getAddressFromSignature(
+            signer = LibSignature.verifyStandardSignature(
                 _nftAddress, _payment, _price, msg.sender, _tokenId, _nonce, 1, _signature
             );
         }
@@ -144,7 +144,7 @@ contract EmblemVaultClaimFacet {
         IClaimed claimer = IClaimed(vs.claimerContract);
         bytes32[] memory proof;
 
-        if (IERC165(_nftAddress).supportsInterface(vs.INTERFACE_ID_ERC1155)) {
+        if (LibInterfaceIds.isERC1155(_nftAddress)) {
             IIsSerialized serialized = IIsSerialized(_nftAddress);
             serialNumber = serialized.getFirstSerialByOwner(address(this), tokenId);
 
@@ -164,7 +164,7 @@ contract EmblemVaultClaimFacet {
             }
             data = "";
         } else {
-            if (IERC165(_nftAddress).supportsInterface(vs.INTERFACE_ID_ERC721A)) {
+            if (LibInterfaceIds.isERC721A(_nftAddress)) {
                 IERC721A token = IERC721A(_nftAddress);
                 uint256 internalTokenId = token.getInternalTokenId(tokenId);
 
@@ -195,61 +195,5 @@ contract EmblemVaultClaimFacet {
             }
         }
         return (true, serialNumber, data);
-    }
-
-    function getAddressFromSignature(
-        address _nftAddress,
-        address _payment,
-        uint256 _price,
-        address _to,
-        uint256 _tokenId,
-        uint256 _nonce,
-        uint256 _amount,
-        bytes calldata signature
-    ) internal pure returns (address) {
-        bytes32 hash = keccak256(
-            abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount)
-        );
-        return recoverSigner(hash, signature);
-    }
-
-    function getAddressFromSignatureLocked(
-        address _nftAddress,
-        address _payment,
-        uint256 _price,
-        address _to,
-        uint256 _tokenId,
-        uint256 _nonce,
-        uint256 _amount,
-        bytes calldata signature
-    ) internal pure returns (address) {
-        bytes32 hash = keccak256(
-            abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount, true)
-        );
-        return recoverSigner(hash, signature);
-    }
-
-    function recoverSigner(bytes32 hash, bytes memory sig) internal pure returns (address) {
-        if (sig.length != 65) revert InvalidSignature();
-
-        bytes32 r;
-        bytes32 s;
-        uint8 v;
-
-        assembly {
-            r := mload(add(sig, 32))
-            s := mload(add(sig, 64))
-            v := byte(0, mload(add(sig, 96)))
-        }
-
-        if (v < 27) {
-            v += 27;
-        }
-
-        if (v != 27 && v != 28) revert InvalidSignature();
-
-        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
-        bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, hash));
-        return ecrecover(prefixedHash, v, r, s);
     }
 }
