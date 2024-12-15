@@ -8,10 +8,16 @@ import "../interfaces/IERC165.sol";
 /// @dev Centralizes interface detection logic used across facets
 library LibInterfaceIds {
     // Interface IDs
+    bytes4 constant INTERFACE_ID_ERC165 = 0x01ffc9a7;
     bytes4 constant INTERFACE_ID_ERC721 = 0x80ac58cd;
     bytes4 constant INTERFACE_ID_ERC721A = bytes4(keccak256("ERC721A"));
     bytes4 constant INTERFACE_ID_ERC1155 = 0xd9b67a26;
     bytes4 constant INTERFACE_ID_SERIALIZED = bytes4(keccak256("IsSerialized"));
+
+    // Diamond Interface IDs
+    bytes4 constant INTERFACE_ID_DIAMOND_CUT = 0x1f931c1c;
+    bytes4 constant INTERFACE_ID_DIAMOND_LOUPE = 0x48e2b093;
+    bytes4 constant INTERFACE_ID_ERC173 = 0x7f5828d0; // Ownership
 
     // Token Standards (for getTokenStandard return values)
     uint8 constant TOKEN_STANDARD_ERC721A = 1;
@@ -67,5 +73,14 @@ library LibInterfaceIds {
         returns (bool)
     {
         return IERC165(contractAddress).supportsInterface(interfaceId);
+    }
+
+    /// @notice Register standard diamond interfaces
+    /// @param ds Storage pointer to register interfaces on
+    function registerDiamondInterfaces(mapping(bytes4 => bool) storage ds) internal {
+        ds[INTERFACE_ID_ERC165] = true;
+        ds[INTERFACE_ID_DIAMOND_CUT] = true;
+        ds[INTERFACE_ID_DIAMOND_LOUPE] = true;
+        ds[INTERFACE_ID_ERC173] = true;
     }
 }

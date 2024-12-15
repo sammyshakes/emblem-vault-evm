@@ -5,6 +5,35 @@ pragma solidity ^0.8.19;
 /// @notice Library for centralized error definitions
 /// @dev Contains all custom errors used across the system
 library LibErrors {
+    // ============ Diamond Errors ============
+
+    /// @notice Function does not exist in any facet
+    error FunctionNotFound(bytes4 selector);
+
+    /// @notice Initialization failed during diamond cut
+    error DiamondInitFailed(address initContract, bytes initData);
+
+    /// @notice Invalid facet cut action provided
+    error InvalidFacetCutAction(uint8 action);
+
+    /// @notice Function already exists and cannot be added again
+    error FunctionAlreadyExists(bytes4 selector);
+
+    /// @notice Function doesn't exist and cannot be replaced/removed
+    error FunctionDoesNotExist(bytes4 selector);
+
+    /// @notice Cannot replace function with same function
+    error CannotReplaceSameFunction(bytes4 selector);
+
+    /// @notice Invalid initialization parameters
+    error InvalidInitialization();
+
+    /// @notice Initialization contract has no code
+    error InitializationContractEmpty(address initContract);
+
+    /// @notice Delegate call failed
+    error DelegateCallFailed();
+
     // ============ Common Errors ============
 
     /// @notice Zero address provided where a non-zero address is required
@@ -171,5 +200,24 @@ library LibErrors {
         pure
     {
         if (caller != owner) revert NotCollectionOwner(collection, caller);
+    }
+
+    /// @notice Check for contract ownership
+    function revertIfNotContractOwner(address caller, address owner) internal pure {
+        if (caller != owner) revert Unauthorized(caller);
+    }
+
+    /// @notice Check for function existence
+    function revertIfFunctionNotFound(bytes4 selector, address facet) internal pure {
+        if (facet == address(0)) revert FunctionNotFound(selector);
+    }
+
+    /// @notice Check for initialization contract
+    function revertIfInitializationInvalid(address initContract, bytes memory initData)
+        internal
+        pure
+    {
+        if (initContract == address(0) && initData.length > 0) revert InvalidInitialization();
+        if (initContract != address(0) && initData.length == 0) revert InvalidInitialization();
     }
 }
