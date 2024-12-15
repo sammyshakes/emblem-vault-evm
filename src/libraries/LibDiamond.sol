@@ -22,6 +22,10 @@ library LibDiamond {
         mapping(bytes4 => bool) supportedInterfaces;
         // owner of the contract
         address contractOwner;
+        // Selector cache
+        mapping(address => bytes4[]) facetSelectors; // Cache of selectors per facet
+        mapping(bytes4 => uint256) selectorToIndex; // Position of selector in facetSelectors array
+        uint256 totalSelectors; // Total number of selectors
     }
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -100,8 +104,16 @@ library LibDiamond {
             if (oldFacetAddress != address(0)) {
                 revert LibErrors.FunctionAlreadyExists(selector);
             }
+
+            // Update selector mappings
             ds.facetAddressAndSelectorPosition[selector] =
                 FacetAddressAndSelectorPosition(_facetAddress, selectorPosition);
+
+            // Update selector cache
+            ds.facetSelectors[_facetAddress].push(selector);
+            ds.selectorToIndex[selector] = ds.facetSelectors[_facetAddress].length - 1;
+            ds.totalSelectors++;
+
             selectorPosition++;
         }
     }
@@ -132,8 +144,27 @@ library LibDiamond {
             if (oldFacetAddress == address(0)) {
                 revert LibErrors.FunctionDoesNotExist(selector);
             }
+
+            // Remove from old facet's cache
+            uint256 oldSelectorIndex = ds.selectorToIndex[selector];
+            bytes4[] storage oldFacetSelectorCache = ds.facetSelectors[oldFacetAddress];
+            uint256 lastIndex = oldFacetSelectorCache.length - 1;
+            if (oldSelectorIndex != lastIndex) {
+                bytes4 lastSelector = oldFacetSelectorCache[lastIndex];
+                oldFacetSelectorCache[oldSelectorIndex] = lastSelector;
+                ds.selectorToIndex[lastSelector] = oldSelectorIndex;
+            }
+            oldFacetSelectorCache.pop();
+            delete ds.selectorToIndex[selector];
+
+            // Update selector mappings
             ds.facetAddressAndSelectorPosition[selector] =
                 FacetAddressAndSelectorPosition(_facetAddress, selectorPosition);
+
+            // Add to new facet's cache
+            ds.facetSelectors[_facetAddress].push(selector);
+            ds.selectorToIndex[selector] = ds.facetSelectors[_facetAddress].length - 1;
+
             selectorPosition++;
         }
     }
@@ -144,14 +175,28 @@ library LibDiamond {
         }
         DiamondStorage storage ds = diamondStorage();
         uint256 selectorCount = _functionSelectors.length;
+
         for (uint256 selectorIndex; selectorIndex < selectorCount; selectorIndex++) {
             bytes4 selector = _functionSelectors[selectorIndex];
-            FacetAddressAndSelectorPosition memory oldFacet =
-                ds.facetAddressAndSelectorPosition[selector];
-            if (oldFacet.facetAddress == address(0)) {
+            address facetAddress = ds.facetAddressAndSelectorPosition[selector].facetAddress;
+
+            if (facetAddress == address(0)) {
                 revert LibErrors.FunctionDoesNotExist(selector);
             }
+
+            // Remove from facet's cache
+            uint256 oldSelectorIndex = ds.selectorToIndex[selector];
+            bytes4[] storage facetSelectorCache = ds.facetSelectors[facetAddress];
+            uint256 lastIndex = facetSelectorCache.length - 1;
+            if (oldSelectorIndex != lastIndex) {
+                bytes4 lastSelector = facetSelectorCache[lastIndex];
+                facetSelectorCache[oldSelectorIndex] = lastSelector;
+                ds.selectorToIndex[lastSelector] = oldSelectorIndex;
+            }
+            facetSelectorCache.pop();
+            delete ds.selectorToIndex[selector];
             delete ds.facetAddressAndSelectorPosition[selector];
+            ds.totalSelectors--;
         }
     }
 
