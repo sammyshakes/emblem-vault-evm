@@ -5,6 +5,7 @@ import "../libraries/LibDiamond.sol";
 import "../libraries/LibEmblemVaultStorage.sol";
 import "../libraries/LibSignature.sol";
 import "../libraries/LibInterfaceIds.sol";
+import "../libraries/LibErrors.sol";
 import "../interfaces/IERC721.sol";
 import "../interfaces/IERC1155.sol";
 import "../interfaces/IERC20Token.sol";
@@ -35,33 +36,18 @@ contract EmblemVaultClaimFacet {
     );
     event ClaimerContractUpdated(address indexed oldClaimer, address indexed newClaimer);
 
-    // Custom errors
-    error InvalidCollection();
-    error FactoryNotSet();
-    error ZeroAddress();
-    error VaultLocked();
-    error VaultNotLocked();
-    error ClaimerNotSet();
-    error BurnFailed();
-    error TransferFailed();
-    error InvalidTokenId();
-    error NotVaultOwner();
-    error AlreadyClaimed();
-    error IncorrectPayment();
-    error InvalidNonce();
-
     modifier onlyValidCollection(address collection) {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        if (vs.vaultFactory == address(0)) revert FactoryNotSet();
-        if (!IVaultCollectionFactory(vs.vaultFactory).isCollection(collection)) {
-            revert InvalidCollection();
-        }
+        LibErrors.revertIfFactoryNotSet(vs.vaultFactory);
+        LibErrors.revertIfInvalidCollection(
+            collection, IVaultCollectionFactory(vs.vaultFactory).isCollection(collection)
+        );
         _;
     }
 
     function setClaimerContract(address _claimer) external {
         LibDiamond.enforceIsContractOwner();
-        if (_claimer == address(0)) revert ZeroAddress();
+        LibErrors.revertIfZeroAddress(_claimer);
 
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         address oldClaimer = vs.claimerContract;
@@ -76,13 +62,13 @@ contract EmblemVaultClaimFacet {
     {
         LibEmblemVaultStorage.nonReentrantBefore();
 
-        if (LibEmblemVaultStorage.isVaultLocked(_nftAddress, tokenId)) {
-            revert VaultLocked();
-        }
+        LibErrors.revertIfAlreadyLocked(
+            _nftAddress, tokenId, LibEmblemVaultStorage.isVaultLocked(_nftAddress, tokenId)
+        );
 
         (bool success, uint256 serialNumber, bytes memory data) =
             burnRouter(_nftAddress, tokenId, true);
-        if (!success) revert BurnFailed();
+        if (!success) revert LibErrors.BurnFailed(_nftAddress, tokenId);
 
         emit TokenClaimed(_nftAddress, tokenId, msg.sender, serialNumber, data);
         LibEmblemVaultStorage.nonReentrantAfter();
@@ -110,15 +96,15 @@ contract EmblemVaultClaimFacet {
             );
         }
 
-        LibEmblemVaultStorage.enforceIsWitness(signer);
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
+        LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
 
         if (_payment == address(0)) {
-            if (msg.value != _price) revert IncorrectPayment();
+            LibErrors.revertIfIncorrectPayment(msg.value, _price);
             payable(vs.recipientAddress).transfer(_price);
         } else {
             if (!IERC20Token(_payment).transferFrom(msg.sender, vs.recipientAddress, _price)) {
-                revert TransferFailed();
+                revert LibErrors.TransferFailed();
             }
         }
 
@@ -127,7 +113,7 @@ contract EmblemVaultClaimFacet {
 
         (bool success, uint256 serialNumber, bytes memory data) =
             burnRouter(_nftAddress, _tokenId, true);
-        if (!success) revert BurnFailed();
+        if (!success) revert LibErrors.BurnFailed(_nftAddress, _tokenId);
 
         LibEmblemVaultStorage.setUsedNonce(_nonce);
         emit TokenClaimedWithPrice(_nftAddress, _tokenId, msg.sender, _price, serialNumber, data);
@@ -139,7 +125,7 @@ contract EmblemVaultClaimFacet {
         returns (bool success, uint256 serialNumber, bytes memory data)
     {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        if (vs.claimerContract == address(0)) revert ClaimerNotSet();
+        if (vs.claimerContract == address(0)) revert LibErrors.ClaimerNotSet();
 
         IClaimed claimer = IClaimed(vs.claimerContract);
         bytes32[] memory proof;
@@ -149,13 +135,13 @@ contract EmblemVaultClaimFacet {
             serialNumber = serialized.getFirstSerialByOwner(address(this), tokenId);
 
             if (serialized.getTokenIdForSerialNumber(serialNumber) != tokenId) {
-                revert InvalidTokenId();
+                revert LibErrors.InvalidTokenId(tokenId);
             }
             if (serialized.getOwnerOfSerial(serialNumber) != address(this)) {
-                revert NotVaultOwner();
+                revert LibErrors.NotVaultOwner(_nftAddress, tokenId, address(this));
             }
             if (claimer.isClaimed(_nftAddress, serialNumber, proof)) {
-                revert AlreadyClaimed();
+                revert LibErrors.AlreadyClaimed(_nftAddress, serialNumber);
             }
 
             IERC1155(_nftAddress).burn(address(this), tokenId, 1);
@@ -169,10 +155,10 @@ contract EmblemVaultClaimFacet {
                 uint256 internalTokenId = token.getInternalTokenId(tokenId);
 
                 if (claimer.isClaimed(_nftAddress, internalTokenId, proof)) {
-                    revert AlreadyClaimed();
+                    revert LibErrors.AlreadyClaimed(_nftAddress, internalTokenId);
                 }
                 if (token.ownerOf(internalTokenId) != address(this)) {
-                    revert NotVaultOwner();
+                    revert LibErrors.NotVaultOwner(_nftAddress, internalTokenId, address(this));
                 }
 
                 token.burnWithData(internalTokenId, "");
@@ -180,11 +166,11 @@ contract EmblemVaultClaimFacet {
                 serialNumber = internalTokenId;
             } else {
                 if (claimer.isClaimed(_nftAddress, tokenId, proof)) {
-                    revert AlreadyClaimed();
+                    revert LibErrors.AlreadyClaimed(_nftAddress, tokenId);
                 }
                 IERC721 token = IERC721(_nftAddress);
                 if (token.ownerOf(tokenId) != address(this)) {
-                    revert NotVaultOwner();
+                    revert LibErrors.NotVaultOwner(_nftAddress, tokenId, address(this));
                 }
                 token.burn(tokenId);
                 serialNumber = tokenId;

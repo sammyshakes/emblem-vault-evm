@@ -21,6 +21,7 @@ import {ERC721VaultImplementation} from "../src/implementations/ERC721VaultImple
 import {ERC1155VaultImplementation} from "../src/implementations/ERC1155VaultImplementation.sol";
 import {VaultCollectionFactory} from "../src/factories/VaultCollectionFactory.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {LibErrors} from "../src/libraries/LibErrors.sol";
 import "./mocks/MockERC20.sol";
 import "./mocks/MockClaimer.sol";
 
@@ -627,9 +628,17 @@ contract DiamondVaultTest is Test {
             0xBAD // Wrong private key
         );
 
+        // Get the recovered address for the error expectation
+        bytes32 hash = keccak256(
+            abi.encodePacked(nftCollection, address(0), price, user1, tokenId, nonce, uint256(1))
+        );
+        bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(0xBAD, prefixedHash);
+        address recoveredSigner = ecrecover(prefixedHash, v, r, s);
+
         // Attempt to claim with invalid signature
         vm.startPrank(user1);
-        vm.expectRevert(NotWitness.selector);
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.NotWitness.selector, recoveredSigner));
         EmblemVaultClaimFacet(address(diamond)).claimWithSignedPrice{value: price}(
             nftCollection, tokenId, nonce, address(0), price, signature
         );
@@ -656,7 +665,9 @@ contract DiamondVaultTest is Test {
 
         // Attempt to claim with wrong payment amount
         vm.startPrank(user1);
-        vm.expectRevert(IncorrectPayment.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(LibErrors.IncorrectPayment.selector, price / 2, price)
+        );
         EmblemVaultClaimFacet(address(diamond)).claimWithSignedPrice{value: price / 2}(
             nftCollection, tokenId, nonce, address(0), price, signature
         );

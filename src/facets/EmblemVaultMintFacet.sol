@@ -5,6 +5,7 @@ import "../libraries/LibDiamond.sol";
 import "../libraries/LibEmblemVaultStorage.sol";
 import "../libraries/LibSignature.sol";
 import "../libraries/LibInterfaceIds.sol";
+import "../libraries/LibErrors.sol";
 import "../interfaces/IERC721.sol";
 import "../interfaces/IERC1155.sol";
 import "../interfaces/IERC20Token.sol";
@@ -26,15 +27,6 @@ contract EmblemVaultMintFacet {
         bytes data
     );
 
-    // Custom errors
-    error InvalidCollection();
-    error FactoryNotSet();
-    error TransferFailed();
-    error MintFailed();
-    error InvalidAmount();
-    error InvalidNonce();
-    error PriceOutOfRange();
-
     struct MintParams {
         address nftAddress;
         address payment;
@@ -50,10 +42,10 @@ contract EmblemVaultMintFacet {
 
     modifier onlyValidCollection(address collection) {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        if (vs.vaultFactory == address(0)) revert FactoryNotSet();
-        if (!IVaultCollectionFactory(vs.vaultFactory).isCollection(collection)) {
-            revert InvalidCollection();
-        }
+        LibErrors.revertIfFactoryNotSet(vs.vaultFactory);
+        LibErrors.revertIfInvalidCollection(
+            collection, IVaultCollectionFactory(vs.vaultFactory).isCollection(collection)
+        );
         _;
     }
 
@@ -106,9 +98,7 @@ contract EmblemVaultMintFacet {
 
         // Calculate the acceptable range for the msg.value (2% tolerance)
         uint256 acceptableRange = totalPrice * 2 / 100;
-        if (msg.value < totalPrice - acceptableRange || msg.value > totalPrice + acceptableRange) {
-            revert PriceOutOfRange();
-        }
+        LibErrors.revertIfPriceOutOfRange(msg.value, totalPrice, acceptableRange);
 
         MintParams memory params = MintParams({
             nftAddress: _nftAddress,
@@ -140,7 +130,7 @@ contract EmblemVaultMintFacet {
                     msg.sender, vs.recipientAddress, params.price
                 )
             ) {
-                revert TransferFailed();
+                revert LibErrors.TransferFailed();
             }
         }
 
@@ -165,10 +155,10 @@ contract EmblemVaultMintFacet {
                 params.signature
             );
 
-        LibEmblemVaultStorage.enforceIsWitness(signer);
+        LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
 
         if (!_mintRouter(params)) {
-            revert MintFailed();
+            revert LibErrors.MintFailed(params.nftAddress, params.tokenId);
         }
 
         LibEmblemVaultStorage.setUsedNonce(params.nonce);
