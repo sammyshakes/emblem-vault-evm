@@ -100,27 +100,21 @@ contract VaultCollectionFactory is IVaultCollectionFactory {
     /**
      * @notice Update the beacon for a collection type
      * @param collectionType The type of collection (1 for ERC721, 2 for ERC1155)
-     * @param newBeacon The address of the new beacon
+     * @param newImplementation The address of the new implementation
      */
-    function updateBeacon(uint8 collectionType, address newBeacon) external {
+    function updateBeacon(uint8 collectionType, address newImplementation) external {
         // Only Diamond can update beacons
         if (msg.sender != diamond) revert LibErrors.Unauthorized(msg.sender);
-        LibErrors.revertIfZeroAddress(newBeacon);
+        LibErrors.revertIfZeroAddress(newImplementation);
 
         if (!collectionType.isValidCollectionType()) {
             revert LibErrors.InvalidCollectionType(collectionType);
         }
 
-        address oldBeacon;
-        if (collectionType.isERC721Type()) {
-            oldBeacon = erc721Beacon;
-            erc721Beacon = newBeacon;
-        } else {
-            oldBeacon = erc1155Beacon;
-            erc1155Beacon = newBeacon;
-        }
+        address beacon = collectionType.isERC721Type() ? erc721Beacon : erc1155Beacon;
+        IVaultBeacon(beacon).upgrade(newImplementation);
 
-        emit BeaconUpdated(collectionType, oldBeacon, newBeacon);
+        emit BeaconUpdated(collectionType, beacon, beacon);
     }
 
     /**

@@ -46,6 +46,12 @@ contract DiamondBeaconIntegrationTest is Test {
     event VaultLocked(address indexed nftAddress, uint256 indexed tokenId, address indexed owner);
     event VaultUnlocked(address indexed nftAddress, uint256 indexed tokenId, address indexed owner);
     event VaultFactorySet(address indexed oldFactory, address indexed newFactory);
+    event BeaconUpdated(
+        uint8 indexed collectionType, address indexed oldBeacon, address indexed newBeacon
+    );
+    event ImplementationUpgraded(
+        address indexed oldImplementation, address indexed newImplementation
+    );
 
     // Custom errors
     error InvalidCollection();
@@ -104,9 +110,9 @@ contract DiamondBeaconIntegrationTest is Test {
         vaultCoreSelectors[7] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
         vaultCoreSelectors[8] = EmblemVaultCoreFacet.isWitness.selector;
         vaultCoreSelectors[9] = EmblemVaultCoreFacet.getWitnessCount.selector;
-        vaultCoreSelectors[10] = EmblemVaultCoreFacet.setVaultFactory.selector;
-        vaultCoreSelectors[11] = EmblemVaultCoreFacet.getVaultFactory.selector;
-        vaultCoreSelectors[12] = EmblemVaultCoreFacet.version.selector;
+        vaultCoreSelectors[10] = EmblemVaultCoreFacet.version.selector;
+        vaultCoreSelectors[11] = EmblemVaultCoreFacet.setVaultFactory.selector;
+        vaultCoreSelectors[12] = EmblemVaultCoreFacet.getVaultFactory.selector;
         cut[2] = IDiamondCut.FacetCut({
             facetAddress: address(vaultCoreFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -146,12 +152,14 @@ contract DiamondBeaconIntegrationTest is Test {
         erc721Implementation = new ERC721VaultImplementation();
         erc1155Implementation = new ERC1155VaultImplementation();
 
-        // Deploy beacons with uninitialized implementations
+        // Deploy beacons with implementations
         erc721Beacon = new ERC721VaultBeacon(address(erc721Implementation));
         erc1155Beacon = new ERC1155VaultBeacon(address(erc1155Implementation));
 
-        // Deploy factory (this test contract will be the owner)
-        factory = new VaultCollectionFactory(address(erc721Beacon), address(erc1155Beacon));
+        // Deploy factory with Diamond as controller
+        factory = new VaultCollectionFactory(
+            address(erc721Beacon), address(erc1155Beacon), address(diamond)
+        );
 
         // Transfer beacon ownership to factory
         erc721Beacon.transferOwnership(address(factory));
@@ -188,9 +196,10 @@ contract DiamondBeaconIntegrationTest is Test {
     }
 
     function testFactoryManagement() public {
-        // Deploy new factory
-        VaultCollectionFactory newFactory =
-            new VaultCollectionFactory(address(erc721Beacon), address(erc1155Beacon));
+        // Deploy new factory with Diamond as controller
+        VaultCollectionFactory newFactory = new VaultCollectionFactory(
+            address(erc721Beacon), address(erc1155Beacon), address(diamond)
+        );
 
         // Update factory
         vm.expectEmit(true, true, true, true);
@@ -207,53 +216,49 @@ contract DiamondBeaconIntegrationTest is Test {
     }
 
     function testCreateVaultThroughFactory() public {
-        // Create ERC721 vault collection
+        // Create ERC721 vault collection through Diamond
         string memory name = "Test Vault";
         string memory symbol = "TVLT";
 
+        vm.prank(address(diamond));
         address vault = factory.createERC721Collection(name, symbol);
 
         // Verify vault creation
         assertTrue(factory.isCollection(vault));
         assertEq(ERC721VaultImplementation(vault).name(), name);
         assertEq(ERC721VaultImplementation(vault).symbol(), symbol);
-        assertEq(OwnableUpgradeable(vault).owner(), address(factory));
-
-        // Verify beacon ownership
-        assertEq(erc721Beacon.owner(), address(factory));
-        assertEq(erc1155Beacon.owner(), address(factory));
+        assertEq(OwnableUpgradeable(vault).owner(), address(diamond));
     }
 
     function testUpgradeVaultImplementation() public {
-        // Create initial vault
+        // Create initial vault through Diamond
+        vm.prank(address(diamond));
         address vault = factory.createERC721Collection("Test Vault", "TVLT");
 
         // Deploy new implementation
         ERC721VaultImplementation newImplementation = new ERC721VaultImplementation();
 
-        // Upgrade implementation through beacon
-        vm.startPrank(address(factory));
-        erc721Beacon.upgrade(address(newImplementation));
-        vm.stopPrank();
+        // Upgrade implementation through factory (from Diamond)
+        vm.prank(address(diamond));
+        factory.updateBeacon(1, address(newImplementation)); // 1 = ERC721_TYPE
 
         // Verify upgrade
         assertEq(erc721Beacon.implementation(), address(newImplementation));
 
         // Verify vault still works with new implementation
-        vm.startPrank(address(factory));
+        vm.prank(address(diamond));
         ERC721VaultImplementation(vault).mint(user1, 1);
-        vm.stopPrank();
         assertEq(ERC721VaultImplementation(vault).ownerOf(1), user1);
     }
 
     function testFullSystemFlow() public {
-        // 1. Create vault collection
+        // 1. Create vault collection through Diamond
+        vm.prank(address(diamond));
         address vault = factory.createERC721Collection("Test Vault", "TVLT");
 
-        // 2. Mint token through factory
-        vm.startPrank(address(factory));
+        // 2. Mint token through Diamond
+        vm.prank(address(diamond));
         ERC721VaultImplementation(vault).mint(user1, 1);
-        vm.stopPrank();
 
         // 3. Lock vault through diamond
         vm.expectEmit(true, true, true, true);
@@ -261,11 +266,10 @@ contract DiamondBeaconIntegrationTest is Test {
         EmblemVaultCoreFacet(address(diamond)).lockVault(vault, 1);
         assertTrue(EmblemVaultCoreFacet(address(diamond)).isVaultLocked(vault, 1));
 
-        // 4. Upgrade implementation
+        // 4. Upgrade implementation through Diamond
         ERC721VaultImplementation newImplementation = new ERC721VaultImplementation();
-        vm.startPrank(address(factory));
-        erc721Beacon.upgrade(address(newImplementation));
-        vm.stopPrank();
+        vm.prank(address(diamond));
+        factory.updateBeacon(1, address(newImplementation)); // 1 = ERC721_TYPE
 
         // 5. Verify everything still works
         assertTrue(EmblemVaultCoreFacet(address(diamond)).isVaultLocked(vault, 1));
@@ -283,14 +287,14 @@ contract DiamondBeaconIntegrationTest is Test {
     }
 
     function testERC1155Integration() public {
-        // 1. Create ERC1155 vault collection
+        // 1. Create ERC1155 vault collection through Diamond
         string memory uri = "https://test.uri/";
+        vm.prank(address(diamond));
         address vault = factory.createERC1155Collection(uri);
 
-        // 2. Mint tokens through factory
-        vm.startPrank(address(factory));
+        // 2. Mint tokens through Diamond
+        vm.prank(address(diamond));
         ERC1155VaultImplementation(vault).mint(user1, 1, 5, "");
-        vm.stopPrank();
 
         // 3. Verify minting
         assertEq(ERC1155VaultImplementation(vault).balanceOf(user1, 1), 5);
@@ -299,11 +303,10 @@ contract DiamondBeaconIntegrationTest is Test {
         EmblemVaultCoreFacet(address(diamond)).lockVault(vault, 1);
         assertTrue(EmblemVaultCoreFacet(address(diamond)).isVaultLocked(vault, 1));
 
-        // 5. Upgrade implementation
+        // 5. Upgrade implementation through Diamond
         ERC1155VaultImplementation newImplementation = new ERC1155VaultImplementation();
-        vm.startPrank(address(factory));
-        erc1155Beacon.upgrade(address(newImplementation));
-        vm.stopPrank();
+        vm.prank(address(diamond));
+        factory.updateBeacon(2, address(newImplementation)); // 2 = ERC1155_TYPE
 
         // 6. Verify state after upgrade
         assertTrue(EmblemVaultCoreFacet(address(diamond)).isVaultLocked(vault, 1));

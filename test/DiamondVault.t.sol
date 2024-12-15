@@ -119,17 +119,7 @@ contract DiamondVaultTest is Test {
         erc721Beacon = new ERC721VaultBeacon(address(erc721Implementation));
         erc1155Beacon = new ERC1155VaultBeacon(address(erc1155Implementation));
 
-        // Deploy factory with beacons
-        factory = new VaultCollectionFactory(address(erc721Beacon), address(erc1155Beacon));
-
-        // Transfer beacon ownership to factory
-        erc721Beacon.transferOwnership(address(factory));
-        erc1155Beacon.transferOwnership(address(factory));
-
-        // Create a test collection through the factory
-        nftCollection = factory.createERC721Collection("Test NFT", "NFT");
-
-        // Deploy facets
+        // Deploy facets first
         diamondCutFacet = new DiamondCutFacet();
         diamondLoupeFacet = new DiamondLoupeFacet();
         ownershipFacet = new OwnershipFacet();
@@ -139,7 +129,7 @@ contract DiamondVaultTest is Test {
         collectionFacet = new EmblemVaultCollectionFacet();
         initFacet = new EmblemVaultInitFacet();
 
-        // Deploy Diamond
+        // Deploy Diamond with cut facet
         diamond = new EmblemVaultDiamond(owner, address(diamondCutFacet));
 
         // Build cut struct
@@ -246,6 +236,15 @@ contract DiamondVaultTest is Test {
         // Initialize the vault
         EmblemVaultInitFacet(address(diamond)).initialize(owner);
 
+        // Deploy factory with Diamond as controller
+        factory = new VaultCollectionFactory(
+            address(erc721Beacon), address(erc1155Beacon), address(diamond)
+        );
+
+        // Create a test collection through Diamond
+        vm.prank(address(diamond));
+        nftCollection = factory.createERC721Collection("Test NFT", "NFT");
+
         // Setup test environment
         vm.deal(user1, 100 ether);
         vm.deal(user2, 100 ether);
@@ -281,11 +280,6 @@ contract DiamondVaultTest is Test {
         emit VaultFactorySet(address(0), address(factory));
         EmblemVaultCoreFacet(address(diamond)).setVaultFactory(address(factory));
 
-        vm.stopPrank();
-
-        // Transfer collection ownership to diamond
-        vm.startPrank(address(factory));
-        OwnableUpgradeable(nftCollection).transferOwnership(address(diamond));
         vm.stopPrank();
 
         // Create signature for minting
