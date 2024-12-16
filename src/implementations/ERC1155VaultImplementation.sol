@@ -13,8 +13,8 @@ import "../interfaces/IVaultProxy.sol";
 
 /**
  * @title ERC1155VaultImplementation
- * @notice Implementation of the ERC1155 vault token with serial number tracking
- * @dev Implements ERC1155 with supply tracking
+ * @notice Implementation of the ERC1155 vault token with optimized serial number tracking
+ * @dev Implements ERC1155 with supply tracking and gas optimizations
  */
 contract ERC1155VaultImplementation is
     Initializable,
@@ -26,7 +26,7 @@ contract ERC1155VaultImplementation is
     IIsSerialized,
     IVaultProxy
 {
-    // Serial number tracking
+    // Serial number tracking with original storage layout
     mapping(uint256 => mapping(uint256 => uint256)) private _tokenSerials; // tokenId => index => serialNumber
     mapping(uint256 => uint256) private _serialToTokenId; // serialNumber => tokenId
     mapping(address => mapping(uint256 => uint256[])) private _ownerTokenSerials; // owner => tokenId => serialNumbers[]
@@ -41,7 +41,7 @@ contract ERC1155VaultImplementation is
         _disableInitializers();
     }
 
-    function initialize(string memory uri_) public initializer {
+    function initialize(string calldata uri_) public initializer {
         __ERC1155_init(uri_);
         __ERC1155Burnable_init();
         __ERC1155Supply_init();
@@ -51,23 +51,19 @@ contract ERC1155VaultImplementation is
         _nextSerial = 1; // Start serial numbers at 1
     }
 
-    /**
-     * @notice Update the base URI for token metadata
-     * @param newuri The new base URI to set
-     */
-    function setURI(string memory newuri) public onlyOwner {
+    function setURI(string calldata newuri) public onlyOwner {
         _setURI(newuri);
     }
 
-    function mint(address to, uint256 id, uint256 amount, bytes memory data) external onlyOwner {
+    function mint(address to, uint256 id, uint256 amount, bytes calldata data) external onlyOwner {
         _mint(to, id, amount, data);
     }
 
     function mintBatch(
         address to,
-        uint256[] memory ids,
-        uint256[] memory amounts,
-        bytes memory data
+        uint256[] calldata ids,
+        uint256[] calldata amounts,
+        bytes calldata data
     ) external onlyOwner {
         _mintBatch(to, ids, amounts, data);
     }
@@ -81,38 +77,81 @@ contract ERC1155VaultImplementation is
 
         // Handle minting
         if (from == address(0) && to != address(0)) {
-            for (uint256 i = 0; i < ids.length; i++) {
-                for (uint256 j = 0; j < values[i]; j++) {
-                    uint256 serialNumber = _nextSerial++;
-                    _tokenSerials[ids[i]][j] = serialNumber;
-                    _serialToTokenId[serialNumber] = ids[i];
-                    _ownerTokenSerials[to][ids[i]].push(serialNumber);
+            uint256 idsLength = ids.length;
+            for (uint256 i = 0; i < idsLength;) {
+                uint256 id = ids[i];
+                uint256 amount = values[i];
+                uint256[] storage ownerSerials = _ownerTokenSerials[to][id];
+
+                for (uint256 j = 0; j < amount;) {
+                    uint256 serialNumber = _nextSerial;
+                    unchecked {
+                        _nextSerial++;
+                    }
+
+                    _tokenSerials[id][j] = serialNumber;
+                    _serialToTokenId[serialNumber] = id;
+                    ownerSerials.push(serialNumber);
                     _serialOwners[serialNumber] = to;
-                    emit SerialNumberAssigned(ids[i], serialNumber);
+
+                    emit SerialNumberAssigned(id, serialNumber);
+
+                    unchecked {
+                        ++j;
+                    }
+                }
+                unchecked {
+                    ++i;
                 }
             }
         }
         // Handle burning
         else if (to == address(0) && from != address(0)) {
-            for (uint256 i = 0; i < ids.length; i++) {
+            uint256 idsLength = ids.length;
+            for (uint256 i = 0; i < idsLength;) {
                 uint256[] storage serials = _ownerTokenSerials[from][ids[i]];
-                for (uint256 j = 0; j < values[i] && serials.length > 0; j++) {
-                    uint256 serialNumber = serials[serials.length - 1];
+                uint256 amount = values[i];
+                uint256 serialsLength = serials.length;
+
+                for (uint256 j = 0; j < amount && serialsLength > 0;) {
+                    uint256 serialNumber = serials[serialsLength - 1];
                     delete _serialToTokenId[serialNumber];
                     delete _serialOwners[serialNumber];
                     serials.pop();
+
+                    unchecked {
+                        ++j;
+                        --serialsLength;
+                    }
+                }
+                unchecked {
+                    ++i;
                 }
             }
         }
         // Handle transfers
         else if (from != address(0) && to != address(0)) {
-            for (uint256 i = 0; i < ids.length; i++) {
-                uint256[] storage fromSerials = _ownerTokenSerials[from][ids[i]];
-                for (uint256 j = 0; j < values[i] && fromSerials.length > 0; j++) {
-                    uint256 serialNumber = fromSerials[fromSerials.length - 1];
+            uint256 idsLength = ids.length;
+            for (uint256 i = 0; i < idsLength;) {
+                uint256 id = ids[i];
+                uint256[] storage fromSerials = _ownerTokenSerials[from][id];
+                uint256[] storage toSerials = _ownerTokenSerials[to][id];
+                uint256 amount = values[i];
+                uint256 fromLength = fromSerials.length;
+
+                for (uint256 j = 0; j < amount && fromLength > 0;) {
+                    uint256 serialNumber = fromSerials[fromLength - 1];
                     fromSerials.pop();
-                    _ownerTokenSerials[to][ids[i]].push(serialNumber);
+                    toSerials.push(serialNumber);
                     _serialOwners[serialNumber] = to;
+
+                    unchecked {
+                        ++j;
+                        --fromLength;
+                    }
+                }
+                unchecked {
+                    ++i;
                 }
             }
         }
@@ -124,8 +163,9 @@ contract ERC1155VaultImplementation is
     }
 
     function getSerial(uint256 tokenId, uint256 index) external view returns (uint256) {
-        require(_tokenSerials[tokenId][index] != 0, "Invalid serial");
-        return _tokenSerials[tokenId][index];
+        uint256 serial = _tokenSerials[tokenId][index];
+        require(serial != 0, "Invalid serial");
+        return serial;
     }
 
     function getFirstSerialByOwner(address owner, uint256 tokenId)
@@ -133,8 +173,9 @@ contract ERC1155VaultImplementation is
         view
         returns (uint256)
     {
-        require(_ownerTokenSerials[owner][tokenId].length > 0, "No serials found");
-        return _ownerTokenSerials[owner][tokenId][0];
+        uint256[] storage serials = _ownerTokenSerials[owner][tokenId];
+        require(serials.length > 0, "No serials found");
+        return serials[0];
     }
 
     function getOwnerOfSerial(uint256 serialNumber) external view returns (address) {
@@ -146,8 +187,9 @@ contract ERC1155VaultImplementation is
         view
         returns (uint256)
     {
-        require(index < _ownerTokenSerials[owner][tokenId].length, "Invalid index");
-        return _ownerTokenSerials[owner][tokenId][index];
+        uint256[] storage serials = _ownerTokenSerials[owner][tokenId];
+        require(index < serials.length, "Invalid index");
+        return serials[index];
     }
 
     function getTokenIdForSerialNumber(uint256 serialNumber) external view returns (uint256) {
