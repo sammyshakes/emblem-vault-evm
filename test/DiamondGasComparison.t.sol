@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import "../src/EmblemVaultDiamond.sol";
-import "../src/EmblemVaultDiamondOptimized.sol";
 import "../src/facets/DiamondCutFacet.sol";
 import "../src/facets/DiamondLoupeFacet.sol";
 import "../src/facets/EmblemVaultCoreFacet.sol";
@@ -11,7 +10,6 @@ import "../src/libraries/LibDiamond.sol";
 
 contract DiamondGasComparisonTest is Test {
     EmblemVaultDiamond public diamond;
-    EmblemVaultDiamondOptimized public optimizedDiamond;
     DiamondCutFacet public cutFacet;
     DiamondLoupeFacet public loupeFacet;
     EmblemVaultCoreFacet public coreFacet;
@@ -26,12 +24,11 @@ contract DiamondGasComparisonTest is Test {
         loupeFacet = new DiamondLoupeFacet();
         coreFacet = new EmblemVaultCoreFacet();
 
-        // Deploy diamonds
+        // Deploy diamond
         vm.recordLogs();
         diamond = new EmblemVaultDiamond(address(this), address(cutFacet));
-        optimizedDiamond = new EmblemVaultDiamondOptimized(address(this), address(cutFacet));
 
-        // Add facets to both diamonds
+        // Add facets
         IDiamondCut.FacetCut[] memory cuts = new IDiamondCut.FacetCut[](2);
 
         // Add loupe facet
@@ -58,29 +55,21 @@ contract DiamondGasComparisonTest is Test {
             functionSelectors: coreSelectors
         });
 
-        // Add facets to both diamonds
+        // Add facets to diamond
         IDiamondCut(address(diamond)).diamondCut(cuts, address(0), new bytes(0));
-        IDiamondCut(address(optimizedDiamond)).diamondCut(cuts, address(0), new bytes(0));
     }
 
     function testDeploymentGas() public {
-        // Deploy new instances to measure deployment gas
+        // Deploy new instance to measure deployment gas
         vm.pauseGasMetering();
         address cutFacetAddr = address(cutFacet);
         vm.resumeGasMetering();
 
         uint256 gasBefore = gasleft();
         new EmblemVaultDiamond(address(this), cutFacetAddr);
-        uint256 originalGas = gasBefore - gasleft();
+        uint256 deploymentGas = gasBefore - gasleft();
 
-        gasBefore = gasleft();
-        new EmblemVaultDiamondOptimized(address(this), cutFacetAddr);
-        uint256 optimizedGas = gasBefore - gasleft();
-
-        console.log("Deployment Gas Comparison:");
-        console.log("Original Implementation:", originalGas);
-        console.log("Optimized Implementation:", optimizedGas);
-        console.log("Gas Saved:", originalGas - optimizedGas);
+        console.log("Diamond Deployment Gas Usage:", deploymentGas);
     }
 
     function testFacetCallGas() public {
@@ -89,16 +78,9 @@ contract DiamondGasComparisonTest is Test {
         // Test core facet call
         uint256 gasBefore = gasleft();
         EmblemVaultCoreFacet(address(diamond)).setMetadataBaseUri(baseURI);
-        uint256 originalGas = gasBefore - gasleft();
+        uint256 callGas = gasBefore - gasleft();
 
-        gasBefore = gasleft();
-        EmblemVaultCoreFacet(address(optimizedDiamond)).setMetadataBaseUri(baseURI);
-        uint256 optimizedGas = gasBefore - gasleft();
-
-        console.log("Facet Call Gas Comparison (setMetadataBaseUri):");
-        console.log("Original Implementation:", originalGas);
-        console.log("Optimized Implementation:", optimizedGas);
-        console.log("Gas Saved:", originalGas - optimizedGas);
+        console.log("Facet Call Gas Usage (setMetadataBaseUri):", callGas);
     }
 
     function testDiamondCutGas() public {
@@ -116,16 +98,9 @@ contract DiamondGasComparisonTest is Test {
         // Test diamond cut
         uint256 gasBefore = gasleft();
         IDiamondCut(address(diamond)).diamondCut(cuts, address(0), new bytes(0));
-        uint256 originalGas = gasBefore - gasleft();
+        uint256 cutGas = gasBefore - gasleft();
 
-        gasBefore = gasleft();
-        IDiamondCut(address(optimizedDiamond)).diamondCut(cuts, address(0), new bytes(0));
-        uint256 optimizedGas = gasBefore - gasleft();
-
-        console.log("Diamond Cut Gas Comparison:");
-        console.log("Original Implementation:", originalGas);
-        console.log("Optimized Implementation:", optimizedGas);
-        console.log("Gas Saved:", originalGas - optimizedGas);
+        console.log("Diamond Cut Gas Usage:", cutGas);
     }
 
     function testMultipleCallsGas() public {
@@ -137,18 +112,9 @@ contract DiamondGasComparisonTest is Test {
         EmblemVaultCoreFacet(address(diamond)).setMetadataBaseUri(baseURI);
         EmblemVaultCoreFacet(address(diamond)).setRecipientAddress(recipient);
         DiamondLoupeFacet(address(diamond)).facets();
-        uint256 originalGas = gasBefore - gasleft();
+        uint256 multiCallGas = gasBefore - gasleft();
 
-        gasBefore = gasleft();
-        EmblemVaultCoreFacet(address(optimizedDiamond)).setMetadataBaseUri(baseURI);
-        EmblemVaultCoreFacet(address(optimizedDiamond)).setRecipientAddress(recipient);
-        DiamondLoupeFacet(address(optimizedDiamond)).facets();
-        uint256 optimizedGas = gasBefore - gasleft();
-
-        console.log("Multiple Facet Calls Gas Comparison:");
-        console.log("Original Implementation:", originalGas);
-        console.log("Optimized Implementation:", optimizedGas);
-        console.log("Gas Saved:", originalGas - optimizedGas);
+        console.log("Multiple Facet Calls Gas Usage:", multiCallGas);
     }
 
     receive() external payable {}

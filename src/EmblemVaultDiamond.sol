@@ -7,13 +7,13 @@ import {LibErrors} from "./libraries/LibErrors.sol";
 import {LibInterfaceIds} from "./libraries/LibInterfaceIds.sol";
 
 contract EmblemVaultDiamond {
-    /// @notice Initialization guard
-    bool private initialized;
+    /// @notice Initialization guard with minimal storage impact
+    uint256 private initialized;
 
-    /// @notice Modifier to prevent re-initialization
+    /// @notice Modifier to prevent re-initialization using bit operations
     modifier initializer() {
-        if (initialized) revert LibErrors.AlreadyInitialized();
-        initialized = true;
+        if (initialized != 0) revert LibErrors.AlreadyInitialized();
+        initialized = 1;
         _;
     }
 
@@ -47,28 +47,30 @@ contract EmblemVaultDiamond {
     fallback() external payable {
         LibDiamond.DiamondStorage storage ds;
         bytes32 position = LibDiamond.DIAMOND_STORAGE_POSITION;
-        // get diamond storage
+
+        // Get diamond storage
         assembly {
             ds.slot := position
         }
-        // get facet from function selector
+
+        // Get facet from function selector
         address facet = ds.selectorToFacet[msg.sig].facetAddress;
         LibErrors.revertIfFunctionNotFound(msg.sig, facet);
 
-        // Execute external function from facet using delegatecall and return any value.
+        // Execute external function from facet using delegatecall
         assembly {
-            // copy function selector and any arguments
+            // Copy function selector and any arguments
             calldatacopy(0, 0, calldatasize())
-            // execute function call using the facet
+
+            // Execute function call using the facet
             let result := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)
-            // get any return value
+
+            // Copy the returned data
             returndatacopy(0, 0, returndatasize())
-            // return any return value or error back to the caller
+
+            // Return or revert
             switch result
-            case 0 {
-                // Preserve the revert reason
-                revert(0, returndatasize())
-            }
+            case 0 { revert(0, returndatasize()) }
             default { return(0, returndatasize()) }
         }
     }
