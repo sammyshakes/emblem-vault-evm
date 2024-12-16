@@ -8,12 +8,12 @@ import {LibInterfaceIds} from "./libraries/LibInterfaceIds.sol";
 
 contract EmblemVaultDiamond {
     /// @notice Initialization guard with minimal storage impact
-    uint256 private initialized;
+    bool private initialized;
 
-    /// @notice Modifier to prevent re-initialization using bit operations
+    /// @notice Modifier to prevent re-initialization
     modifier initializer() {
-        if (initialized != 0) revert LibErrors.AlreadyInitialized();
-        initialized = 1;
+        if (initialized) revert LibErrors.AlreadyInitialized();
+        initialized = true;
         _;
     }
 
