@@ -29,7 +29,7 @@ contract ERC721VaultImplementationOptimized is
     uint256 private constant STARTING_TOKEN_ID = 1;
 
     // Storage
-    mapping(uint256 => uint256) private _tokenIdMap; // tokenId >> externalTokenId
+    mapping(uint256 => uint256) internal _externalTokenIdMap; // tokenId >> externalTokenId
     string private _baseTokenURI;
 
     // Events
@@ -61,66 +61,62 @@ contract ERC721VaultImplementationOptimized is
     }
 
     function mint(address to, uint256 tokenId) external onlyOwner {
-        _mintSingle(to, tokenId, "");
+        require(_externalTokenIdMap[tokenId] == 0, "External ID already minted");
+        _externalTokenIdMap[tokenId] = tokenId;
+        _mint(to, 1);
+
+        uint256 actualTokenId = _nextTokenId() - 1;
+        emit TokenMinted(to, actualTokenId, tokenId, "");
     }
 
     function mintWithData(address to, uint256 tokenId, bytes calldata data) external onlyOwner {
-        _mintSingle(to, tokenId, data);
+        require(_externalTokenIdMap[tokenId] == 0, "External ID already minted");
+        _externalTokenIdMap[tokenId] = tokenId;
+        _mint(to, 1);
+
+        uint256 actualTokenId = _nextTokenId() - 1;
+        emit TokenMinted(to, actualTokenId, tokenId, data);
     }
 
     function mintMany(address[] calldata to, uint256[] calldata tokenIds) external onlyOwner {
         uint256 length = to.length;
         require(length == tokenIds.length, "Invalid input");
 
-        // Cache next token ID
-        uint256 nextId = _nextTokenId();
-
-        // Batch mint
+        // Batch mint with unchecked increment
         unchecked {
             for (uint256 i; i < length; ++i) {
-                require(_tokenIdMap[tokenIds[i]] == 0, "External ID already minted");
-                _tokenIdMap[tokenIds[i]] = nextId + i;
+                require(_externalTokenIdMap[tokenIds[i]] == 0, "External ID already minted");
+                _externalTokenIdMap[tokenIds[i]] = tokenIds[i];
                 _mint(to[i], 1);
-                emit TokenMinted(to[i], nextId + i, tokenIds[i], "");
+
+                uint256 actualTokenId = _nextTokenId() - 1;
+                emit TokenMinted(to[i], actualTokenId, tokenIds[i], "");
             }
         }
     }
 
     function burn(uint256 tokenId) public override {
-        _burnWithData(tokenId, "");
-    }
-
-    function burnWithData(uint256 tokenId, bytes calldata data) public {
-        _burnWithData(tokenId, data);
-    }
-
-    function _mintSingle(address to, uint256 externalId, bytes memory data) internal {
-        require(_tokenIdMap[externalId] == 0, "External ID already minted");
-
-        uint256 nextId = _nextTokenId();
-        _tokenIdMap[externalId] = nextId;
-        _mint(to, 1);
-
-        emit TokenMinted(to, nextId, externalId, data);
-    }
-
-    function _burnWithData(uint256 tokenId, bytes memory data) internal {
         address owner = ownerOf(tokenId);
         require(_msgSender() == owner || isApprovedForAll(owner, _msgSender()), "Not authorized");
 
-        // Find external ID
-        uint256 externalId;
-        for (uint256 i = 1; i <= _nextTokenId(); i++) {
-            if (_tokenIdMap[i] == tokenId) {
-                externalId = i;
-                break;
-            }
-        }
+        uint256 externalTokenId = _externalTokenIdMap[tokenId];
+        delete _externalTokenIdMap[tokenId];
 
-        delete _tokenIdMap[externalId];
         super.burn(tokenId);
 
-        emit TokenBurned(_msgSender(), tokenId, externalId, data);
+        emit TokenBurned(_msgSender(), tokenId, externalTokenId, "");
+    }
+
+    function burnWithData(uint256 tokenId, bytes calldata data) public {
+        address owner = ownerOf(tokenId);
+        require(_msgSender() == owner || isApprovedForAll(owner, _msgSender()), "Not authorized");
+
+        uint256 externalTokenId = _externalTokenIdMap[tokenId];
+        delete _externalTokenIdMap[tokenId];
+
+        super.burn(tokenId);
+
+        emit TokenBurned(_msgSender(), tokenId, externalTokenId, data);
     }
 
     // Base URI
@@ -135,7 +131,7 @@ contract ERC721VaultImplementationOptimized is
 
     // External token ID mapping
     function getInternalTokenId(uint256 tokenId) external view returns (uint256) {
-        return _tokenIdMap[tokenId];
+        return _externalTokenIdMap[tokenId];
     }
 
     function setDetails(string calldata name_, string calldata symbol_) external onlyOwner {
