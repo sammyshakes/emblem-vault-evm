@@ -17,11 +17,13 @@ contract DeployBeaconSystem is Script {
     event Deployed(string name, address addr);
 
     function run() external {
-        // Get deployment private key
+        // Get deployment private key and addresses
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
+        address diamond = vm.envAddress("DIAMOND_ADDRESS");
 
         console.log("Deploying Beacon System with deployer:", deployer);
+        console.log("Diamond address (will own collections and control factory):", diamond);
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -34,7 +36,7 @@ contract DeployBeaconSystem is Script {
         emit Deployed("ERC1155VaultImplementation", address(erc1155Implementation));
         console.log("ERC1155VaultImplementation deployed at:", address(erc1155Implementation));
 
-        // 2. Deploy Beacons
+        // 2. Deploy Beacons (upgradeable by Diamond)
         VaultBeacon erc721Beacon = new ERC721VaultBeacon(address(erc721Implementation));
         emit Deployed("ERC721VaultBeacon", address(erc721Beacon));
         console.log("ERC721VaultBeacon deployed at:", address(erc721Beacon));
@@ -43,9 +45,9 @@ contract DeployBeaconSystem is Script {
         emit Deployed("ERC1155VaultBeacon", address(erc1155Beacon));
         console.log("ERC1155VaultBeacon deployed at:", address(erc1155Beacon));
 
-        // 3. Deploy Factory
+        // 3. Deploy Factory with Diamond as controller
         VaultCollectionFactory factory =
-            new VaultCollectionFactory(address(erc721Beacon), address(erc1155Beacon));
+            new VaultCollectionFactory(address(erc721Beacon), address(erc1155Beacon), diamond);
         emit Deployed("VaultCollectionFactory", address(factory));
         console.log("VaultCollectionFactory deployed at:", address(factory));
 
@@ -59,5 +61,15 @@ contract DeployBeaconSystem is Script {
         console.log("ERC721 Beacon:", address(erc721Beacon));
         console.log("ERC1155 Beacon:", address(erc1155Beacon));
         console.log("Collection Factory:", address(factory));
+        console.log("\nPermissions Summary:");
+        console.log("--------------------------------");
+        console.log("Diamond can:");
+        console.log("- Create collections through factory");
+        console.log("- Update beacon implementations");
+        console.log("- Own all created collections");
+        console.log("\nFactory can:");
+        console.log("- Create collections when called by Diamond");
+        console.log("- Track and verify collections");
+        console.log("- Provide collection information");
     }
 }

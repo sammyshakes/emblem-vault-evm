@@ -8,7 +8,7 @@ import "../src/facets/EmblemVaultCollectionFacet.sol";
 
 /**
  * @title UpdateCollectionsAndURIs
- * @notice Script to deploy new factory, transfer collection ownership, and update URIs
+ * @notice Script to deploy new factory and update URIs
  * @dev Run with:
  * forge script script/UpdateCollectionsAndURIs.s.sol:UpdateCollectionsAndURIs --rpc-url bsc_testnet --broadcast -vvvv
  */
@@ -38,22 +38,16 @@ contract UpdateCollectionsAndURIs is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy new factory with same beacons
-        VaultCollectionFactory newFactory = new VaultCollectionFactory(erc721Beacon, erc1155Beacon);
+        // Deploy new factory with Diamond as controller
+        VaultCollectionFactory newFactory =
+            new VaultCollectionFactory(erc721Beacon, erc1155Beacon, diamondAddress);
         console.log("New Factory deployed at:", address(newFactory));
 
         // Set new factory in diamond
         EmblemVaultCollectionFacet(diamondAddress).setCollectionFactory(address(newFactory));
         console.log("New factory set in diamond");
 
-        // Transfer collection ownership to diamond
-        newFactory.transferCollectionOwnership(erc721Collection, diamondAddress);
-        console.log("ERC721 collection ownership transferred to diamond");
-
-        newFactory.transferCollectionOwnership(erc1155Collection, diamondAddress);
-        console.log("ERC1155 collection ownership transferred to diamond");
-
-        // Update URIs through diamond
+        // Update URIs through diamond (Diamond already owns collections)
         EmblemVaultCollectionFacet collectionFacet = EmblemVaultCollectionFacet(diamondAddress);
 
         collectionFacet.setCollectionBaseURI(
@@ -71,6 +65,7 @@ contract UpdateCollectionsAndURIs is Script {
         console.log("\nUpdate Complete");
         console.log("--------------------------------");
         console.log("New Factory:", address(newFactory));
+        console.log("Factory Controller (Diamond):", diamondAddress);
         console.log("ERC721 Collection:", erc721Collection);
         console.log("ERC721 Base URI: https://api.emblem.finance/erc721/metadata/");
         console.log("ERC1155 Collection:", erc1155Collection);

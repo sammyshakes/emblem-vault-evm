@@ -7,6 +7,7 @@ import "../src/implementations/ERC1155VaultImplementation.sol";
 import "../src/beacon/VaultBeacon.sol";
 import "../src/beacon/VaultProxy.sol";
 import "../src/factories/VaultCollectionFactory.sol";
+import "../src/libraries/LibErrors.sol";
 
 contract BeaconSystemTest is Test {
     // Core contracts
@@ -20,14 +21,33 @@ contract BeaconSystemTest is Test {
     address owner = address(this);
     address user1 = address(0x1);
     address user2 = address(0x2);
+    address newOwner = address(0x3);
 
     // Events to test
-    event ERC721CollectionCreated(address indexed collection, string name, string symbol);
-    event ERC1155CollectionCreated(address indexed collection, string uri);
-    event BeaconUpdated(uint8 indexed collectionType, address indexed oldBeacon, address indexed newBeacon);
-    event ImplementationUpgraded(address indexed oldImplementation, address indexed newImplementation);
+    event TokenMinted(
+        address indexed to, uint256 indexed tokenId, uint256 indexed externalTokenId, bytes data
+    );
+    event TokenBurned(
+        address indexed from, uint256 indexed tokenId, uint256 indexed externalTokenId, bytes data
+    );
+    event BaseURIUpdated(string newBaseURI);
+    event DetailsUpdated(string name, string symbol);
+    event BeaconUpdated(
+        uint8 indexed collectionType, address indexed oldBeacon, address indexed newBeacon
+    );
+    event ImplementationUpgraded(
+        address indexed oldImplementation, address indexed newImplementation
+    );
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
-    event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value);
+    event TransferSingle(
+        address indexed operator,
+        address indexed from,
+        address indexed to,
+        uint256 id,
+        uint256 value
+    );
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event CollectionOwnershipTransferred(address indexed collection, address indexed newOwner);
 
     function setUp() public {
         // Deploy implementations
@@ -38,8 +58,13 @@ contract BeaconSystemTest is Test {
         erc721Beacon = new ERC721VaultBeacon(address(erc721Implementation));
         erc1155Beacon = new ERC1155VaultBeacon(address(erc1155Implementation));
 
-        // Deploy factory with owner as this contract
-        factory = new VaultCollectionFactory(address(erc721Beacon), address(erc1155Beacon));
+        // Deploy factory with this contract as Diamond
+        factory =
+            new VaultCollectionFactory(address(erc721Beacon), address(erc1155Beacon), address(this));
+
+        // Transfer beacon ownership to factory
+        erc721Beacon.transferOwnership(address(factory));
+        erc1155Beacon.transferOwnership(address(factory));
 
         // Setup test accounts
         vm.deal(user1, 100 ether);
@@ -51,79 +76,86 @@ contract BeaconSystemTest is Test {
         assertEq(erc1155Beacon.implementation(), address(erc1155Implementation));
         assertEq(factory.erc721Beacon(), address(erc721Beacon));
         assertEq(factory.erc1155Beacon(), address(erc1155Beacon));
+        assertEq(factory.diamond(), address(this));
+        assertEq(erc721Beacon.owner(), address(factory));
+        assertEq(erc1155Beacon.owner(), address(factory));
     }
 
     function testCreateERC721Collection() public {
         string memory name = "Test Collection";
         string memory symbol = "TEST";
 
-        // Create collection and capture its address
+        // Create collection and verify event
         address collection = factory.createERC721Collection(name, symbol);
 
         // Verify collection setup
         assertTrue(factory.isCollection(collection));
+        assertEq(factory.getCollectionType(collection), 1); // ERC721_TYPE
         assertEq(ERC721VaultImplementation(collection).name(), name);
         assertEq(ERC721VaultImplementation(collection).symbol(), symbol);
+        assertEq(OwnableUpgradeable(collection).owner(), address(this)); // Diamond owns collection
     }
 
     function testCreateERC1155Collection() public {
         string memory uri = "https://test.uri/";
 
-        // Create collection and capture its address
+        // Create collection and verify event
         address collection = factory.createERC1155Collection(uri);
 
         // Verify collection setup
         assertTrue(factory.isCollection(collection));
+        assertEq(factory.getCollectionType(collection), 2); // ERC1155_TYPE
         assertEq(ERC1155VaultImplementation(collection).uri(0), uri);
+        assertEq(OwnableUpgradeable(collection).owner(), address(this)); // Diamond owns collection
     }
+
+    // Operation Tests
 
     function testERC721VaultOperations() public {
         // Create collection
         address collection = factory.createERC721Collection("Test Collection", "TEST");
 
-        // Test minting vault (factory is the owner)
-        vm.prank(address(factory));
+        // Test minting vault (Diamond is the owner)
+        vm.expectEmit(true, true, true, true);
+        emit TokenMinted(user1, 1, 1, "");
         ERC721VaultImplementation(collection).mint(user1, 1);
         assertEq(ERC721VaultImplementation(collection).ownerOf(1), user1);
 
         // Test transfers
         vm.startPrank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit Transfer(user1, user2, 1);
         ERC721VaultImplementation(collection).transferFrom(user1, user2, 1);
         assertEq(ERC721VaultImplementation(collection).ownerOf(1), user2);
         vm.stopPrank();
-
-        // Test serial number tracking
-        uint256 serial = ERC721VaultImplementation(collection).getFirstSerialByOwner(user2, 1);
-        assertTrue(serial > 0);
-        assertEq(ERC721VaultImplementation(collection).getOwnerOfSerial(serial), user2);
     }
 
     function testERC1155VaultOperations() public {
         // Create collection
         address collection = factory.createERC1155Collection("https://test.uri/");
 
-        // Test minting vaults (factory is the owner)
-        vm.prank(address(factory));
+        // Test minting vaults (Diamond is the owner)
+        vm.expectEmit(true, true, true, true);
+        emit TransferSingle(address(this), address(0), user1, 1, 5);
         ERC1155VaultImplementation(collection).mint(user1, 1, 5, "");
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user1, 1), 5);
 
         // Test transfers
         vm.startPrank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit TransferSingle(user1, user1, user2, 1, 2);
         ERC1155VaultImplementation(collection).safeTransferFrom(user1, user2, 1, 2, "");
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user1, 1), 3);
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user2, 1), 2);
         vm.stopPrank();
-
-        // Test serial number tracking
-        uint256 serial = ERC1155VaultImplementation(collection).getFirstSerialByOwner(user2, 1);
-        assertTrue(serial > 0);
-        assertEq(ERC1155VaultImplementation(collection).getOwnerOfSerial(serial), user2);
     }
+
+    // Batch Operation Tests
 
     function testBatchOperations1155() public {
         address collection = factory.createERC1155Collection("https://test.uri/");
 
-        // Test batch minting (factory is the owner)
+        // Test batch minting (Diamond is the owner)
         uint256[] memory ids = new uint256[](2);
         uint256[] memory amounts = new uint256[](2);
         ids[0] = 1;
@@ -131,7 +163,6 @@ contract BeaconSystemTest is Test {
         amounts[0] = 5;
         amounts[1] = 3;
 
-        vm.prank(address(factory));
         ERC1155VaultImplementation(collection).mintBatch(user1, ids, amounts, "");
 
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user1, 1), 5);
@@ -143,7 +174,9 @@ contract BeaconSystemTest is Test {
         transferAmounts[0] = 2;
         transferAmounts[1] = 1;
 
-        ERC1155VaultImplementation(collection).safeBatchTransferFrom(user1, user2, ids, transferAmounts, "");
+        ERC1155VaultImplementation(collection).safeBatchTransferFrom(
+            user1, user2, ids, transferAmounts, ""
+        );
         vm.stopPrank();
 
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user1, 1), 3);
@@ -152,14 +185,17 @@ contract BeaconSystemTest is Test {
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user2, 2), 1);
     }
 
+    // Burn Tests
+
     function testBurnOperations() public {
         // Test ERC721 burn
         address collection721 = factory.createERC721Collection("Test Collection", "TEST");
 
-        vm.prank(address(factory));
         ERC721VaultImplementation(collection721).mint(user1, 1);
 
         vm.prank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit TokenBurned(user1, 1, 1, "");
         ERC721VaultImplementation(collection721).burn(1);
 
         vm.expectRevert(); // Should revert when trying to get owner of burned token
@@ -168,14 +204,17 @@ contract BeaconSystemTest is Test {
         // Test ERC1155 burn
         address collection1155 = factory.createERC1155Collection("https://test.uri/");
 
-        vm.prank(address(factory));
         ERC1155VaultImplementation(collection1155).mint(user1, 1, 5, "");
 
         vm.prank(user1);
+        vm.expectEmit(true, true, true, true);
+        emit TransferSingle(user1, user1, address(0), 1, 2);
         ERC1155VaultImplementation(collection1155).burn(user1, 1, 2);
 
         assertEq(ERC1155VaultImplementation(collection1155).balanceOf(user1, 1), 3);
     }
+
+    // Upgrade Tests
 
     function testUpgradeERC721Implementation() public {
         // Deploy new implementation
@@ -185,11 +224,12 @@ contract BeaconSystemTest is Test {
         address collection = factory.createERC721Collection("Test Collection", "TEST");
 
         // Mint vault before upgrade
-        vm.prank(address(factory));
         ERC721VaultImplementation(collection).mint(user1, 1);
 
-        // Upgrade implementation (beacon owner is this contract)
-        erc721Beacon.upgrade(address(newImplementation));
+        // Upgrade implementation through factory (this contract is Diamond)
+        vm.expectEmit(true, true, true, true);
+        emit ImplementationUpgraded(address(erc721Implementation), address(newImplementation));
+        factory.updateBeacon(1, address(newImplementation));
 
         // Verify upgrade
         assertEq(erc721Beacon.implementation(), address(newImplementation));
@@ -198,7 +238,6 @@ contract BeaconSystemTest is Test {
         assertEq(ERC721VaultImplementation(collection).ownerOf(1), user1);
 
         // Verify new minting still works
-        vm.prank(address(factory));
         ERC721VaultImplementation(collection).mint(user2, 2);
         assertEq(ERC721VaultImplementation(collection).ownerOf(2), user2);
     }
@@ -211,11 +250,12 @@ contract BeaconSystemTest is Test {
         address collection = factory.createERC1155Collection("https://test.uri/");
 
         // Mint vaults before upgrade
-        vm.prank(address(factory));
         ERC1155VaultImplementation(collection).mint(user1, 1, 5, "");
 
-        // Upgrade implementation (beacon owner is this contract)
-        erc1155Beacon.upgrade(address(newImplementation));
+        // Upgrade implementation through factory (this contract is Diamond)
+        vm.expectEmit(true, true, true, true);
+        emit ImplementationUpgraded(address(erc1155Implementation), address(newImplementation));
+        factory.updateBeacon(2, address(newImplementation));
 
         // Verify upgrade
         assertEq(erc1155Beacon.implementation(), address(newImplementation));
@@ -224,23 +264,42 @@ contract BeaconSystemTest is Test {
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user1, 1), 5);
 
         // Verify new minting still works
-        vm.prank(address(factory));
         ERC1155VaultImplementation(collection).mint(user2, 2, 3, "");
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user2, 2), 3);
     }
 
-    function testFailUnauthorizedMint721() public {
+    // Failure Tests
+
+    function testRevertUnauthorizedMint721() public {
         address collection = factory.createERC721Collection("Test Collection", "TEST");
 
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", user1));
         vm.prank(user1); // Not the owner
         ERC721VaultImplementation(collection).mint(user1, 1);
     }
 
-    function testFailUnauthorizedMint1155() public {
+    function testRevertUnauthorizedMint1155() public {
         address collection = factory.createERC1155Collection("https://test.uri/");
 
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", user1));
         vm.prank(user1); // Not the owner
         ERC1155VaultImplementation(collection).mint(user1, 1, 5, "");
+    }
+
+    function testRevertUnauthorizedBeaconUpdate() public {
+        ERC721VaultImplementation newImplementation = new ERC721VaultImplementation();
+
+        vm.startPrank(user1);
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.Unauthorized.selector, user1));
+        factory.updateBeacon(1, address(newImplementation));
+        vm.stopPrank();
+    }
+
+    function testRevertUnauthorizedCollectionCreation() public {
+        vm.startPrank(user1);
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.Unauthorized.selector, user1));
+        factory.createERC721Collection("Test", "TST");
+        vm.stopPrank();
     }
 
     receive() external payable {}

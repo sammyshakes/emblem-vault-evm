@@ -2,18 +2,33 @@
 pragma solidity ^0.8.19;
 
 import "./LibDiamond.sol";
-import "../interfaces/IHandlerCallback.sol";
 
+/// @title LibEmblemVaultStorage
+/// @notice Library for managing Emblem Vault storage
+/// @dev Uses diamond storage pattern for upgradeable storage
 library LibEmblemVaultStorage {
     bytes32 constant EMBLEM_VAULT_STORAGE_POSITION = keccak256("emblem.vault.storage");
     bytes32 constant REENTRANCY_GUARD_POSITION = keccak256("emblem.vault.reentrancy.guard");
+
+    // Custom errors
+    error AlreadyInitialized();
+    error NotInitialized();
+    error ReentrantCall();
+    error NotWitness();
+    error NonceAlreadyUsed();
+    error ZeroAddress();
 
     struct ReentrancyGuard {
         bool entered;
     }
 
+    /// @notice Main storage structure for the Emblem Vault system
+    /// @dev Uses diamond storage pattern for upgradeability
     struct VaultStorage {
-        // Core storage
+        // System State
+        bool initialized;
+        bool byPassable;
+        // Core Mappings
         mapping(address => mapping(uint256 => bool)) lockedVaults;
         mapping(address => bool) witnesses;
         mapping(uint256 => bool) usedNonces;
@@ -21,29 +36,21 @@ library LibEmblemVaultStorage {
         string metadataBaseUri;
         address recipientAddress;
         address quoteContract;
-        address vaultFactory; // Added for beacon pattern integration
-        bool initialized;
-        bool shouldBurn;
-        bool allowCallbacks;
-        bool byPassable;
-        // Interface IDs
+        address vaultFactory; // For beacon pattern integration
+        address claimerContract; // Contract handling claim verification
+        // Interface IDs (constant but stored for gas optimization)
         bytes4 INTERFACE_ID_ERC1155;
         bytes4 INTERFACE_ID_ERC20;
         bytes4 INTERFACE_ID_ERC721;
         bytes4 INTERFACE_ID_ERC721A;
-        // Registration storage
-        mapping(address => uint256) registeredContracts;
-        mapping(uint256 => address[]) registeredOfType;
-        // Callback storage
-        mapping(address => mapping(uint256 => mapping(IHandlerCallback.CallbackType => IHandlerCallback.Callback[])))
-            registeredCallbacks;
-        mapping(address => mapping(IHandlerCallback.CallbackType => IHandlerCallback.Callback[]))
-            registeredWildcardCallbacks;
-        // Bypass storage
+        // Bypass System
         mapping(address => mapping(bytes4 => bool)) byPassableFunction;
         mapping(address => mapping(uint256 => bool)) byPassableIds;
+        // Statistics
+        uint256 witnessCount; // Track number of witnesses
     }
 
+    /// @notice Get the reentrancy guard storage
     function reentrancyGuard() internal pure returns (ReentrancyGuard storage r) {
         bytes32 position = REENTRANCY_GUARD_POSITION;
         assembly {
@@ -51,6 +58,7 @@ library LibEmblemVaultStorage {
         }
     }
 
+    /// @notice Get the main vault storage
     function vaultStorage() internal pure returns (VaultStorage storage vs) {
         bytes32 position = EMBLEM_VAULT_STORAGE_POSITION;
         assembly {
@@ -58,9 +66,11 @@ library LibEmblemVaultStorage {
         }
     }
 
+    // ============ Reentrancy Protection ============
+
     function nonReentrantBefore() internal {
         ReentrancyGuard storage guard = reentrancyGuard();
-        require(!guard.entered, "ReentrancyGuard: reentrant call");
+        if (guard.entered) revert ReentrantCall();
         guard.entered = true;
     }
 
@@ -69,29 +79,21 @@ library LibEmblemVaultStorage {
         guard.entered = false;
     }
 
+    // ============ Access Control ============
+
     function enforceIsContractOwner() internal view {
         LibDiamond.enforceIsContractOwner();
     }
 
-    function enforceIsRegisteredContract(address _contract) internal view {
-        VaultStorage storage vs = vaultStorage();
-        require(vs.registeredContracts[_contract] > 0, "LibEmblemVaultStorage: Contract is not registered");
-    }
-
     function enforceIsWitness(address _witness) internal view {
-        VaultStorage storage vs = vaultStorage();
-        require(vs.witnesses[_witness], "LibEmblemVaultStorage: Not a witness");
+        if (!vaultStorage().witnesses[_witness]) revert NotWitness();
     }
 
     function enforceNotUsedNonce(uint256 _nonce) internal view {
-        VaultStorage storage vs = vaultStorage();
-        require(!vs.usedNonces[_nonce], "LibEmblemVaultStorage: Nonce already used");
+        if (vaultStorage().usedNonces[_nonce]) revert NonceAlreadyUsed();
     }
 
-    function setUsedNonce(uint256 _nonce) internal {
-        VaultStorage storage vs = vaultStorage();
-        vs.usedNonces[_nonce] = true;
-    }
+    // ============ Vault Management ============
 
     function isVaultLocked(address _nftAddress, uint256 _tokenId) internal view returns (bool) {
         return vaultStorage().lockedVaults[_nftAddress][_tokenId];
@@ -105,15 +107,34 @@ library LibEmblemVaultStorage {
         vaultStorage().lockedVaults[_nftAddress][_tokenId] = false;
     }
 
+    // ============ Witness Management ============
+
     function addWitness(address _witness) internal {
-        vaultStorage().witnesses[_witness] = true;
+        VaultStorage storage vs = vaultStorage();
+        if (!vs.witnesses[_witness]) {
+            vs.witnesses[_witness] = true;
+            vs.witnessCount++;
+        }
     }
 
     function removeWitness(address _witness) internal {
-        vaultStorage().witnesses[_witness] = false;
+        VaultStorage storage vs = vaultStorage();
+        if (vs.witnesses[_witness]) {
+            vs.witnesses[_witness] = false;
+            vs.witnessCount--;
+        }
     }
 
+    // ============ Nonce Management ============
+
+    function setUsedNonce(uint256 _nonce) internal {
+        vaultStorage().usedNonces[_nonce] = true;
+    }
+
+    // ============ Configuration Management ============
+
     function setRecipientAddress(address _recipient) internal {
+        if (_recipient == address(0)) revert ZeroAddress();
         vaultStorage().recipientAddress = _recipient;
     }
 
@@ -122,17 +143,20 @@ library LibEmblemVaultStorage {
     }
 
     function setVaultFactory(address _factory) internal {
+        if (_factory == address(0)) revert ZeroAddress();
         vaultStorage().vaultFactory = _factory;
+    }
+
+    function setClaimerContract(address _claimer) internal {
+        if (_claimer == address(0)) revert ZeroAddress();
+        vaultStorage().claimerContract = _claimer;
     }
 
     function setMetadataBaseUri(string memory _uri) internal {
         vaultStorage().metadataBaseUri = _uri;
     }
 
-    function toggleAllowCallbacks() internal {
-        VaultStorage storage vs = vaultStorage();
-        vs.allowCallbacks = !vs.allowCallbacks;
-    }
+    // ============ Bypass System ============
 
     function toggleBypassability() internal {
         VaultStorage storage vs = vaultStorage();
@@ -140,6 +164,7 @@ library LibEmblemVaultStorage {
     }
 
     function addBypassRule(address who, bytes4 functionSig, uint256 id) internal {
+        if (who == address(0)) revert ZeroAddress();
         VaultStorage storage vs = vaultStorage();
         vs.byPassableFunction[who][functionSig] = true;
         if (id != 0) {
@@ -148,6 +173,7 @@ library LibEmblemVaultStorage {
     }
 
     function removeBypassRule(address who, bytes4 functionSig, uint256 id) internal {
+        if (who == address(0)) revert ZeroAddress();
         VaultStorage storage vs = vaultStorage();
         vs.byPassableFunction[who][functionSig] = false;
         if (id != 0) {
@@ -155,23 +181,11 @@ library LibEmblemVaultStorage {
         }
     }
 
-    function registerContract(address _contract, uint256 _type) internal {
-        VaultStorage storage vs = vaultStorage();
-        vs.registeredContracts[_contract] = _type;
-        vs.registeredOfType[_type].push(_contract);
-    }
-
-    function unregisterContract(address _contract, uint256 index) internal {
-        VaultStorage storage vs = vaultStorage();
-        address[] storage arr = vs.registeredOfType[vs.registeredContracts[_contract]];
-        arr[index] = arr[arr.length - 1];
-        arr.pop();
-        delete vs.registeredContracts[_contract];
-    }
+    // ============ Initialization ============
 
     function initializeVaultStorage() internal {
         VaultStorage storage vs = vaultStorage();
-        require(!vs.initialized, "LibEmblemVaultStorage: Already initialized");
+        if (vs.initialized) revert AlreadyInitialized();
 
         vs.metadataBaseUri = "https://v2.emblemvault.io/meta/";
         vs.INTERFACE_ID_ERC1155 = 0xd9b67a26;
@@ -180,7 +194,7 @@ library LibEmblemVaultStorage {
         vs.INTERFACE_ID_ERC721A = 0xf4a95f26;
         vs.recipientAddress = msg.sender;
         vs.vaultFactory = msg.sender;
-        vs.allowCallbacks = true;
+        vs.witnessCount = 0;
         vs.initialized = true;
     }
 }
