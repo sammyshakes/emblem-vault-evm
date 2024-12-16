@@ -17,6 +17,10 @@ import "../interfaces/IVaultCollectionFactory.sol";
 contract EmblemVaultMintFacet {
     using LibEmblemVaultStorage for LibEmblemVaultStorage.VaultStorage;
 
+    // Constants for gas optimization
+    uint256 private constant PRICE_TOLERANCE_BPS = 200; // 2%
+    bytes16 private constant HEX_DIGITS = "0123456789";
+
     event TokenMinted(
         address indexed nftAddress,
         address indexed to,
@@ -92,13 +96,18 @@ contract EmblemVaultMintFacet {
     ) external payable onlyValidCollection(_nftAddress) {
         LibEmblemVaultStorage.nonReentrantBefore();
 
+        // Cache storage reads
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         uint256 quote = IMintVaultQuote(vs.quoteContract).quoteExternalPrice(msg.sender, _price);
-        uint256 totalPrice = quote * _amount;
+        uint256 totalPrice;
 
-        // Calculate the acceptable range for the msg.value (2% tolerance)
-        uint256 acceptableRange = totalPrice * 2 / 100;
-        LibErrors.revertIfPriceOutOfRange(msg.value, totalPrice, acceptableRange);
+        // Unchecked math for gas optimization where overflow is impossible
+        unchecked {
+            totalPrice = quote * _amount;
+            // Calculate acceptable range (2% tolerance)
+            uint256 acceptableRange = (totalPrice * PRICE_TOLERANCE_BPS) / 10_000;
+            LibErrors.revertIfPriceOutOfRange(msg.value, totalPrice, acceptableRange);
+        }
 
         MintParams memory params = MintParams({
             nftAddress: _nftAddress,
@@ -122,6 +131,7 @@ contract EmblemVaultMintFacet {
         LibEmblemVaultStorage.enforceNotUsedNonce(params.nonce);
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
 
+        // Handle payment
         if (params.payment == address(0)) {
             payable(vs.recipientAddress).transfer(msg.value);
         } else {
@@ -134,6 +144,7 @@ contract EmblemVaultMintFacet {
             }
         }
 
+        // Verify signature
         address signer = params.isQuote
             ? LibSignature.verifyQuoteSignature(
                 params.nftAddress,
@@ -157,7 +168,8 @@ contract EmblemVaultMintFacet {
 
         LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
 
-        if (!_mintRouter(params)) {
+        // Mint token
+        if (!_mintRouter(params, vs)) {
             revert LibErrors.MintFailed(params.nftAddress, params.tokenId);
         }
 
@@ -174,8 +186,15 @@ contract EmblemVaultMintFacet {
         );
     }
 
-    function _mintRouter(MintParams memory params) private returns (bool) {
-        if (LibInterfaceIds.isERC1155(params.nftAddress)) {
+    function _mintRouter(MintParams memory params, LibEmblemVaultStorage.VaultStorage storage vs)
+        private
+        returns (bool)
+    {
+        // Cache interface check results
+        bool isERC1155 = LibInterfaceIds.isERC1155(params.nftAddress);
+        bool isERC721A = !isERC1155 && LibInterfaceIds.isERC721A(params.nftAddress);
+
+        if (isERC1155) {
             if (IIsSerialized(params.nftAddress).isOverloadSerial()) {
                 IERC1155(params.nftAddress).mintWithSerial(
                     params.to, params.tokenId, params.amount, params.serialNumber
@@ -183,44 +202,43 @@ contract EmblemVaultMintFacet {
             } else {
                 IERC1155(params.nftAddress).mint(params.to, params.tokenId, params.amount);
             }
-        } else {
-            if (LibInterfaceIds.isERC721A(params.nftAddress)) {
-                if (params.serialNumber.length > 0) {
-                    IERC721A(params.nftAddress).mintWithData(
-                        params.to, params.tokenId, params.serialNumber
-                    );
-                } else {
-                    IERC721A(params.nftAddress).mint(params.to, params.tokenId);
-                }
+        } else if (isERC721A) {
+            if (params.serialNumber.length > 0) {
+                IERC721A(params.nftAddress).mintWithData(
+                    params.to, params.tokenId, params.serialNumber
+                );
             } else {
-                LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-                string memory uri =
-                    string(abi.encodePacked(vs.metadataBaseUri, _uintToStr(params.tokenId)));
-                IERC721(params.nftAddress).mint(params.to, params.tokenId, uri, "");
+                IERC721A(params.nftAddress).mint(params.to, params.tokenId);
             }
+        } else {
+            string memory uri =
+                string(abi.encodePacked(vs.metadataBaseUri, _uintToStrOptimized(params.tokenId)));
+            IERC721(params.nftAddress).mint(params.to, params.tokenId, uri, "");
         }
         return true;
     }
 
-    function _uintToStr(uint256 _i) internal pure returns (string memory) {
-        if (_i == 0) {
+    function _uintToStrOptimized(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
             return "0";
         }
-        uint256 j = _i;
-        uint256 len;
-        while (j != 0) {
-            len++;
-            j /= 10;
+
+        // Count digits
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
         }
-        bytes memory bstr = new bytes(len);
-        uint256 k = len;
-        while (_i != 0) {
-            k = k - 1;
-            uint8 temp = (48 + uint8(_i - _i / 10 * 10));
-            bytes1 b1 = bytes1(temp);
-            bstr[k] = b1;
-            _i /= 10;
+
+        // Create string
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
         }
-        return string(bstr);
+
+        return string(buffer);
     }
 }

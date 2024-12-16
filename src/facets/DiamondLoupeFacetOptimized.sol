@@ -14,13 +14,13 @@ contract DiamondLoupeFacetOptimized {
     function facets() external view returns (Facet[] memory facets_) {
         // Cache storage pointer to save gas on repeated SLOADs
         LibDiamond.DiamondStorage storage ds = LibDiamond.diamondStorage();
-        address[] storage facetAddresses = ds.facetAddresses;
-        uint256 numFacets = facetAddresses.length;
+        address[] storage storedFacetAddresses = ds.facetAddresses;
+        uint256 numFacets = storedFacetAddresses.length;
         facets_ = new Facet[](numFacets);
 
         // Single loop with cached storage reads
         for (uint256 i; i < numFacets;) {
-            address currentFacet = facetAddresses[i];
+            address currentFacet = storedFacetAddresses[i];
             bytes4[] storage currentSelectors = ds.facetSelectors[currentFacet];
 
             // Direct storage to memory copy
