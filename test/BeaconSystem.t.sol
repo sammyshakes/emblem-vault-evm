@@ -105,7 +105,7 @@ contract BeaconSystemTest is Test {
         // Verify collection setup
         assertTrue(factory.isCollection(collection));
         assertEq(factory.getCollectionType(collection), 2); // ERC1155_TYPE
-        assertEq(ERC1155VaultImplementation(collection).uri(0), uri);
+        assertEq(ERC1155VaultImplementation(collection).uri(0), string(abi.encodePacked(uri, "0")));
         assertEq(OwnableUpgradeable(collection).owner(), address(this)); // Diamond owns collection
     }
 
@@ -134,10 +134,16 @@ contract BeaconSystemTest is Test {
         // Create collection
         address collection = factory.createERC1155Collection("https://test.uri/");
 
-        // Test minting vaults (Diamond is the owner)
+        // Test minting vaults with serial numbers (Diamond is the owner)
+        uint256[] memory serialNumbers = new uint256[](5);
+        for (uint256 i = 0; i < 5; i++) {
+            serialNumbers[i] = i + 1;
+        }
+        bytes memory serialData = abi.encode(serialNumbers);
+
         vm.expectEmit(true, true, true, true);
         emit TransferSingle(address(this), address(0), user1, 1, 5);
-        ERC1155VaultImplementation(collection).mint(user1, 1, 5, "");
+        ERC1155VaultImplementation(collection).mintWithSerial(user1, 1, 5, serialData);
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user1, 1), 5);
 
         // Test transfers
@@ -163,7 +169,23 @@ contract BeaconSystemTest is Test {
         amounts[0] = 5;
         amounts[1] = 3;
 
-        ERC1155VaultImplementation(collection).mintBatch(user1, ids, amounts, "");
+        // Prepare serial numbers for batch mint
+        bytes[] memory serialArrays = new bytes[](2);
+
+        uint256[] memory serials1 = new uint256[](5);
+        for (uint256 i = 0; i < 5; i++) {
+            serials1[i] = 100 + i;
+        }
+        serialArrays[0] = abi.encode(serials1);
+
+        uint256[] memory serials2 = new uint256[](3);
+        for (uint256 i = 0; i < 3; i++) {
+            serials2[i] = 200 + i;
+        }
+        serialArrays[1] = abi.encode(serials2);
+
+        bytes memory batchData = abi.encode(serialArrays);
+        ERC1155VaultImplementation(collection).mintBatch(user1, ids, amounts, batchData);
 
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user1, 1), 5);
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user1, 2), 3);
@@ -204,7 +226,13 @@ contract BeaconSystemTest is Test {
         // Test ERC1155 burn
         address collection1155 = factory.createERC1155Collection("https://test.uri/");
 
-        ERC1155VaultImplementation(collection1155).mint(user1, 1, 5, "");
+        // Mint with serial numbers
+        uint256[] memory serialNumbers = new uint256[](5);
+        for (uint256 i = 0; i < 5; i++) {
+            serialNumbers[i] = i + 1;
+        }
+        bytes memory serialData = abi.encode(serialNumbers);
+        ERC1155VaultImplementation(collection1155).mintWithSerial(user1, 1, 5, serialData);
 
         vm.prank(user1);
         vm.expectEmit(true, true, true, true);
@@ -250,7 +278,13 @@ contract BeaconSystemTest is Test {
         address collection = factory.createERC1155Collection("https://test.uri/");
 
         // Mint vaults before upgrade
-        ERC1155VaultImplementation(collection).mint(user1, 1, 5, "");
+        // Mint with serial numbers
+        uint256[] memory serialNumbers = new uint256[](5);
+        for (uint256 i = 0; i < 5; i++) {
+            serialNumbers[i] = 300 + i;
+        }
+        bytes memory serialData = abi.encode(serialNumbers);
+        ERC1155VaultImplementation(collection).mintWithSerial(user1, 1, 5, serialData);
 
         // Upgrade implementation through factory (this contract is Diamond)
         vm.expectEmit(true, true, true, true);
@@ -264,7 +298,13 @@ contract BeaconSystemTest is Test {
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user1, 1), 5);
 
         // Verify new minting still works
-        ERC1155VaultImplementation(collection).mint(user2, 2, 3, "");
+        // Mint with serial numbers
+        uint256[] memory newSerials = new uint256[](3);
+        for (uint256 i = 0; i < 3; i++) {
+            newSerials[i] = 400 + i;
+        }
+        bytes memory newSerialData = abi.encode(newSerials);
+        ERC1155VaultImplementation(collection).mintWithSerial(user2, 2, 3, newSerialData);
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user2, 2), 3);
     }
 
@@ -281,9 +321,15 @@ contract BeaconSystemTest is Test {
     function testRevertUnauthorizedMint1155() public {
         address collection = factory.createERC1155Collection("https://test.uri/");
 
+        uint256[] memory serialNumbers = new uint256[](5);
+        for (uint256 i = 0; i < 5; i++) {
+            serialNumbers[i] = 500 + i;
+        }
+        bytes memory serialData = abi.encode(serialNumbers);
+
         vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", user1));
         vm.prank(user1); // Not the owner
-        ERC1155VaultImplementation(collection).mint(user1, 1, 5, "");
+        ERC1155VaultImplementation(collection).mintWithSerial(user1, 1, 5, serialData);
     }
 
     function testRevertUnauthorizedBeaconUpdate() public {

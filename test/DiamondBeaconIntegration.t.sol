@@ -292,7 +292,10 @@ contract DiamondBeaconIntegrationTest is Test {
         vm.prank(address(diamond));
         address vault = factory.createERC1155Collection(uri);
 
-        // 2. Mint tokens through Diamond
+        // 2. Toggle serial mode and mint tokens through Diamond
+        vm.prank(address(diamond));
+        ERC1155VaultImplementation(vault).toggleOverloadSerial(); // Switch to automatic serials
+
         vm.prank(address(diamond));
         ERC1155VaultImplementation(vault).mint(user1, 1, 5, "");
 
