@@ -806,9 +806,19 @@ contract DiamondVaultTest is Test {
 
         // Execute batch mint
         vm.startPrank(user1);
-        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: totalPrice}(
-            nftCollection, address(0), prices, user1, tokenIds, nonces, signatures, amounts
-        );
+        bytes[] memory serialNumbers = new bytes[](3);
+        EmblemVaultMintFacet.BatchPurchase memory purchase = EmblemVaultMintFacet.BatchPurchase({
+            nftAddress: nftCollection,
+            payment: address(0),
+            prices: prices,
+            to: user1,
+            externalTokenIds: tokenIds,
+            nonces: nonces,
+            signatures: signatures,
+            serialNumbers: serialNumbers,
+            amounts: amounts
+        });
+        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: totalPrice}(purchase);
         vm.stopPrank();
 
         // Verify tokens were minted correctly
@@ -910,9 +920,19 @@ contract DiamondVaultTest is Test {
         // Execute batch mint
         vm.startPrank(user1);
         vm.expectRevert(abi.encodeWithSelector(LibErrors.NotWitness.selector, vm.addr(0xBAD)));
-        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: prices[0]}(
-            nftCollection, address(0), prices, user1, tokenIds, nonces, signatures, amounts
-        );
+        bytes[] memory serialNumbers = new bytes[](1);
+        EmblemVaultMintFacet.BatchPurchase memory purchase = EmblemVaultMintFacet.BatchPurchase({
+            nftAddress: nftCollection,
+            payment: address(0),
+            prices: prices,
+            to: user1,
+            externalTokenIds: tokenIds,
+            nonces: nonces,
+            signatures: signatures,
+            serialNumbers: serialNumbers,
+            amounts: amounts
+        });
+        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: prices[0]}(purchase);
         vm.stopPrank();
     }
 
@@ -939,14 +959,28 @@ contract DiamondVaultTest is Test {
             witnessPrivateKey
         );
 
+        bytes[] memory serialNumbers = new bytes[](1);
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = 1;
 
         // Execute batch mint with insufficient ETH
         vm.startPrank(user1);
-        vm.expectRevert("Insufficient ETH");
+        vm.expectRevert(
+            abi.encodeWithSelector(LibErrors.IncorrectPayment.selector, prices[0] / 2, prices[0])
+        );
+        EmblemVaultMintFacet.BatchPurchase memory purchase = EmblemVaultMintFacet.BatchPurchase({
+            nftAddress: nftCollection,
+            payment: address(0),
+            prices: prices,
+            to: user1,
+            externalTokenIds: tokenIds,
+            nonces: nonces,
+            signatures: signatures,
+            serialNumbers: serialNumbers,
+            amounts: amounts
+        });
         EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: prices[0] / 2}(
-            nftCollection, address(0), prices, user1, tokenIds, nonces, signatures, amounts
+            purchase
         );
         vm.stopPrank();
     }

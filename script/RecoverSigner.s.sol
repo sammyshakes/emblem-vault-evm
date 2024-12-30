@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import "../src/libraries/LibSignature.sol";
 
 contract RecoverSigner is Script {
-    function run() external view {
+    function run() external pure {
         // Use exact same parameters as TestMint.s.sol
         address nftAddress = vm.parseAddress("0x12a84432093C56D9235C7cd390Bb6A7adDA78301");
         address payment = address(0); // Zero address for ETH payment

@@ -126,6 +126,12 @@ library LibErrors {
     /// @notice Incorrect payment amount
     error IncorrectPayment(uint256 provided, uint256 expected);
 
+    /// @notice Eth transfer failed
+    error ETHTransferFailed();
+
+    /// @notice Array length mismatch
+    error LengthMismatch(uint256 length1, uint256 length2);
+
     // ============ Initialization Errors ============
 
     /// @notice Already initialized
@@ -174,6 +180,11 @@ library LibErrors {
         if (provided != expected) revert IncorrectPayment(provided, expected);
     }
 
+    /// @notice Check for insufficient payment
+    function revertIfInsufficientETH(uint256 provided, uint256 expected) internal pure {
+        if (provided < expected) revert IncorrectPayment(provided, expected);
+    }
+
     /// @notice Check for price range
     function revertIfPriceOutOfRange(uint256 provided, uint256 expected, uint256 tolerance)
         internal
@@ -219,5 +230,10 @@ library LibErrors {
     {
         if (initContract == address(0) && initData.length > 0) revert InvalidInitialization();
         if (initContract != address(0) && initData.length == 0) revert InvalidInitialization();
+    }
+
+    /// @notice Check for length mismatch
+    function revertIfLengthMismatch(uint256 length1, uint256 length2) internal pure {
+        if (length1 != length2) revert LengthMismatch(length1, length2);
     }
 }

@@ -70,11 +70,7 @@ contract ERC721VaultImplementation is
         // Mint a new token - ERC721A will handle sequential internal IDs
         _mint(to, 1);
 
-        // After minting, verify the token exists and map the IDs
-        require(_exists(startTokenId), "Token was not minted");
-        require(ownerOf(startTokenId) == to, "Token not owned by recipient");
-
-        // Map the IDs after verifying token exists
+        // Map the IDs
         _externalTokenIdMap[startTokenId] = externalTokenId;
         _reverseTokenIdMap[externalTokenId] = startTokenId;
 
@@ -105,17 +101,6 @@ contract ERC721VaultImplementation is
         emit TokenMinted(to, startTokenId, externalTokenId, data);
     }
 
-    function burn(uint256 internalTokenId)
-        public
-        override(ERC721ABurnableUpgradeable, IERC721AVault)
-    {
-        _burnSingle(internalTokenId, "");
-    }
-
-    function burnWithData(uint256 internalTokenId, bytes calldata data) public override {
-        _burnSingle(internalTokenId, data);
-    }
-
     function batchMint(address to, uint256[] calldata externalTokenIds) external onlyOwner {
         _mintBatch(to, externalTokenIds, "");
     }
@@ -125,17 +110,6 @@ contract ERC721VaultImplementation is
         onlyOwner
     {
         _mintBatch(to, externalTokenIds, data);
-    }
-
-    function batchBurn(uint256[] calldata internalTokenIds) external override {
-        _burnBatch(internalTokenIds, "");
-    }
-
-    function batchBurnWithData(uint256[] calldata internalTokenIds, bytes calldata data)
-        external
-        override
-    {
-        _burnBatch(internalTokenIds, data);
     }
 
     function _mintBatch(address to, uint256[] memory externalTokenIds, bytes memory data)
@@ -178,6 +152,17 @@ contract ERC721VaultImplementation is
         }
     }
 
+    function burn(uint256 internalTokenId)
+        public
+        override(ERC721ABurnableUpgradeable, IERC721AVault)
+    {
+        _burnSingle(internalTokenId, "");
+    }
+
+    function burnWithData(uint256 internalTokenId, bytes calldata data) public override {
+        _burnSingle(internalTokenId, data);
+    }
+
     function _burnSingle(uint256 internalTokenId, bytes memory data) internal {
         address owner = ownerOf(internalTokenId);
         require(_msgSender() == owner || isApprovedForAll(owner, _msgSender()), "Not authorized");
@@ -189,6 +174,17 @@ contract ERC721VaultImplementation is
         super.burn(internalTokenId);
 
         emit TokenBurned(_msgSender(), internalTokenId, externalTokenId, data);
+    }
+
+    function batchBurn(uint256[] calldata internalTokenIds) external override {
+        _burnBatch(internalTokenIds, "");
+    }
+
+    function batchBurnWithData(uint256[] calldata internalTokenIds, bytes calldata data)
+        external
+        override
+    {
+        _burnBatch(internalTokenIds, data);
     }
 
     function _burnBatch(uint256[] memory internalTokenIds, bytes memory data) internal {
