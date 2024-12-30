@@ -2,7 +2,9 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 import {EmblemVaultDiamond} from "../src/EmblemVaultDiamond.sol";
+import {ERC721AUpgradeable} from "ERC721A-Upgradeable/ERC721AUpgradeable.sol";
 import {IDiamondCut} from "../src/interfaces/IDiamondCut.sol";
 import {DiamondCutFacet} from "../src/facets/DiamondCutFacet.sol";
 import {DiamondLoupeFacet} from "../src/facets/DiamondLoupeFacet.sol";
@@ -17,6 +19,7 @@ import {VaultProxy, ERC721VaultProxy, ERC1155VaultProxy} from "../src/beacon/Vau
 import {
     IVaultProxy, IERC721VaultProxy, IERC1155VaultProxy
 } from "../src/interfaces/IVaultProxy.sol";
+import {IERC721AVault} from "../src/interfaces/IERC721AVault.sol";
 import {ERC721VaultImplementation} from "../src/implementations/ERC721VaultImplementation.sol";
 import {ERC1155VaultImplementation} from "../src/implementations/ERC1155VaultImplementation.sol";
 import {VaultCollectionFactory} from "../src/factories/VaultCollectionFactory.sol";
@@ -476,7 +479,33 @@ contract DiamondVaultTest is Test {
     }
 
     function testBuyWithSignedPrice() public {
-        uint256 tokenId = 2;
+        // First verify the mapping for token minted in setup
+        uint256 setupTokenId = 1;
+        uint256 setupInternalId = 1;
+
+        // Verify the token was minted successfully
+        uint256 supply = ERC721AUpgradeable(nftCollection).totalSupply();
+        assertEq(supply, 1, "Total supply should be 1");
+
+        uint256 balance = ERC721VaultImplementation(nftCollection).balanceOf(tokenHolder);
+        assertEq(balance, 1, "TokenHolder balance should be 1");
+
+        // Get the internal token ID (should be 1 since it's the first token)
+        uint256 firstTokenId = 1;
+
+        // Verify ownership
+        address tokenOwner = ERC721VaultImplementation(nftCollection).ownerOf(firstTokenId);
+        assertEq(tokenOwner, tokenHolder, "Token should be owned by tokenHolder");
+
+        // Verify token ID mappings
+        uint256 externalId = IERC721AVault(nftCollection).getExternalTokenId(firstTokenId);
+        assertEq(externalId, setupTokenId, "External token ID mapping incorrect");
+
+        uint256 internalId = IERC721AVault(nftCollection).getInternalTokenId(setupTokenId);
+        assertEq(internalId, firstTokenId, "Internal token ID mapping incorrect");
+
+        // Now test minting a new token
+        uint256 tokenId = 1000; // Use a much larger token ID
         uint256 price = 1 ether;
         uint256 nonce = 2; // Use new nonce since 1 was used in setup
         bytes memory serialNumber = new bytes(0);
@@ -500,12 +529,31 @@ contract DiamondVaultTest is Test {
         );
         vm.stopPrank();
 
-        // Verify token was minted to user1
-        assertEq(ERC721VaultImplementation(nftCollection).ownerOf(tokenId), user1);
+        // Get the sequential internal token ID (should be 2 since we minted one in setup)
+        uint256 internalTokenId = 2;
+
+        // Verify ownership of new token
+        assertEq(ERC721VaultImplementation(nftCollection).ownerOf(internalTokenId), user1);
+
+        // Verify the mappings for new token
+        assertEq(IERC721AVault(nftCollection).getExternalTokenId(internalTokenId), tokenId);
+        assertEq(IERC721AVault(nftCollection).getInternalTokenId(tokenId), internalTokenId);
     }
 
     function testBuyWithSignedPriceERC20() public {
-        uint256 tokenId = 2;
+        // First verify the mapping for token minted in setup
+        uint256 setupTokenId = 1;
+        uint256 setupInternalId = 1;
+
+        // Verify ownership of setup token
+        assertEq(ERC721VaultImplementation(nftCollection).ownerOf(setupInternalId), tokenHolder);
+
+        // Verify the mappings for setup token
+        assertEq(IERC721AVault(nftCollection).getExternalTokenId(setupInternalId), setupTokenId);
+        assertEq(IERC721AVault(nftCollection).getInternalTokenId(setupTokenId), setupInternalId);
+
+        // Now test minting a new token
+        uint256 tokenId = 999_999; // Use an even larger token ID
         uint256 price = 100 ether;
         uint256 nonce = 2; // Use new nonce since 1 was used in setup
         bytes memory serialNumber = new bytes(0);
@@ -533,8 +581,15 @@ contract DiamondVaultTest is Test {
         );
         vm.stopPrank();
 
-        // Verify token was minted to user1
-        assertEq(ERC721VaultImplementation(nftCollection).ownerOf(tokenId), user1);
+        // Get the sequential internal token ID (should be 2 since we minted one in setup)
+        uint256 internalTokenId = 2;
+
+        // Verify ownership of new token
+        assertEq(ERC721VaultImplementation(nftCollection).ownerOf(internalTokenId), user1);
+
+        // Verify the mappings for new token
+        assertEq(IERC721AVault(nftCollection).getExternalTokenId(internalTokenId), tokenId);
+        assertEq(IERC721AVault(nftCollection).getInternalTokenId(tokenId), internalTokenId);
     }
 
     function testBuyWithQuote() public {

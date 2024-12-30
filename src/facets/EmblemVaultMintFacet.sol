@@ -1,25 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+// ========== External Libraries ==========
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
+// ========== Internal Libraries ==========
 import "../libraries/LibDiamond.sol";
 import "../libraries/LibEmblemVaultStorage.sol";
 import "../libraries/LibSignature.sol";
 import "../libraries/LibInterfaceIds.sol";
 import "../libraries/LibErrors.sol";
-import "../interfaces/IERC721.sol";
+
+// ========== Interfaces ==========
 import "../interfaces/IERC1155.sol";
 import "../interfaces/IERC20Token.sol";
 import "../interfaces/IMintVaultQuote.sol";
 import "../interfaces/IIsSerialized.sol";
-import "../interfaces/IERC721A.sol";
+import "../interfaces/IERC721AVault.sol";
 import "../interfaces/IVaultCollectionFactory.sol";
 
 contract EmblemVaultMintFacet {
     using LibEmblemVaultStorage for LibEmblemVaultStorage.VaultStorage;
+    using SafeERC20 for IERC20;
 
     // Constants for gas optimization
     uint256 private constant PRICE_TOLERANCE_BPS = 200; // 2%
-    bytes16 private constant HEX_DIGITS = "0123456789";
 
     event TokenMinted(
         address indexed nftAddress,
@@ -96,15 +101,12 @@ contract EmblemVaultMintFacet {
     ) external payable onlyValidCollection(_nftAddress) {
         LibEmblemVaultStorage.nonReentrantBefore();
 
-        // Cache storage reads
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         uint256 quote = IMintVaultQuote(vs.quoteContract).quoteExternalPrice(msg.sender, _price);
         uint256 totalPrice;
 
-        // Unchecked math for gas optimization where overflow is impossible
         unchecked {
             totalPrice = quote * _amount;
-            // Calculate acceptable range (2% tolerance)
             uint256 acceptableRange = (totalPrice * PRICE_TOLERANCE_BPS) / 10_000;
             LibErrors.revertIfPriceOutOfRange(msg.value, totalPrice, acceptableRange);
         }
@@ -112,7 +114,7 @@ contract EmblemVaultMintFacet {
         MintParams memory params = MintParams({
             nftAddress: _nftAddress,
             payment: address(0),
-            price: _price, // Use base price for signature verification, not msg.value
+            price: _price,
             to: _to,
             tokenId: _tokenId,
             nonce: _nonce,
@@ -131,20 +133,15 @@ contract EmblemVaultMintFacet {
         LibEmblemVaultStorage.enforceNotUsedNonce(params.nonce);
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
 
-        // Handle payment
         if (params.payment == address(0)) {
-            payable(vs.recipientAddress).transfer(msg.value);
-        } else {
-            if (
-                !IERC20Token(params.payment).transferFrom(
-                    msg.sender, vs.recipientAddress, params.price
-                )
-            ) {
-                revert LibErrors.TransferFailed();
+            (bool success,) = vs.recipientAddress.call{value: msg.value}("");
+            if (!success) {
+                revert("Failed to send Ether");
             }
+        } else {
+            IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, params.price);
         }
 
-        // Verify signature
         address signer = params.isQuote
             ? LibSignature.verifyQuoteSignature(
                 params.nftAddress,
@@ -168,8 +165,7 @@ contract EmblemVaultMintFacet {
 
         LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
 
-        // Mint token
-        if (!_mintRouter(params, vs)) {
+        if (!_mintRouter(params)) {
             revert LibErrors.MintFailed(params.nftAddress, params.tokenId);
         }
 
@@ -186,11 +182,7 @@ contract EmblemVaultMintFacet {
         );
     }
 
-    function _mintRouter(MintParams memory params, LibEmblemVaultStorage.VaultStorage storage vs)
-        private
-        returns (bool)
-    {
-        // Cache interface check results
+    function _mintRouter(MintParams memory params) private returns (bool) {
         bool isERC1155 = LibInterfaceIds.isERC1155(params.nftAddress);
         bool isERC721A = !isERC1155 && LibInterfaceIds.isERC721A(params.nftAddress);
 
@@ -203,17 +195,7 @@ contract EmblemVaultMintFacet {
                 IERC1155(params.nftAddress).mint(params.to, params.tokenId, params.amount);
             }
         } else if (isERC721A) {
-            if (params.serialNumber.length > 0) {
-                IERC721A(params.nftAddress).mintWithData(
-                    params.to, params.tokenId, params.serialNumber
-                );
-            } else {
-                IERC721A(params.nftAddress).mint(params.to, params.tokenId);
-            }
-        } else {
-            string memory uri =
-                string(abi.encodePacked(vs.metadataBaseUri, _uintToStrOptimized(params.tokenId)));
-            IERC721(params.nftAddress).mint(params.to, params.tokenId, uri, "");
+            IERC721AVault(params.nftAddress).mint(params.to, params.tokenId);
         }
         return true;
     }
@@ -223,7 +205,6 @@ contract EmblemVaultMintFacet {
             return "0";
         }
 
-        // Count digits
         uint256 temp = value;
         uint256 digits;
         while (temp != 0) {
@@ -231,7 +212,6 @@ contract EmblemVaultMintFacet {
             temp /= 10;
         }
 
-        // Create string
         bytes memory buffer = new bytes(digits);
         while (value != 0) {
             digits -= 1;
@@ -240,5 +220,15 @@ contract EmblemVaultMintFacet {
         }
 
         return string(buffer);
+    }
+
+    function batchMint(address to, uint256[] calldata externalTokenIds) external {
+        IERC721AVault(address(this)).batchMint(to, externalTokenIds);
+    }
+
+    function batchMintWithData(address to, uint256[] calldata externalTokenIds, bytes calldata data)
+        external
+    {
+        IERC721AVault(address(this)).batchMintWithData(to, externalTokenIds, data);
     }
 }

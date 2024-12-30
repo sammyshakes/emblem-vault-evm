@@ -1,0 +1,81 @@
+Compiling 83 files with Solc 0.8.28
+Solc 0.8.28 finished in 10.52s
+Compiler run successful!
+Traces:
+  [4575686] DeployVaultImplementations::run()
+    ├─ [0] VM::envUint("PRIVATE_KEY") [staticcall]
+    │   └─ ← [Return] <env var value>
+    ├─ [0] VM::addr(<pk>) [staticcall]
+    │   └─ ← [Return] 0x107A120f536c8BD891A3c04fcA22a7814E260210
+    ├─ [0] console::log("Deploying Vault Implementations with deployer:", 0x107A120f536c8BD891A3c04fcA22a7814E260210) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] VM::startBroadcast(<pk>)
+    │   └─ ← [Return] 
+    ├─ [2025471] → new ERC721VaultImplementation@0x8CBbA42B2Ff1A7Eae942A886e4e6a9e126d11A70
+    │   ├─ emit Initialized(version: 18446744073709551615 [1.844e19])
+    │   └─ ← [Return] 10000 bytes of code
+    ├─ emit Deployed(name: "ERC721VaultImplementation", addr: ERC721VaultImplementation: [0x8CBbA42B2Ff1A7Eae942A886e4e6a9e126d11A70])
+    ├─ [0] console::log("ERC721VaultImplementation deployed at:", ERC721VaultImplementation: [0x8CBbA42B2Ff1A7Eae942A886e4e6a9e126d11A70]) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [2465980] → new ERC1155VaultImplementation@0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583
+    │   ├─ emit Initialized(version: 18446744073709551615 [1.844e19])
+    │   └─ ← [Return] 12200 bytes of code
+    ├─ emit Deployed(name: "ERC1155VaultImplementation", addr: ERC1155VaultImplementation: [0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583])
+    ├─ [0] console::log("ERC1155VaultImplementation deployed at:", ERC1155VaultImplementation: [0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583]) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] VM::stopBroadcast()
+    │   └─ ← [Return] 
+    ├─ [0] console::log("\nImplementation Deployment Summary:") [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] console::log("--------------------------------") [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] console::log("ERC721 Implementation:", ERC721VaultImplementation: [0x8CBbA42B2Ff1A7Eae942A886e4e6a9e126d11A70]) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] console::log("ERC1155 Implementation:", ERC1155VaultImplementation: [0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583]) [staticcall]
+    │   └─ ← [Stop] 
+    └─ ← [Return] 
+
+
+Script ran successfully.
+
+== Logs ==
+  Deploying Vault Implementations with deployer: 0x107A120f536c8BD891A3c04fcA22a7814E260210
+  ERC721VaultImplementation deployed at: 0x8CBbA42B2Ff1A7Eae942A886e4e6a9e126d11A70
+  ERC1155VaultImplementation deployed at: 0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583
+  
+Implementation Deployment Summary:
+  --------------------------------
+  ERC721 Implementation: 0x8CBbA42B2Ff1A7Eae942A886e4e6a9e126d11A70
+  ERC1155 Implementation: 0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583
+
+## Setting up 1 EVM.
+==========================
+Simulated On-chain Traces:
+
+  [2025471] → new ERC721VaultImplementation@0x8CBbA42B2Ff1A7Eae942A886e4e6a9e126d11A70
+    ├─ emit Initialized(version: 18446744073709551615 [1.844e19])
+    └─ ← [Return] 10000 bytes of code
+
+  [2465980] → new ERC1155VaultImplementation@0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583
+    ├─ emit Initialized(version: 18446744073709551615 [1.844e19])
+    └─ ← [Return] 12200 bytes of code
+
+
+==========================
+
+Chain 43113
+
+Estimated gas price: 26 gwei
+
+Estimated total gas used for script: 6447491
+
+Estimated amount required: 0.167634766 ETH
+
+==========================
+
+SIMULATION COMPLETE. To broadcast these transactions, add --broadcast and wallet configuration(s) to the previous command. See forge script --help for more.
+
+Transactions saved to: /home/shakes/shakesdev/emblem-vaults/emblem-vault-diamond/broadcast/DeployVaultImplementations.s.sol/43113/dry-run/run-latest.json
+
+Sensitive values saved to: /home/shakes/shakesdev/emblem-vaults/emblem-vault-diamond/cache/DeployVaultImplementations.s.sol/43113/dry-run/run-latest.json
+

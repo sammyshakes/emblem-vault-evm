@@ -9,7 +9,7 @@ import "../libraries/LibErrors.sol";
 import "../interfaces/IERC721.sol";
 import "../interfaces/IERC1155.sol";
 import "../interfaces/IERC20Token.sol";
-import "../interfaces/IERC721A.sol";
+import "../interfaces/IERC721AVault.sol";
 import "../interfaces/IClaimed.sol";
 import "../interfaces/IIsSerialized.sol";
 import "../interfaces/IVaultCollectionFactory.sol";
@@ -151,7 +151,7 @@ contract EmblemVaultClaimFacet {
             data = "";
         } else {
             if (LibInterfaceIds.isERC721A(_nftAddress)) {
-                IERC721A token = IERC721A(_nftAddress);
+                IERC721AVault token = IERC721AVault(_nftAddress);
                 uint256 internalTokenId = token.getInternalTokenId(tokenId);
 
                 if (claimer.isClaimed(_nftAddress, internalTokenId, proof)) {
@@ -161,7 +161,7 @@ contract EmblemVaultClaimFacet {
                     revert LibErrors.NotVaultOwner(_nftAddress, internalTokenId, address(this));
                 }
 
-                token.burnWithData(internalTokenId, "");
+                token.burn(internalTokenId);
                 data = "";
                 serialNumber = internalTokenId;
             } else {
