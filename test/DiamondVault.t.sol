@@ -194,9 +194,10 @@ contract DiamondVaultTest is Test {
         });
 
         // MintFacet
-        bytes4[] memory mintSelectors = new bytes4[](2);
+        bytes4[] memory mintSelectors = new bytes4[](3);
         mintSelectors[0] = EmblemVaultMintFacet.buyWithSignedPrice.selector;
         mintSelectors[1] = EmblemVaultMintFacet.buyWithQuote.selector;
+        mintSelectors[2] = EmblemVaultMintFacet.batchBuyWithSignedPrice.selector;
         cut[4] = IDiamondCut.FacetCut({
             facetAddress: address(mintFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -481,7 +482,6 @@ contract DiamondVaultTest is Test {
     function testBuyWithSignedPrice() public {
         // First verify the mapping for token minted in setup
         uint256 setupTokenId = 1;
-        uint256 setupInternalId = 1;
 
         // Verify the token was minted successfully
         uint256 supply = ERC721AUpgradeable(nftCollection).totalSupply();
@@ -745,6 +745,210 @@ contract DiamondVaultTest is Test {
             DiamondLoupeFacet(address(diamond)).getFacetAddress(OwnershipFacet.owner.selector),
             address(ownershipFacet)
         );
+    }
+
+    function testBatchBuyWithSignedPrice() public {
+        // Create test data
+        uint256[] memory tokenIds = new uint256[](3);
+        tokenIds[0] = 100;
+        tokenIds[1] = 101;
+        tokenIds[2] = 102;
+
+        uint256[] memory prices = new uint256[](3);
+        prices[0] = 1 ether;
+        prices[1] = 1.5 ether;
+        prices[2] = 2 ether;
+
+        uint256[] memory nonces = new uint256[](3);
+        nonces[0] = 2;
+        nonces[1] = 3;
+        nonces[2] = 4;
+
+        bytes[] memory signatures = new bytes[](3);
+        signatures[0] = createSignature(
+            nftCollection,
+            address(0), // ETH payment
+            prices[0],
+            user1,
+            tokenIds[0],
+            nonces[0],
+            1,
+            witnessPrivateKey
+        );
+        signatures[1] = createSignature(
+            nftCollection,
+            address(0),
+            prices[1],
+            user1,
+            tokenIds[1],
+            nonces[1],
+            1,
+            witnessPrivateKey
+        );
+        signatures[2] = createSignature(
+            nftCollection,
+            address(0),
+            prices[2],
+            user1,
+            tokenIds[2],
+            nonces[2],
+            1,
+            witnessPrivateKey
+        );
+
+        uint256[] memory amounts = new uint256[](3);
+        amounts[0] = 1;
+        amounts[1] = 1;
+        amounts[2] = 1;
+
+        // Calculate total price
+        uint256 totalPrice = prices[0] + prices[1] + prices[2];
+
+        // Execute batch mint
+        vm.startPrank(user1);
+        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: totalPrice}(
+            nftCollection, address(0), prices, user1, tokenIds, nonces, signatures, amounts
+        );
+        vm.stopPrank();
+
+        // Verify tokens were minted correctly
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            uint256 internalTokenId = i + 2; // +2 because setup already minted token 1
+
+            // Verify ownership
+            assertEq(ERC721VaultImplementation(nftCollection).ownerOf(internalTokenId), user1);
+
+            // Verify token ID mappings
+            assertEq(IERC721AVault(nftCollection).getExternalTokenId(internalTokenId), tokenIds[i]);
+            assertEq(IERC721AVault(nftCollection).getInternalTokenId(tokenIds[i]), internalTokenId);
+        }
+    }
+
+    // function testBatchBuyWithQuote() public {
+    //     // Create test data
+    //     uint256[] memory tokenIds = new uint256[](3);
+    //     tokenIds[0] = 100;
+    //     tokenIds[1] = 101;
+    //     tokenIds[2] = 102;
+
+    //     uint256[] memory basePrices = new uint256[](3);
+    //     basePrices[0] = 1 ether;
+    //     basePrices[1] = 1.5 ether;
+    //     basePrices[2] = 2 ether;
+
+    //     uint256[] memory nonces = new uint256[](3);
+    //     nonces[0] = 2;
+    //     nonces[1] = 3;
+    //     nonces[2] = 4;
+
+    //     bytes[] memory signatures = new bytes[](3);
+    //     signatures[0] = createSignatureQuote(
+    //         nftCollection, basePrices[0], user1, tokenIds[0], nonces[0], 1, witnessPrivateKey
+    //     );
+    //     signatures[1] = createSignatureQuote(
+    //         nftCollection, basePrices[1], user1, tokenIds[1], nonces[1], 1, witnessPrivateKey
+    //     );
+    //     signatures[2] = createSignatureQuote(
+    //         nftCollection, basePrices[2], user1, tokenIds[2], nonces[2], 1, witnessPrivateKey
+    //     );
+
+    //     uint256[] memory amounts = new uint256[](3);
+    //     amounts[0] = 1;
+    //     amounts[1] = 1;
+    //     amounts[2] = 1;
+
+    //     // Calculate total price
+    //     uint256 totalPrice = 3.5 ether; // MockQuoteContract doubles the price
+
+    //     // Execute batch mint
+    //     vm.startPrank(user1);
+    //     EmblemVaultMintFacet(address(diamond)).batchBuyWithQuote{value: totalPrice}(
+    //         nftCollection, basePrices, user1, tokenIds, nonces, signatures, amounts
+    //     );
+    //     vm.stopPrank();
+
+    //     // Verify tokens were minted correctly
+    //     for (uint256 i = 0; i < tokenIds.length; i++) {
+    //         uint256 internalTokenId = i + 2; // +2 because setup already minted token 1
+
+    //         // Verify ownership
+    //         assertEq(ERC721VaultImplementation(nftCollection).ownerOf(internalTokenId), user1);
+
+    //         // Verify token ID
+    //         assertEq(IERC721AVault(nftCollection).getExternalTokenId(internalTokenId), tokenIds[i]);
+    //         assertEq(IERC721AVault(nftCollection).getInternalTokenId(tokenIds[i]), internalTokenId);
+    //     }
+    // }
+
+    function testRevertBatchBuyWithInvalidSignature() public {
+        // Create test data
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 100;
+
+        uint256[] memory prices = new uint256[](1);
+        prices[0] = 1 ether;
+
+        uint256[] memory nonces = new uint256[](1);
+        nonces[0] = 2;
+
+        bytes[] memory signatures = new bytes[](1);
+        // Create signature with wrong private key
+        signatures[0] = createSignature(
+            nftCollection,
+            address(0),
+            prices[0],
+            user1,
+            tokenIds[0],
+            nonces[0],
+            1,
+            0xBAD // Wrong private key
+        );
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
+        // Execute batch mint
+        vm.startPrank(user1);
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.NotWitness.selector, vm.addr(0xBAD)));
+        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: prices[0]}(
+            nftCollection, address(0), prices, user1, tokenIds, nonces, signatures, amounts
+        );
+        vm.stopPrank();
+    }
+
+    function testRevertBatchBuyWithInsufficientPayment() public {
+        // Create test data
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 100;
+
+        uint256[] memory prices = new uint256[](1);
+        prices[0] = 1 ether;
+
+        uint256[] memory nonces = new uint256[](1);
+        nonces[0] = 2;
+
+        bytes[] memory signatures = new bytes[](1);
+        signatures[0] = createSignature(
+            nftCollection,
+            address(0),
+            prices[0],
+            user1,
+            tokenIds[0],
+            nonces[0],
+            1,
+            witnessPrivateKey
+        );
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
+        // Execute batch mint with insufficient ETH
+        vm.startPrank(user1);
+        vm.expectRevert("Insufficient ETH");
+        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: prices[0] / 2}(
+            nftCollection, address(0), prices, user1, tokenIds, nonces, signatures, amounts
+        );
+        vm.stopPrank();
     }
 
     // Helper function to create signature for standard purchases

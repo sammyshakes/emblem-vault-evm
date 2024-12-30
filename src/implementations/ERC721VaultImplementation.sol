@@ -116,17 +116,12 @@ contract ERC721VaultImplementation is
         _burnSingle(internalTokenId, data);
     }
 
-    function batchMint(address to, uint256[] calldata externalTokenIds)
-        external
-        override
-        onlyOwner
-    {
+    function batchMint(address to, uint256[] calldata externalTokenIds) external onlyOwner {
         _mintBatch(to, externalTokenIds, "");
     }
 
     function batchMintWithData(address to, uint256[] calldata externalTokenIds, bytes calldata data)
         external
-        override
         onlyOwner
     {
         _mintBatch(to, externalTokenIds, data);

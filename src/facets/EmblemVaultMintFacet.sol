@@ -231,4 +231,59 @@ contract EmblemVaultMintFacet {
     {
         IERC721AVault(address(this)).batchMintWithData(to, externalTokenIds, data);
     }
+
+    function batchBuyWithSignedPrice(
+        address _nftAddress,
+        address _payment,
+        uint256[] calldata _prices,
+        address _to,
+        uint256[] calldata _tokenIds,
+        uint256[] calldata _nonces,
+        bytes[] calldata _signatures,
+        uint256[] calldata _amounts
+    ) external payable onlyValidCollection(_nftAddress) {
+        LibEmblemVaultStorage.nonReentrantBefore();
+
+        require(_tokenIds.length == _prices.length, "Length mismatch");
+        require(_tokenIds.length == _nonces.length, "Length mismatch");
+        require(_tokenIds.length == _signatures.length, "Length mismatch");
+        require(_tokenIds.length == _amounts.length, "Length mismatch");
+
+        uint256 totalPrice;
+        for (uint256 i = 0; i < _prices.length; i++) {
+            totalPrice += _prices[i] * _amounts[i];
+        }
+
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
+
+        if (_payment == address(0)) {
+            require(msg.value >= totalPrice, "Insufficient ETH");
+            (bool success,) = vs.recipientAddress.call{value: msg.value}("");
+            require(success, "ETH transfer failed");
+        } else {
+            IERC20(_payment).safeTransferFrom(msg.sender, vs.recipientAddress, totalPrice);
+        }
+
+        for (uint256 i = 0; i < _tokenIds.length; i++) {
+            LibEmblemVaultStorage.enforceNotUsedNonce(_nonces[i]);
+
+            address signer = LibSignature.verifyStandardSignature(
+                _nftAddress,
+                _payment,
+                _prices[i],
+                _to,
+                _tokenIds[i],
+                _nonces[i],
+                _amounts[i],
+                _signatures[i]
+            );
+
+            LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
+            LibEmblemVaultStorage.setUsedNonce(_nonces[i]);
+        }
+
+        IERC721AVault(_nftAddress).batchMint(_to, _tokenIds);
+
+        LibEmblemVaultStorage.nonReentrantAfter();
+    }
 }
