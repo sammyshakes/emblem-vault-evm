@@ -807,7 +807,7 @@ contract DiamondVaultTest is Test {
         // Execute batch mint
         vm.startPrank(user1);
         bytes[] memory serialNumbers = new bytes[](3);
-        EmblemVaultMintFacet.BatchPurchase memory purchase = EmblemVaultMintFacet.BatchPurchase({
+        EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
             nftAddress: nftCollection,
             payment: address(0),
             prices: prices,
@@ -818,7 +818,7 @@ contract DiamondVaultTest is Test {
             serialNumbers: serialNumbers,
             amounts: amounts
         });
-        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: totalPrice}(purchase);
+        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: totalPrice}(params);
         vm.stopPrank();
 
         // Verify tokens were minted correctly
@@ -921,7 +921,7 @@ contract DiamondVaultTest is Test {
         vm.startPrank(user1);
         vm.expectRevert(abi.encodeWithSelector(LibErrors.NotWitness.selector, vm.addr(0xBAD)));
         bytes[] memory serialNumbers = new bytes[](1);
-        EmblemVaultMintFacet.BatchPurchase memory purchase = EmblemVaultMintFacet.BatchPurchase({
+        EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
             nftAddress: nftCollection,
             payment: address(0),
             prices: prices,
@@ -932,7 +932,7 @@ contract DiamondVaultTest is Test {
             serialNumbers: serialNumbers,
             amounts: amounts
         });
-        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: prices[0]}(purchase);
+        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: prices[0]}(params);
         vm.stopPrank();
     }
 
@@ -968,7 +968,7 @@ contract DiamondVaultTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(LibErrors.IncorrectPayment.selector, prices[0] / 2, prices[0])
         );
-        EmblemVaultMintFacet.BatchPurchase memory purchase = EmblemVaultMintFacet.BatchPurchase({
+        EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
             nftAddress: nftCollection,
             payment: address(0),
             prices: prices,
@@ -979,9 +979,7 @@ contract DiamondVaultTest is Test {
             serialNumbers: serialNumbers,
             amounts: amounts
         });
-        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: prices[0] / 2}(
-            purchase
-        );
+        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: prices[0] / 2}(params);
         vm.stopPrank();
     }
 

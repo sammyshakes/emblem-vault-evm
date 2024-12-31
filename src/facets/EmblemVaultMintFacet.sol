@@ -119,7 +119,7 @@ contract EmblemVaultMintFacet {
         LibEmblemVaultStorage.nonReentrantAfter();
     }
 
-    /// @notice Batch purchase NFTs using signed prices
+    /// @notice Batch buy NFTs using signed prices
     /// @dev Allows users to mint multiple NFTs in a batch using signed prices
     /// @param _nftAddress Address of the NFT contract
     /// @param _payment Payment token address (address(0) for ETH)
@@ -130,7 +130,7 @@ contract EmblemVaultMintFacet {
     /// @param _signatures Array of signatures for verification
     /// @param _serialNumbers Array of serial numbers for ERC1155 tokens
     /// @param _amounts Array of amounts to mint for each token
-    struct BatchPurchase {
+    struct BatchBuyParams {
         address nftAddress;
         address payment;
         uint256[] prices;
@@ -142,65 +142,63 @@ contract EmblemVaultMintFacet {
         uint256[] amounts;
     }
 
-    function batchBuyWithSignedPrice(BatchPurchase calldata purchase)
+    function batchBuyWithSignedPrice(BatchBuyParams calldata params)
         external
         payable
-        onlyValidCollection(purchase.nftAddress)
+        onlyValidCollection(params.nftAddress)
     {
         LibEmblemVaultStorage.nonReentrantBefore();
 
-        LibErrors.revertIfLengthMismatch(purchase.externalTokenIds.length, purchase.prices.length);
-        LibErrors.revertIfLengthMismatch(purchase.externalTokenIds.length, purchase.nonces.length);
+        LibErrors.revertIfLengthMismatch(params.externalTokenIds.length, params.prices.length);
+        LibErrors.revertIfLengthMismatch(params.externalTokenIds.length, params.nonces.length);
+        LibErrors.revertIfLengthMismatch(params.externalTokenIds.length, params.signatures.length);
+        LibErrors.revertIfLengthMismatch(params.externalTokenIds.length, params.amounts.length);
         LibErrors.revertIfLengthMismatch(
-            purchase.externalTokenIds.length, purchase.signatures.length
-        );
-        LibErrors.revertIfLengthMismatch(purchase.externalTokenIds.length, purchase.amounts.length);
-        LibErrors.revertIfLengthMismatch(
-            purchase.externalTokenIds.length, purchase.serialNumbers.length
+            params.externalTokenIds.length, params.serialNumbers.length
         );
 
         uint256 totalPrice;
-        for (uint256 i = 0; i < purchase.prices.length; i++) {
-            totalPrice += purchase.prices[i] * purchase.amounts[i];
+        for (uint256 i = 0; i < params.prices.length; i++) {
+            totalPrice += params.prices[i] * params.amounts[i];
         }
 
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
 
-        if (purchase.payment == address(0)) {
+        if (params.payment == address(0)) {
             LibErrors.revertIfInsufficientETH(msg.value, totalPrice);
             (bool success,) = vs.recipientAddress.call{value: msg.value}("");
             if (!success) {
                 revert LibErrors.ETHTransferFailed();
             }
         } else {
-            IERC20(purchase.payment).safeTransferFrom(msg.sender, vs.recipientAddress, totalPrice);
+            IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, totalPrice);
         }
 
-        for (uint256 i = 0; i < purchase.externalTokenIds.length; i++) {
-            LibEmblemVaultStorage.enforceNotUsedNonce(purchase.nonces[i]);
+        for (uint256 i = 0; i < params.externalTokenIds.length; i++) {
+            LibEmblemVaultStorage.enforceNotUsedNonce(params.nonces[i]);
 
             address signer = LibSignature.verifyStandardSignature(
-                purchase.nftAddress,
-                purchase.payment,
-                purchase.prices[i],
-                purchase.to,
-                purchase.externalTokenIds[i],
-                purchase.nonces[i],
-                purchase.amounts[i],
-                purchase.signatures[i]
+                params.nftAddress,
+                params.payment,
+                params.prices[i],
+                params.to,
+                params.externalTokenIds[i],
+                params.nonces[i],
+                params.amounts[i],
+                params.signatures[i]
             );
 
             LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
-            LibEmblemVaultStorage.setUsedNonce(purchase.nonces[i]);
+            LibEmblemVaultStorage.setUsedNonce(params.nonces[i]);
         }
 
         require(
             _batchMintRouter(
-                purchase.nftAddress,
-                purchase.to,
-                purchase.externalTokenIds,
-                purchase.amounts,
-                purchase.serialNumbers,
+                params.nftAddress,
+                params.to,
+                params.externalTokenIds,
+                params.amounts,
+                params.serialNumbers,
                 ""
             ),
             "Batch mint failed"
