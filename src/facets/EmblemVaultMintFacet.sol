@@ -315,13 +315,9 @@ contract EmblemVaultMintFacet {
         bool isERC721A = !isERC1155 && LibInterfaceIds.isERC721A(params.nftAddress);
 
         if (isERC1155) {
-            if (IIsSerialized(params.nftAddress).isOverloadSerial()) {
-                IERC1155(params.nftAddress).mintWithSerial(
-                    params.to, params.externalTokenId, params.amount, params.serialNumber
-                );
-            } else {
-                IERC1155(params.nftAddress).mint(params.to, params.externalTokenId, params.amount);
-            }
+            IERC1155(params.nftAddress).mintWithSerial(
+                params.to, params.externalTokenId, params.amount, params.serialNumber
+            );
         } else if (isERC721A) {
             IERC721AVault(params.nftAddress).mint(params.to, params.externalTokenId);
         }
@@ -341,13 +337,9 @@ contract EmblemVaultMintFacet {
 
         if (isERC1155) {
             for (uint256 i = 0; i < externalTokenIds.length; i++) {
-                if (IIsSerialized(nftAddress).isOverloadSerial()) {
-                    IERC1155(nftAddress).mintWithSerial(
-                        to, externalTokenIds[i], amounts[i], serialNumbers[i]
-                    );
-                } else {
-                    IERC1155(nftAddress).mint(to, externalTokenIds[i], amounts[i]);
-                }
+                IERC1155(nftAddress).mintWithSerial(
+                    to, externalTokenIds[i], amounts[i], serialNumbers[i]
+                );
             }
         } else if (isERC721A) {
             IERC721AVault(nftAddress).batchMintWithData(to, externalTokenIds, data);

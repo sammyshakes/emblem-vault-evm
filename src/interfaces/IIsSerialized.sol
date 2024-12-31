@@ -19,7 +19,10 @@ interface IIsSerialized {
     /// @param owner The address of the owner
     /// @param tokenId The ID of the token
     /// @return The first serial number found for the owner and token ID
-    function getFirstSerialByOwner(address owner, uint256 tokenId) external view returns (uint256);
+    function getFirstSerialByOwner(address owner, uint256 tokenId)
+        external
+        view
+        returns (uint256);
 
     /// @notice Get the owner of a specific serial number
     /// @param serialNumber The serial number to query
@@ -31,14 +34,13 @@ interface IIsSerialized {
     /// @param tokenId The ID of the token
     /// @param index The index of the serial number to retrieve
     /// @return The serial number at the specified index for the owner
-    function getSerialByOwnerAtIndex(address _owner, uint256 tokenId, uint256 index) external view returns (uint256);
+    function getSerialByOwnerAtIndex(address _owner, uint256 tokenId, uint256 index)
+        external
+        view
+        returns (uint256);
 
     /// @notice Get the token ID associated with a serial number
     /// @param serialNumber The serial number to query
     /// @return The token ID associated with the serial number
     function getTokenIdForSerialNumber(uint256 serialNumber) external view returns (uint256);
-
-    /// @notice Check if the contract uses overloaded serial numbers
-    /// @return True if the contract uses overloaded serial numbers
-    function isOverloadSerial() external view returns (bool);
 }

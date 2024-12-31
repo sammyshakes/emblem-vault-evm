@@ -13,8 +13,7 @@ import "../interfaces/IVaultProxy.sol";
 
 /**
  * @title ERC1155VaultImplementation
- * @notice Implementation of the ERC1155 vault token with optimized serial number tracking
- * @dev Implements ERC1155 with supply tracking and gas optimizations
+ * @notice Implementation of the ERC1155 vault token that ONLY accepts externally supplied serial numbers
  */
 contract ERC1155VaultImplementation is
     Initializable,
@@ -30,7 +29,6 @@ contract ERC1155VaultImplementation is
     // ------------------------------------------------------------------------
     // Custom Errors
     // ------------------------------------------------------------------------
-    error ExternalSerialNumbersDisabled();
     error UseExternalSerialNumbers();
     error InvalidSerialNumber();
     error SerialNumberAlreadyUsed();
@@ -44,8 +42,7 @@ contract ERC1155VaultImplementation is
     // ------------------------------------------------------------------------
     // Storage
     // ------------------------------------------------------------------------
-    bool public overloadSerial;
-    uint256 private _nextSerial;
+    // We have removed any auto-generation logic and the overloadSerial bool
 
     mapping(uint256 => mapping(uint256 => uint256)) private _tokenSerials; // tokenId => index => serialNumber
     mapping(uint256 => uint256) private _serialToTokenId; // serialNumber => tokenId
@@ -69,35 +66,38 @@ contract ERC1155VaultImplementation is
         __ERC1155Burnable_init();
         __ERC1155Supply_init();
         __Ownable_init(msg.sender);
-
-        _nextSerial = 1; // Start serial numbers at 1
-        overloadSerial = true; // Default to external serial numbers
     }
 
+    // ------------------------------------------------------------------------
+    // URI
+    // ------------------------------------------------------------------------
     function setURI(string calldata newuri) public onlyOwner {
         _setURI(newuri);
     }
 
-    // ------------------------------------------------------------------------
-    // Minting (Auto vs. External Serial)
-    // ------------------------------------------------------------------------
-    function mint(address to, uint256 id, uint256 amount, bytes calldata data) external onlyOwner {
-        // If we're in "external" serial mode, revert
-        if (overloadSerial) {
-            revert UseExternalSerialNumbers();
-        }
-        // This just does a normal ERC1155 mint (auto-serials handled in _updateMint)
-        _mint(to, id, amount, data);
+    function uri(uint256 tokenId) public view virtual override returns (string memory) {
+        string memory baseURI = super.uri(tokenId);
+        return string(abi.encodePacked(baseURI, tokenId.toString()));
     }
 
+    // ------------------------------------------------------------------------
+    // Minting
+    // ------------------------------------------------------------------------
+    /**
+     * @dev Always reverts because we ONLY allow externally supplied serials via `mintWithSerial`.
+     */
+    function mint(address to, uint256 id, uint256 amount, bytes calldata data) external onlyOwner {
+        revert UseExternalSerialNumbers();
+    }
+
+    /**
+     * @dev The function to mint tokens with externally supplied serial numbers
+     *      - Single serial (amount=1) or array of serials (amount>1).
+     */
     function mintWithSerial(address to, uint256 id, uint256 amount, bytes calldata serialNumberData)
         external
         onlyOwner
     {
-        // Must be in external mode
-        if (!overloadSerial) revert ExternalSerialNumbersDisabled();
-
-        // Decode and validate
         if (amount > 1) {
             uint256[] memory serialNumbers = abi.decode(serialNumberData, (uint256[]));
             if (serialNumbers.length != amount) revert InvalidSerialNumbersCount();
@@ -106,24 +106,24 @@ contract ERC1155VaultImplementation is
             // Single-serial mint
             uint256 serialNumber = abi.decode(serialNumberData, (uint256));
             if (serialNumber == 0) revert InvalidSerialNumber();
+
             uint256[] memory singleton = new uint256[](1);
             singleton[0] = serialNumber;
             _mintWithSerials(to, id, 1, singleton);
         }
     }
 
+    /**
+     * @dev Internal function that sorts the array, checks adjacency for duplicates,
+     *      then writes them to storage and mints the token.
+     */
     function _mintWithSerials(
         address to,
         uint256 id,
         uint256 amount,
         uint256[] memory serialNumbers
     ) internal {
-        // 1) Validate each serial (nonzero, not used)
-        // 2) Sort them in ascending order
-        // 3) Check adjacent duplicates
-        // 4) Assign
-
-        // 1) Basic checks
+        // 1) Validate each serial
         for (uint256 i = 0; i < amount;) {
             uint256 serial = serialNumbers[i];
             if (serial == 0) revert InvalidSerialNumber();
@@ -133,8 +133,7 @@ contract ERC1155VaultImplementation is
             }
         }
 
-        // 2) Sort: You can implement a small in-memory sort (e.g., quicksort or insertion sort).
-        // For brevity, here's an insertion sort. If your arrays are large, consider a more efficient approach.
+        // 2) Sort
         for (uint256 i = 1; i < amount;) {
             uint256 key = serialNumbers[i];
             uint256 j = i;
@@ -150,7 +149,7 @@ contract ERC1155VaultImplementation is
             }
         }
 
-        // 3) Check adjacent duplicates
+        // 3) Check adjacency duplicates
         for (uint256 i = 1; i < amount;) {
             if (serialNumbers[i] == serialNumbers[i - 1]) revert SerialNumberDuplicate();
             unchecked {
@@ -158,10 +157,9 @@ contract ERC1155VaultImplementation is
             }
         }
 
-        // 4) Commit to storage
+        // 4) Write them to storage
         uint256[] storage ownerSerials = _ownerTokenSerials[to][id];
         uint256 startIndex = ownerSerials.length;
-
         for (uint256 i = 0; i < amount;) {
             uint256 serialNumber = serialNumbers[i];
             _tokenSerials[id][startIndex + i] = serialNumber;
@@ -175,130 +173,91 @@ contract ERC1155VaultImplementation is
             }
         }
 
-        // Finally do ERC1155 mint
+        // 5) Perform the actual mint
         _mint(to, id, amount, "");
     }
 
-    // ------------------------------------------------------------------------
-    // Batch Minting
-    // ------------------------------------------------------------------------
+    /**
+     * @dev Batch mint, still expecting an array of serial numbers for each tokenId
+     *      - The `data` param is expected to be `bytes[]` which decodes to multiple arrays.
+     */
     function mintBatch(
         address to,
         uint256[] calldata ids,
         uint256[] calldata amounts,
         bytes calldata data
     ) external onlyOwner {
-        // If "external" mode is off, just do normal ERC1155 mintBatch
-        if (!overloadSerial) {
-            _mintBatch(to, ids, amounts, data);
-            return;
-        }
-
-        // data => array of bytes => each bytes decodes to array of uint256 serialNumbers
         bytes[] memory serialArrays = abi.decode(data, (bytes[]));
         if (serialArrays.length != ids.length) revert InvalidSerialArraysLength();
 
-        // 1) Read all serials into memory, check usage & zero
-        // 2) Flatten them into single array, sort, check cross-duplicates
-        // 3) Assign each batch
-        uint256[][] memory allSerialNumbers = new uint256[][](ids.length);
-        uint256 totalSerials;
-
-        // Step 1: decode each batch, quick check
-        for (uint256 i = 0; i < ids.length;) {
-            allSerialNumbers[i] = abi.decode(serialArrays[i], (uint256[]));
-            if (allSerialNumbers[i].length != amounts[i]) revert InvalidSerialNumbersCount();
-            totalSerials += amounts[i];
-            unchecked {
-                ++i;
-            }
-        }
-
-        // We'll gather everything into a single array for cross-duplicate checks
-        uint256[] memory allSerialsFlat = new uint256[](totalSerials);
-        uint256 currentIndex;
-
-        // Step 2a: check zero or used
-        for (uint256 i = 0; i < ids.length;) {
-            uint256[] memory batchSerials = allSerialNumbers[i];
-            uint256 amt = amounts[i];
-
-            for (uint256 j = 0; j < amt;) {
-                uint256 serial = batchSerials[j];
-                if (serial == 0) revert InvalidSerialNumber();
-                if (_serialOwners[serial] != address(0)) revert SerialNumberAlreadyUsed();
-
-                // Insert into flat array
-                allSerialsFlat[currentIndex] = serial;
-                unchecked {
-                    ++currentIndex;
-                    ++j;
-                }
-            }
-            unchecked {
-                ++i;
-            }
-        }
-
-        // Step 2b: Sort the entire array of all serials
-        // For large arrays, consider a more efficient sort.
-        // This is an insertion sort for brevity.
-        for (uint256 i = 1; i < totalSerials;) {
-            uint256 key = allSerialsFlat[i];
-            uint256 j = i;
-            while (j > 0 && allSerialsFlat[j - 1] > key) {
-                allSerialsFlat[j] = allSerialsFlat[j - 1];
-                unchecked {
-                    --j;
-                }
-            }
-            allSerialsFlat[j] = key;
-            unchecked {
-                ++i;
-            }
-        }
-
-        // Step 2c: Check cross duplicates
-        for (uint256 i = 1; i < totalSerials;) {
-            if (allSerialsFlat[i] == allSerialsFlat[i - 1]) revert SerialNumberDuplicate();
-            unchecked {
-                ++i;
-            }
-        }
-
-        // Step 3: Assign serials to storage & actually mint
         for (uint256 i = 0; i < ids.length;) {
             uint256 id = ids[i];
             uint256 amt = amounts[i];
-            uint256[] memory batchSerials = allSerialNumbers[i];
+            uint256[] memory batchSerials = abi.decode(serialArrays[i], (uint256[]));
 
+            if (batchSerials.length != amt) revert InvalidSerialNumbersCount();
+
+            // Phase A: Validate each serial
+            for (uint256 j = 0; j < amt;) {
+                if (batchSerials[j] == 0) revert InvalidSerialNumber();
+                if (_serialOwners[batchSerials[j]] != address(0)) revert SerialNumberAlreadyUsed();
+                unchecked {
+                    ++j;
+                }
+            }
+
+            // Sort
+            for (uint256 j = 1; j < amt;) {
+                uint256 key = batchSerials[j];
+                uint256 k = j;
+                while (k > 0 && batchSerials[k - 1] > key) {
+                    batchSerials[k] = batchSerials[k - 1];
+                    unchecked {
+                        --k;
+                    }
+                }
+                batchSerials[k] = key;
+                unchecked {
+                    ++j;
+                }
+            }
+
+            // Check adjacency duplicates
+            for (uint256 j = 1; j < amt;) {
+                if (batchSerials[j] == batchSerials[j - 1]) revert SerialNumberDuplicate();
+                unchecked {
+                    ++j;
+                }
+            }
+
+            // Phase B: Store them
             uint256[] storage ownerSerials = _ownerTokenSerials[to][id];
             uint256 startIdx = ownerSerials.length;
 
-            // No need to re-sort each batch here, we only care about final assignment
             for (uint256 j = 0; j < amt;) {
                 uint256 serialNumber = batchSerials[j];
                 _tokenSerials[id][startIdx + j] = serialNumber;
                 _serialToTokenId[serialNumber] = id;
                 _serialOwners[serialNumber] = to;
                 ownerSerials.push(serialNumber);
-                emit SerialNumberAssigned(id, serialNumber);
 
+                emit SerialNumberAssigned(id, serialNumber);
                 unchecked {
                     ++j;
                 }
             }
+
             unchecked {
                 ++i;
             }
         }
 
-        // Perform the actual minting after all serial numbers are assigned
+        // Actual ERC1155 mint
         _mintBatch(to, ids, amounts, "");
     }
 
     // ------------------------------------------------------------------------
-    // Overridden _update => splitted into _updateMint, _updateBurn, _updateTransfer
+    // Overridden _update => Burn / Transfer
     // ------------------------------------------------------------------------
     function _update(address from, address to, uint256[] memory ids, uint256[] memory values)
         internal
@@ -307,56 +266,21 @@ contract ERC1155VaultImplementation is
     {
         super._update(from, to, ids, values);
 
-        // If "auto" mode mint => from=0, not external
-        if (from == address(0) && to != address(0) && !overloadSerial) {
-            _updateMint(to, ids, values);
-        }
-        // If burn => to=0
-        else if (to == address(0) && from != address(0)) {
+        // Burn => to == address(0)
+        if (to == address(0) && from != address(0)) {
             _updateBurn(from, ids, values);
         }
-        // If transfer => both non-zero
+        // Transfer => both non-zero
         else if (from != address(0) && to != address(0)) {
             _updateTransfer(from, to, ids, values);
         }
+        // from == address(0)? We do not handle it, as we only mint via mintWithSerial / mintBatch.
     }
 
-    function _updateMint(address to, uint256[] memory ids, uint256[] memory values) private {
-        // Automatic (internal) serial assignment
-        uint256 len = ids.length;
-        for (uint256 i = 0; i < len;) {
-            uint256 id = ids[i];
-            uint256 amount = values[i];
-
-            uint256[] storage ownerSerials = _ownerTokenSerials[to][id];
-            uint256 startIndex = ownerSerials.length;
-
-            uint256[] memory newSerials = new uint256[](amount);
-            for (uint256 j = 0; j < amount;) {
-                uint256 serialNumber = _nextSerial;
-                unchecked {
-                    ++_nextSerial;
-                }
-
-                newSerials[j] = serialNumber;
-                _tokenSerials[id][startIndex + j] = serialNumber;
-                _serialToTokenId[serialNumber] = id;
-                _serialOwners[serialNumber] = to;
-                ownerSerials.push(serialNumber);
-
-                unchecked {
-                    ++j;
-                }
-            }
-            emit BatchSerialNumbersAssigned(id, newSerials);
-            unchecked {
-                ++i;
-            }
-        }
-    }
-
+    /**
+     * @dev Burn logic: remove serials from the end of the array
+     */
     function _updateBurn(address from, uint256[] memory ids, uint256[] memory values) private {
-        // Burn from the END of the array (swap-and-pop style) to avoid shifting costs.
         uint256 len = ids.length;
         for (uint256 i = 0; i < len;) {
             uint256 id = ids[i];
@@ -368,7 +292,6 @@ contract ERC1155VaultImplementation is
             if (serialCount < amount) revert InsufficientSerialNumbers();
 
             for (uint256 j = 0; j < amount;) {
-                // Take last index
                 uint256 idx = serials.length - 1;
                 uint256 serialNumber = serials[idx];
 
@@ -377,7 +300,7 @@ contract ERC1155VaultImplementation is
                 delete _serialToTokenId[serialNumber];
                 delete _tokenSerials[id][idx];
 
-                serials.pop(); // Remove from array end
+                serials.pop();
                 unchecked {
                     ++j;
                 }
@@ -388,6 +311,9 @@ contract ERC1155VaultImplementation is
         }
     }
 
+    /**
+     * @dev Transfer logic: move serial from `from` to `to` by pop/push on their arrays
+     */
     function _updateTransfer(
         address from,
         address to,
@@ -405,7 +331,6 @@ contract ERC1155VaultImplementation is
 
             if (fromLength < amount) revert InsufficientSerialNumbers();
 
-            // Move from end of "fromSerials" to "toSerials"
             for (uint256 j = 0; j < amount;) {
                 uint256 idx = fromSerials.length - 1;
                 uint256 serialNumber = fromSerials[idx];
@@ -421,14 +346,6 @@ contract ERC1155VaultImplementation is
                 ++i;
             }
         }
-    }
-
-    // ------------------------------------------------------------------------
-    // URI
-    // ------------------------------------------------------------------------
-    function uri(uint256 tokenId) public view virtual override returns (string memory) {
-        string memory baseURI = super.uri(tokenId);
-        return string(abi.encodePacked(baseURI, tokenId.toString()));
     }
 
     // ------------------------------------------------------------------------
@@ -472,14 +389,6 @@ contract ERC1155VaultImplementation is
         return _serialToTokenId[serialNumber];
     }
 
-    function isOverloadSerial() external view returns (bool) {
-        return overloadSerial;
-    }
-
-    function toggleOverloadSerial() external onlyOwner {
-        overloadSerial = !overloadSerial;
-    }
-
     // ------------------------------------------------------------------------
     // IERC165
     // ------------------------------------------------------------------------
@@ -498,7 +407,7 @@ contract ERC1155VaultImplementation is
     // Version
     // ------------------------------------------------------------------------
     function version() external pure returns (string memory) {
-        return "2.0.0";
+        return "2.0.0-external-only";
     }
 
     // ------------------------------------------------------------------------
