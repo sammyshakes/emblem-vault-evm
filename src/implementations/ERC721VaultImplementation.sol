@@ -246,7 +246,7 @@ contract ERC721VaultImplementation is
     }
 
     function version() external pure override returns (string memory) {
-        return "17";
+        return "1";
     }
 
     function interfaceId() external pure override returns (bytes4) {

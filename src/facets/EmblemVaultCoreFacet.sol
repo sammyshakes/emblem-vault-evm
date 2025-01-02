@@ -228,6 +228,6 @@ contract EmblemVaultCoreFacet {
     /// @notice Get the contract version
     /// @return The version string
     function version() external pure returns (string memory) {
-        return "3.0.0";
+        return "1";
     }
 }

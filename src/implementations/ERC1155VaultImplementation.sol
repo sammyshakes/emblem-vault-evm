@@ -13,7 +13,7 @@ import "../interfaces/IVaultProxy.sol";
 
 /**
  * @title ERC1155VaultImplementation
- * @notice Implementation of the ERC1155 vault token that ONLY accepts externally supplied serial numbers
+ * @notice Implementation of the ERC1155 vault token
  */
 contract ERC1155VaultImplementation is
     Initializable,
@@ -42,8 +42,6 @@ contract ERC1155VaultImplementation is
     // ------------------------------------------------------------------------
     // Storage
     // ------------------------------------------------------------------------
-    // We have removed any auto-generation logic and the overloadSerial bool
-
     mapping(uint256 => mapping(uint256 => uint256)) private _tokenSerials; // tokenId => index => serialNumber
     mapping(uint256 => uint256) private _serialToTokenId; // serialNumber => tokenId
     mapping(address => mapping(uint256 => uint256[])) private _ownerTokenSerials; // owner => tokenId => serialNumbers[]
@@ -84,13 +82,6 @@ contract ERC1155VaultImplementation is
     // Minting
     // ------------------------------------------------------------------------
     /**
-     * @dev Always reverts because we ONLY allow externally supplied serials via `mintWithSerial`.
-     */
-    function mint(address to, uint256 id, uint256 amount, bytes calldata data) external onlyOwner {
-        revert UseExternalSerialNumbers();
-    }
-
-    /**
      * @dev The function to mint tokens with externally supplied serial numbers
      *      - Single serial (amount=1) or array of serials (amount>1).
      */
@@ -114,8 +105,8 @@ contract ERC1155VaultImplementation is
     }
 
     /**
-     * @dev Internal function that sorts the array, checks adjacency for duplicates,
-     *      then writes them to storage and mints the token.
+     * @dev A single-pass approach that writes each serial to storage immediately.
+     *      If a duplicate is encountered, the second pass will revert with SerialNumberAlreadyUsed().
      */
     function _mintWithSerials(
         address to,
@@ -123,64 +114,30 @@ contract ERC1155VaultImplementation is
         uint256 amount,
         uint256[] memory serialNumbers
     ) internal {
-        // 1) Validate each serial
+        uint256[] storage ownerSerials = _ownerTokenSerials[to][id];
+        uint256 startIndex = ownerSerials.length;
+
         for (uint256 i = 0; i < amount;) {
             uint256 serial = serialNumbers[i];
             if (serial == 0) revert InvalidSerialNumber();
             if (_serialOwners[serial] != address(0)) revert SerialNumberAlreadyUsed();
+
+            // Mark ownership
+            _serialOwners[serial] = to;
+            _serialToTokenId[serial] = id;
+            _tokenSerials[id][startIndex + i] = serial;
+            ownerSerials.push(serial);
+
+            // emit SerialNumberAssigned(id, serial);
             unchecked {
                 ++i;
             }
         }
 
-        // 2) Sort
-        for (uint256 i = 1; i < amount;) {
-            uint256 key = serialNumbers[i];
-            uint256 j = i;
-            while (j > 0 && serialNumbers[j - 1] > key) {
-                serialNumbers[j] = serialNumbers[j - 1];
-                unchecked {
-                    --j;
-                }
-            }
-            serialNumbers[j] = key;
-            unchecked {
-                ++i;
-            }
-        }
-
-        // 3) Check adjacency duplicates
-        for (uint256 i = 1; i < amount;) {
-            if (serialNumbers[i] == serialNumbers[i - 1]) revert SerialNumberDuplicate();
-            unchecked {
-                ++i;
-            }
-        }
-
-        // 4) Write them to storage
-        uint256[] storage ownerSerials = _ownerTokenSerials[to][id];
-        uint256 startIndex = ownerSerials.length;
-        for (uint256 i = 0; i < amount;) {
-            uint256 serialNumber = serialNumbers[i];
-            _tokenSerials[id][startIndex + i] = serialNumber;
-            _serialToTokenId[serialNumber] = id;
-            _serialOwners[serialNumber] = to;
-            ownerSerials.push(serialNumber);
-
-            emit SerialNumberAssigned(id, serialNumber);
-            unchecked {
-                ++i;
-            }
-        }
-
-        // 5) Perform the actual mint
+        // Actually mint the tokens
         _mint(to, id, amount, "");
     }
 
-    /**
-     * @dev Batch mint, still expecting an array of serial numbers for each tokenId
-     *      - The `data` param is expected to be `bytes[]` which decodes to multiple arrays.
-     */
     function mintBatch(
         address to,
         uint256[] calldata ids,
@@ -197,48 +154,18 @@ contract ERC1155VaultImplementation is
 
             if (batchSerials.length != amt) revert InvalidSerialNumbersCount();
 
-            // Phase A: Validate each serial
-            for (uint256 j = 0; j < amt;) {
-                if (batchSerials[j] == 0) revert InvalidSerialNumber();
-                if (_serialOwners[batchSerials[j]] != address(0)) revert SerialNumberAlreadyUsed();
-                unchecked {
-                    ++j;
-                }
-            }
-
-            // Sort
-            for (uint256 j = 1; j < amt;) {
-                uint256 key = batchSerials[j];
-                uint256 k = j;
-                while (k > 0 && batchSerials[k - 1] > key) {
-                    batchSerials[k] = batchSerials[k - 1];
-                    unchecked {
-                        --k;
-                    }
-                }
-                batchSerials[k] = key;
-                unchecked {
-                    ++j;
-                }
-            }
-
-            // Check adjacency duplicates
-            for (uint256 j = 1; j < amt;) {
-                if (batchSerials[j] == batchSerials[j - 1]) revert SerialNumberDuplicate();
-                unchecked {
-                    ++j;
-                }
-            }
-
-            // Phase B: Store them
             uint256[] storage ownerSerials = _ownerTokenSerials[to][id];
             uint256 startIdx = ownerSerials.length;
 
             for (uint256 j = 0; j < amt;) {
                 uint256 serialNumber = batchSerials[j];
-                _tokenSerials[id][startIdx + j] = serialNumber;
-                _serialToTokenId[serialNumber] = id;
+                if (serialNumber == 0) revert InvalidSerialNumber();
+                if (_serialOwners[serialNumber] != address(0)) revert SerialNumberAlreadyUsed();
+
+                // Mark ownership
                 _serialOwners[serialNumber] = to;
+                _serialToTokenId[serialNumber] = id;
+                _tokenSerials[id][startIdx + j] = serialNumber;
                 ownerSerials.push(serialNumber);
 
                 emit SerialNumberAssigned(id, serialNumber);
@@ -252,7 +179,7 @@ contract ERC1155VaultImplementation is
             }
         }
 
-        // Actual ERC1155 mint
+        // Perform actual mint
         _mintBatch(to, ids, amounts, "");
     }
 
@@ -274,7 +201,6 @@ contract ERC1155VaultImplementation is
         else if (from != address(0) && to != address(0)) {
             _updateTransfer(from, to, ids, values);
         }
-        // from == address(0)? We do not handle it, as we only mint via mintWithSerial / mintBatch.
     }
 
     /**
@@ -407,7 +333,7 @@ contract ERC1155VaultImplementation is
     // Version
     // ------------------------------------------------------------------------
     function version() external pure returns (string memory) {
-        return "2.0.0-external-only";
+        return "1";
     }
 
     // ------------------------------------------------------------------------

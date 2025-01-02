@@ -39,7 +39,7 @@ contract EmblemVaultInitFacet {
         // Set interface IDs
         vs.INTERFACE_ID_ERC1155 = 0xd9b67a26;
         vs.INTERFACE_ID_ERC20 = 0x74a1476f;
-        vs.INTERFACE_ID_ERC721 = 0x80ac58cd;
+        // vs.INTERFACE_ID_ERC721 = 0x80ac58cd;
         vs.INTERFACE_ID_ERC721A = 0xf4a95f26;
 
         // Add owner as initial witness
@@ -59,7 +59,6 @@ contract EmblemVaultInitFacet {
         emit VaultInitialized(_owner, vs.metadataBaseUri, vs.byPassable, vs.initialized);
         emit InterfaceIdSet(vs.INTERFACE_ID_ERC1155, "ERC1155");
         emit InterfaceIdSet(vs.INTERFACE_ID_ERC20, "ERC20");
-        emit InterfaceIdSet(vs.INTERFACE_ID_ERC721, "ERC721");
         emit InterfaceIdSet(vs.INTERFACE_ID_ERC721A, "ERC721A");
         emit WitnessInitialized(_owner, vs.witnessCount);
         emit BypassStateInitialized(vs.byPassable);
@@ -75,20 +74,14 @@ contract EmblemVaultInitFacet {
     /// @notice Get all interface IDs
     /// @return erc1155 The ERC1155 interface ID
     /// @return erc20 The ERC20 interface ID
-    /// @return erc721 The ERC721 interface ID
     /// @return erc721a The ERC721A interface ID
     function getInterfaceIds()
         external
         view
-        returns (bytes4 erc1155, bytes4 erc20, bytes4 erc721, bytes4 erc721a)
+        returns (bytes4 erc1155, bytes4 erc20, bytes4 erc721a)
     {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        return (
-            vs.INTERFACE_ID_ERC1155,
-            vs.INTERFACE_ID_ERC20,
-            vs.INTERFACE_ID_ERC721,
-            vs.INTERFACE_ID_ERC721A
-        );
+        return (vs.INTERFACE_ID_ERC1155, vs.INTERFACE_ID_ERC20, vs.INTERFACE_ID_ERC721A);
     }
 
     /// @notice Get the current system configuration
@@ -137,6 +130,6 @@ contract EmblemVaultInitFacet {
     /// @notice Get the contract version
     /// @return The version string
     function version() external pure returns (string memory) {
-        return "3.0.0";
+        return "1";
     }
 }

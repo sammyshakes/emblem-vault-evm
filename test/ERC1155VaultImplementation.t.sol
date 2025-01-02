@@ -157,18 +157,6 @@ contract ERC1155VaultImplementationTest is Test {
     }
 
     // ------------------------------------------------------------------------
-    // Revert on “UseExternalSerialNumbers()” is no longer relevant,
-    // because we removed the auto-mode. So let's remove that portion
-    // of testRevertInvalidSerialMode. We'll keep just one check:
-    // the contract *doesn't* have a "mint(...)" approach anymore.
-    // ------------------------------------------------------------------------
-    function testRevertInvalidSerialMode() public {
-        // Attempt to use regular mint => always reverts
-        vm.expectRevert(abi.encodeWithSignature("UseExternalSerialNumbers()"));
-        implementation.mint(user1, 1, 3, "");
-    }
-
-    // ------------------------------------------------------------------------
     // DUPLICATE, ZERO, MISMATCH, REUSE, ETC => unchanged
     // because they were already testing external serial reverts.
     // ------------------------------------------------------------------------
@@ -181,7 +169,7 @@ contract ERC1155VaultImplementationTest is Test {
         serialNumbers[2] = 300;
         bytes memory serialNumberData = abi.encode(serialNumbers);
 
-        vm.expectRevert(abi.encodeWithSignature("SerialNumberDuplicate()"));
+        vm.expectRevert(abi.encodeWithSignature("SerialNumberAlreadyUsed()"));
         implementation.mintWithSerial(user1, 1, 3, serialNumberData);
     }
 
