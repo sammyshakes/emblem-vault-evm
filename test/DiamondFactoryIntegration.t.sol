@@ -158,13 +158,13 @@ contract DiamondFactoryIntegrationTest is Test {
 
         // Test ERC721 URI update through Diamond's CollectionFacet
         string memory newBaseURI = "https://new.test.com/";
-        vm.startPrank(owner);
+        // vm.startPrank(address(diamond));
         vm.expectEmit(true, true, true, true);
         emit CollectionBaseURIUpdated(erc721Collection, newBaseURI);
         EmblemVaultCollectionFacet(address(diamond)).setCollectionBaseURI(
             erc721Collection, newBaseURI
         );
-        vm.stopPrank();
+        // vm.stopPrank();
 
         // Test ERC1155 URI update through Diamond's CollectionFacet
         string memory newURI = "https://new.test.com/{id}";
@@ -180,10 +180,10 @@ contract DiamondFactoryIntegrationTest is Test {
         address collection = factory.createERC721Collection("Test", "TST");
         vm.stopPrank();
 
-        // Verify Diamond owns collection
-        assertEq(OwnableUpgradeable(collection).owner(), address(diamond));
+        // Verify factory owner owns collection
+        assertEq(OwnableUpgradeable(collection).owner(), factory.owner());
 
-        // Try to transfer ownership from non-Diamond address
+        // Try to transfer ownership from non-owner address
         vm.startPrank(user1);
         vm.expectRevert(
             abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, user1)
@@ -192,7 +192,7 @@ contract DiamondFactoryIntegrationTest is Test {
         vm.stopPrank();
 
         // Verify ownership unchanged
-        assertEq(OwnableUpgradeable(collection).owner(), address(diamond));
+        assertEq(OwnableUpgradeable(collection).owner(), factory.owner());
     }
 
     function testCollectionTypeVerification() public {

@@ -2,9 +2,9 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import "../src/implementations/ERC1155VaultImplementation.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import "../src/implementations/ERC1155VaultImplementation.sol";
 import "../src/interfaces/IIsSerialized.sol";
 import "../src/interfaces/IVaultProxy.sol";
 
@@ -18,6 +18,7 @@ contract ERC1155VaultImplementationTest is Test {
     event BatchSerialNumbersAssigned(uint256 indexed tokenId, uint256[] serialNumbers);
 
     ProxyAdmin public admin;
+    address mockDiamond = address(0x1234567890123456789012345678901234567890);
 
     function setUp() public {
         // Deploy implementation
@@ -28,7 +29,7 @@ contract ERC1155VaultImplementationTest is Test {
 
         // Deploy proxy with implementation
         bytes memory initData = abi.encodeWithSelector(
-            ERC1155VaultImplementation.initialize.selector, "https://api.test.com/"
+            ERC1155VaultImplementation.initialize.selector, "https://api.test.com/", mockDiamond
         );
 
         TransparentUpgradeableProxy proxy =
@@ -36,6 +37,9 @@ contract ERC1155VaultImplementationTest is Test {
 
         // Set up the implementation interface
         implementation = ERC1155VaultImplementation(address(proxy));
+
+        // Set up prank for Diamond calls
+        vm.startPrank(mockDiamond);
     }
 
     function testInitialState() public view {
@@ -334,7 +338,11 @@ contract ERC1155VaultImplementationTest is Test {
         serialNumbers2[0] = 400;
         serialNumbers2[1] = 500;
         bytes memory serialNumberData2 = abi.encode(serialNumbers2);
+
+        // Restore Diamond prank context for minting
+        vm.startPrank(mockDiamond);
         implementation.mintWithSerial(user1, 1, 2, serialNumberData2);
+        vm.stopPrank();
 
         // Transfer one token from user2 back to user1
         vm.startPrank(user2);

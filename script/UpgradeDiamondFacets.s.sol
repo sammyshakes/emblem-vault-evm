@@ -121,9 +121,8 @@ contract UpgradeDiamondFacets is Script {
     }
 
     function _getMintSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](2);
+        bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = EmblemVaultMintFacet.buyWithSignedPrice.selector;
-        selectors[1] = EmblemVaultMintFacet.buyWithQuote.selector;
         return selectors;
     }
 

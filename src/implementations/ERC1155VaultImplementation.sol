@@ -36,12 +36,23 @@ contract ERC1155VaultImplementation is
     error InvalidSerialArraysLength();
     error InvalidSerialNumbersCount();
     error InsufficientSerialNumbers();
+
     error NoSerialsFound();
     error InvalidIndex();
+    error NotDiamond();
 
     // ------------------------------------------------------------------------
     // Storage
     // ------------------------------------------------------------------------
+    address private _diamondAddress;
+
+    modifier onlyDiamond() {
+        if (msg.sender != _diamondAddress) {
+            revert NotDiamond();
+        }
+        _;
+    }
+
     mapping(uint256 => mapping(uint256 => uint256)) private _tokenSerials; // tokenId => index => serialNumber
     mapping(uint256 => uint256) private _serialToTokenId; // serialNumber => tokenId
     mapping(address => mapping(uint256 => uint256[])) private _ownerTokenSerials; // owner => tokenId => serialNumbers[]
@@ -59,17 +70,18 @@ contract ERC1155VaultImplementation is
     // ------------------------------------------------------------------------
     // Initialization
     // ------------------------------------------------------------------------
-    function initialize(string calldata uri_) public initializer {
+    function initialize(string calldata uri_, address diamondAddress) public initializer {
         __ERC1155_init(uri_);
         __ERC1155Burnable_init();
         __ERC1155Supply_init();
         __Ownable_init(msg.sender);
+        _diamondAddress = diamondAddress;
     }
 
     // ------------------------------------------------------------------------
     // URI
     // ------------------------------------------------------------------------
-    function setURI(string calldata newuri) public onlyOwner {
+    function setURI(string calldata newuri) public onlyDiamond {
         _setURI(newuri);
     }
 
@@ -87,7 +99,7 @@ contract ERC1155VaultImplementation is
      */
     function mintWithSerial(address to, uint256 id, uint256 amount, bytes calldata serialNumberData)
         external
-        onlyOwner
+        onlyDiamond
     {
         if (amount > 1) {
             uint256[] memory serialNumbers = abi.decode(serialNumberData, (uint256[]));
@@ -143,7 +155,7 @@ contract ERC1155VaultImplementation is
         uint256[] calldata ids,
         uint256[] calldata amounts,
         bytes calldata data
-    ) external onlyOwner {
+    ) external onlyDiamond {
         bytes[] memory serialArrays = abi.decode(data, (bytes[]));
         if (serialArrays.length != ids.length) revert InvalidSerialArraysLength();
 
@@ -334,6 +346,13 @@ contract ERC1155VaultImplementation is
     // ------------------------------------------------------------------------
     function version() external pure returns (string memory) {
         return "1";
+    }
+
+    // ------------------------------------------------------------------------
+    // Diamond
+    // ------------------------------------------------------------------------
+    function diamond() external view returns (address) {
+        return _diamondAddress;
     }
 
     // ------------------------------------------------------------------------

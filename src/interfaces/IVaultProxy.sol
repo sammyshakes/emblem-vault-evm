@@ -54,8 +54,10 @@ interface IERC721VaultProxy is IVaultProxy {
      * @notice Initialize the ERC721 vault
      * @param name The name of the token
      * @param symbol The symbol of the token
+     * @param diamondAddress The address of the diamond contract
      */
-    function initialize(string memory name, string memory symbol) external;
+    function initialize(string memory name, string memory symbol, address diamondAddress)
+        external;
 }
 
 /**
@@ -66,6 +68,7 @@ interface IERC1155VaultProxy is IVaultProxy {
     /**
      * @notice Initialize the ERC1155 vault
      * @param uri The base URI for token metadata
+     * @param diamondAddress The address of the diamond contract
      */
-    function initialize(string memory uri) external;
+    function initialize(string memory uri, address diamondAddress) external;
 }

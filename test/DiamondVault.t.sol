@@ -194,10 +194,9 @@ contract DiamondVaultTest is Test {
         });
 
         // MintFacet
-        bytes4[] memory mintSelectors = new bytes4[](3);
+        bytes4[] memory mintSelectors = new bytes4[](2);
         mintSelectors[0] = EmblemVaultMintFacet.buyWithSignedPrice.selector;
-        mintSelectors[1] = EmblemVaultMintFacet.buyWithQuote.selector;
-        mintSelectors[2] = EmblemVaultMintFacet.batchBuyWithSignedPrice.selector;
+        mintSelectors[1] = EmblemVaultMintFacet.batchBuyWithSignedPrice.selector;
         cut[4] = IDiamondCut.FacetCut({
             facetAddress: address(mintFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -592,29 +591,6 @@ contract DiamondVaultTest is Test {
         assertEq(IERC721AVault(nftCollection).getInternalTokenId(tokenId), internalTokenId);
     }
 
-    function testBuyWithQuote() public {
-        uint256 tokenId = 2;
-        uint256 basePrice = 1 ether;
-        uint256 quotedPrice = 2 ether; // MockQuoteContract doubles the price
-        uint256 nonce = 2; // Use new nonce since 1 was used in setup
-        bytes memory serialNumber = new bytes(0);
-
-        // Create signature from witness using the quote signature format
-        bytes memory signature = createSignatureQuote(
-            nftCollection, basePrice, user1, tokenId, nonce, 1, witnessPrivateKey
-        );
-
-        // Buy with quote from user1
-        vm.startPrank(user1);
-        EmblemVaultMintFacet(address(diamond)).buyWithQuote{value: quotedPrice}(
-            nftCollection, basePrice, user1, tokenId, nonce, signature, serialNumber, 1
-        );
-        vm.stopPrank();
-
-        // Verify token was minted to user1
-        assertEq(ERC721VaultImplementation(nftCollection).ownerOf(tokenId), user1);
-    }
-
     function testClaimWithSignedPriceLockedVault() public {
         uint256 tokenId = 1;
         uint256 price = 1 ether;
@@ -834,62 +810,6 @@ contract DiamondVaultTest is Test {
         }
     }
 
-    // function testBatchBuyWithQuote() public {
-    //     // Create test data
-    //     uint256[] memory tokenIds = new uint256[](3);
-    //     tokenIds[0] = 100;
-    //     tokenIds[1] = 101;
-    //     tokenIds[2] = 102;
-
-    //     uint256[] memory basePrices = new uint256[](3);
-    //     basePrices[0] = 1 ether;
-    //     basePrices[1] = 1.5 ether;
-    //     basePrices[2] = 2 ether;
-
-    //     uint256[] memory nonces = new uint256[](3);
-    //     nonces[0] = 2;
-    //     nonces[1] = 3;
-    //     nonces[2] = 4;
-
-    //     bytes[] memory signatures = new bytes[](3);
-    //     signatures[0] = createSignatureQuote(
-    //         nftCollection, basePrices[0], user1, tokenIds[0], nonces[0], 1, witnessPrivateKey
-    //     );
-    //     signatures[1] = createSignatureQuote(
-    //         nftCollection, basePrices[1], user1, tokenIds[1], nonces[1], 1, witnessPrivateKey
-    //     );
-    //     signatures[2] = createSignatureQuote(
-    //         nftCollection, basePrices[2], user1, tokenIds[2], nonces[2], 1, witnessPrivateKey
-    //     );
-
-    //     uint256[] memory amounts = new uint256[](3);
-    //     amounts[0] = 1;
-    //     amounts[1] = 1;
-    //     amounts[2] = 1;
-
-    //     // Calculate total price
-    //     uint256 totalPrice = 3.5 ether; // MockQuoteContract doubles the price
-
-    //     // Execute batch mint
-    //     vm.startPrank(user1);
-    //     EmblemVaultMintFacet(address(diamond)).batchBuyWithQuote{value: totalPrice}(
-    //         nftCollection, basePrices, user1, tokenIds, nonces, signatures, amounts
-    //     );
-    //     vm.stopPrank();
-
-    //     // Verify tokens were minted correctly
-    //     for (uint256 i = 0; i < tokenIds.length; i++) {
-    //         uint256 internalTokenId = i + 2; // +2 because setup already minted token 1
-
-    //         // Verify ownership
-    //         assertEq(ERC721VaultImplementation(nftCollection).ownerOf(internalTokenId), user1);
-
-    //         // Verify token ID
-    //         assertEq(IERC721AVault(nftCollection).getExternalTokenId(internalTokenId), tokenIds[i]);
-    //         assertEq(IERC721AVault(nftCollection).getInternalTokenId(tokenIds[i]), internalTokenId);
-    //     }
-    // }
-
     function testRevertBatchBuyWithInvalidSignature() public {
         // Create test data
         uint256[] memory tokenIds = new uint256[](1);
@@ -997,23 +917,6 @@ contract DiamondVaultTest is Test {
         bytes32 hash = keccak256(
             abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount)
         );
-        bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, prefixedHash);
-        return abi.encodePacked(r, s, v);
-    }
-
-    // Helper function to create signature for quotes
-    function createSignatureQuote(
-        address _nftAddress,
-        uint256 _price,
-        address _to,
-        uint256 _tokenId,
-        uint256 _nonce,
-        uint256 _amount,
-        uint256 _privateKey
-    ) internal pure returns (bytes memory) {
-        bytes32 hash =
-            keccak256(abi.encodePacked(_nftAddress, _price, _to, _tokenId, _nonce, _amount));
         bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, prefixedHash);
         return abi.encodePacked(r, s, v);

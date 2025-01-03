@@ -8,17 +8,18 @@ import "../interfaces/IVaultProxy.sol";
 import "../interfaces/IVaultCollectionFactory.sol";
 import "../libraries/LibCollectionTypes.sol";
 import "../libraries/LibErrors.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title VaultCollectionFactory
+ * @dev Uses Factory owner address as collection owner
  * @notice Factory contract for deploying vault collection contracts using the beacon pattern
  * @dev Creates ERC721 and ERC1155 collection contracts that can mint individual vaults as tokens.
  *      Each collection is a token contract that can mint multiple vault tokens, making it a
  *      parent container for individual vaults. The factory manages these collection contracts
  *      through the beacon proxy pattern for upgradeability.
  */
-contract VaultCollectionFactory is IVaultCollectionFactory {
+contract VaultCollectionFactory is IVaultCollectionFactory, Ownable(msg.sender) {
     using LibCollectionTypes for uint8;
 
     // State variables
@@ -57,11 +58,11 @@ contract VaultCollectionFactory is IVaultCollectionFactory {
         // Deploy proxy
         collection = address(new ERC721VaultProxy(erc721Beacon));
 
-        // Initialize collection contract with Diamond as owner
-        try IERC721VaultProxy(collection).initialize(name, symbol) {
-            // Transfer ownership to Diamond immediately after initialization
-            try OwnableUpgradeable(collection).transferOwnership(diamond) {
-                emit CollectionOwnershipTransferred(collection, diamond);
+        // Initialize collection contract with Diamond address
+        try IERC721VaultProxy(collection).initialize(name, symbol, diamond) {
+            // Transfer ownership to factory owner
+            try Ownable(collection).transferOwnership(owner()) {
+                emit CollectionOwnershipTransferred(collection, owner());
                 emit ERC721CollectionCreated(collection, name, symbol);
             } catch {
                 revert LibErrors.TransferFailed();
@@ -83,11 +84,11 @@ contract VaultCollectionFactory is IVaultCollectionFactory {
         // Deploy proxy
         collection = address(new ERC1155VaultProxy(erc1155Beacon));
 
-        // Initialize collection contract with Diamond as owner
-        try IERC1155VaultProxy(collection).initialize(uri) {
-            // Transfer ownership to Diamond immediately after initialization
-            try OwnableUpgradeable(collection).transferOwnership(diamond) {
-                emit CollectionOwnershipTransferred(collection, diamond);
+        // Initialize collection contract with Diamond address
+        try IERC1155VaultProxy(collection).initialize(uri, diamond) {
+            // Transfer ownership to factory owner
+            try Ownable(collection).transferOwnership(owner()) {
+                emit CollectionOwnershipTransferred(collection, owner());
                 emit ERC1155CollectionCreated(collection, uri);
             } catch {
                 revert LibErrors.TransferFailed();

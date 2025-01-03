@@ -29,6 +29,7 @@ contract ERC721VaultImplementation is
     mapping(uint256 => uint256) internal _externalTokenIdMap; // internalTokenId >> externalTokenId
     mapping(uint256 => uint256) internal _reverseTokenIdMap; // externalTokenId >> internalTokenId
     string private _baseTokenURI;
+    address private _diamondAddress;
 
     event TokenMinted(
         address indexed to,
@@ -49,7 +50,16 @@ contract ERC721VaultImplementation is
         _disableInitializers();
     }
 
-    function initialize(string calldata name_, string calldata symbol_)
+    error NotDiamond();
+
+    modifier onlyDiamond() {
+        if (msg.sender != _diamondAddress) {
+            revert NotDiamond();
+        }
+        _;
+    }
+
+    function initialize(string calldata name_, string calldata symbol_, address diamondAddress)
         public
         initializerERC721A
         initializer
@@ -59,9 +69,10 @@ contract ERC721VaultImplementation is
         __Ownable_init(msg.sender);
         __ReentrancyGuard_init();
         _baseTokenURI = DEFAULT_BASE_URI;
+        _diamondAddress = diamondAddress;
     }
 
-    function mint(address to, uint256 externalTokenId) external override onlyOwner {
+    function mint(address to, uint256 externalTokenId) external override onlyDiamond {
         require(_reverseTokenIdMap[externalTokenId] == 0, "External ID already minted");
 
         // Get the next internal ID that will be minted
@@ -80,7 +91,7 @@ contract ERC721VaultImplementation is
     function mintWithData(address to, uint256 externalTokenId, bytes calldata data)
         external
         override
-        onlyOwner
+        onlyDiamond
     {
         require(_reverseTokenIdMap[externalTokenId] == 0, "External ID already minted");
 
@@ -101,13 +112,13 @@ contract ERC721VaultImplementation is
         emit TokenMinted(to, startTokenId, externalTokenId, data);
     }
 
-    function batchMint(address to, uint256[] calldata externalTokenIds) external onlyOwner {
+    function batchMint(address to, uint256[] calldata externalTokenIds) external onlyDiamond {
         _mintBatch(to, externalTokenIds, "");
     }
 
     function batchMintWithData(address to, uint256[] calldata externalTokenIds, bytes calldata data)
         external
-        onlyOwner
+        onlyDiamond
     {
         _mintBatch(to, externalTokenIds, data);
     }
@@ -217,7 +228,7 @@ contract ERC721VaultImplementation is
         return _baseTokenURI;
     }
 
-    function setBaseURI(string calldata baseURI) external override onlyOwner {
+    function setBaseURI(string calldata baseURI) external override onlyDiamond {
         _baseTokenURI = baseURI;
         emit BaseURIUpdated(baseURI);
     }
@@ -225,7 +236,7 @@ contract ERC721VaultImplementation is
     function setDetails(string calldata name_, string calldata symbol_)
         external
         override
-        onlyOwner
+        onlyDiamond
     {
         ERC721AStorage.Layout storage layout = ERC721AStorage.layout();
         layout._name = name_;

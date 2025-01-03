@@ -8,6 +8,7 @@ import "../src/implementations/ERC721VaultImplementation.sol";
 import "../src/interfaces/IVaultBeacon.sol";
 import "../src/interfaces/IVaultProxy.sol";
 import "../src/libraries/LibErrors.sol";
+import "../src/EmblemVaultDiamond.sol";
 
 // Simple contract without implementation() function for testing
 contract NonBeaconContract {
@@ -20,6 +21,7 @@ contract BeaconVaultTest is Test {
     ERC721VaultImplementation public implementation;
     ERC721VaultImplementation public implementationV2;
     NonBeaconContract public nonBeacon;
+    EmblemVaultDiamond public diamond;
 
     address owner = address(this);
     address user = address(0x1);
@@ -45,8 +47,11 @@ contract BeaconVaultTest is Test {
         // Deploy non-beacon contract
         nonBeacon = new NonBeaconContract();
 
+        // Deploy diamond
+        diamond = new EmblemVaultDiamond(owner, address(5));
+
         // Initialize the proxy
-        ERC721VaultImplementation(address(proxy)).initialize("TestVault", "TEST");
+        ERC721VaultImplementation(address(proxy)).initialize("TestVault", "TEST", address(diamond));
     }
 
     // ============ Initial Setup Tests ============
@@ -63,6 +68,7 @@ contract BeaconVaultTest is Test {
 
     function testProxyDelegation() public {
         // Test minting through proxy
+        vm.prank(address(diamond));
         ERC721VaultImplementation(address(proxy)).mint(user, 1);
         assertEq(ERC721VaultImplementation(address(proxy)).ownerOf(1), user);
         assertEq(ERC721VaultImplementation(address(proxy)).getInternalTokenId(1), 1);
@@ -75,11 +81,13 @@ contract BeaconVaultTest is Test {
         implementationV2 = new ERC721VaultImplementation();
 
         // Mint a token before upgrade
+        vm.prank(address(diamond));
         ERC721VaultImplementation(address(proxy)).mint(user, 1);
 
         // Upgrade beacon
         vm.expectEmit(true, true, true, true);
         emit ImplementationUpgraded(address(implementation), address(implementationV2));
+        vm.prank(owner);
         beacon.upgrade(address(implementationV2));
 
         // Check new implementation
@@ -134,11 +142,15 @@ contract BeaconVaultTest is Test {
     function testMultipleProxies() public {
         // Deploy second proxy
         ERC721VaultProxy proxy2 = new ERC721VaultProxy(address(beacon));
-        ERC721VaultImplementation(address(proxy2)).initialize("TestVault2", "TEST2");
+        ERC721VaultImplementation(address(proxy2)).initialize(
+            "TestVault2", "TEST2", address(diamond)
+        );
 
         // Mint tokens on both proxies
+        vm.startPrank(address(diamond));
         ERC721VaultImplementation(address(proxy)).mint(user, 1);
         ERC721VaultImplementation(address(proxy2)).mint(user, 2);
+        vm.stopPrank();
 
         // Verify independent state
         assertEq(ERC721VaultImplementation(address(proxy)).name(), "TestVault");
@@ -163,7 +175,9 @@ contract BeaconVaultTest is Test {
 
     function testRevertDoubleInitialization() public {
         vm.expectRevert("ERC721A__Initializable: contract is already initialized");
-        ERC721VaultImplementation(address(proxy)).initialize("TestVault2", "TEST2");
+        ERC721VaultImplementation(address(proxy)).initialize(
+            "TestVault2", "TEST2", address(diamond)
+        );
     }
 
     function testRevertUpgradeAfterOwnershipTransfer() public {
@@ -188,7 +202,7 @@ contract BeaconVaultTest is Test {
 
         // First call should fail since EOA can't respond to implementation()
         vm.expectRevert();
-        ERC721VaultImplementation(address(invalidProxy)).initialize("Test", "TST");
+        ERC721VaultImplementation(address(invalidProxy)).initialize("Test", "TST", address(diamond));
     }
 
     function testRevertProxyWithNonBeaconContract() public {
@@ -197,6 +211,6 @@ contract BeaconVaultTest is Test {
 
         // First call should fail since contract doesn't have implementation()
         vm.expectRevert();
-        ERC721VaultImplementation(address(invalidProxy)).initialize("Test", "TST");
+        ERC721VaultImplementation(address(invalidProxy)).initialize("Test", "TST", address(diamond));
     }
 }

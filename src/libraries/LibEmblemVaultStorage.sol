@@ -48,6 +48,21 @@ library LibEmblemVaultStorage {
         mapping(address => mapping(uint256 => bool)) byPassableIds;
         // Statistics
         uint256 witnessCount; // Track number of witnesses
+        // Collection Ownership
+        address collectionOwner;
+    }
+
+    error CollectionOwnerNotSet();
+
+    function setCollectionOwner(address _owner) internal {
+        if (_owner == address(0)) revert ZeroAddress();
+        vaultStorage().collectionOwner = _owner;
+    }
+
+    function getCollectionOwner() internal view returns (address) {
+        address owner = vaultStorage().collectionOwner;
+        if (owner == address(0)) revert CollectionOwnerNotSet();
+        return owner;
     }
 
     /// @notice Get the reentrancy guard storage

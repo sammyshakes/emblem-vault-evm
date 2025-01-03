@@ -19,6 +19,7 @@ contract EmblemVaultCollectionFacet {
 
     // Events
     event CollectionFactorySet(address indexed oldFactory, address indexed newFactory);
+    event CollectionOwnerSet(address indexed owner);
     event CollectionImplementationUpgraded(
         uint8 indexed collectionType, address indexed newImplementation
     );
@@ -31,6 +32,23 @@ contract EmblemVaultCollectionFacet {
     modifier onlyOwner() {
         LibDiamond.enforceIsContractOwner();
         _;
+    }
+
+    /**
+     * @notice Set the collection owner address
+     * @param owner The address of the new collection owner
+     */
+    function setCollectionOwner(address owner) external onlyOwner {
+        LibEmblemVaultStorage.setCollectionOwner(owner);
+        emit CollectionOwnerSet(owner);
+    }
+
+    /**
+     * @notice Get the current collection owner address
+     * @return The address of the current collection owner
+     */
+    function getCollectionOwner() external view returns (address) {
+        return LibEmblemVaultStorage.getCollectionOwner();
     }
 
     modifier onlyValidCollection(address collection) {
@@ -103,11 +121,6 @@ contract EmblemVaultCollectionFacet {
             revert LibErrors.InvalidCollectionOperation(collection);
         }
 
-        // Verify diamond owns the collection
-        if (OwnableUpgradeable(collection).owner() != address(this)) {
-            revert LibErrors.NotCollectionOwner(collection, address(this));
-        }
-
         // Update base URI
         (bool success,) = collection.call(abi.encodeWithSignature("setBaseURI(string)", newBaseURI));
         require(success, "setBaseURI failed");
@@ -130,11 +143,6 @@ contract EmblemVaultCollectionFacet {
         uint8 collectionType = factory.getCollectionType(collection);
         if (!collectionType.isERC1155Type()) {
             revert LibErrors.InvalidCollectionOperation(collection);
-        }
-
-        // Verify diamond owns the collection
-        if (OwnableUpgradeable(collection).owner() != address(this)) {
-            revert LibErrors.NotCollectionOwner(collection, address(this));
         }
 
         // Update URI using setURI

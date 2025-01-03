@@ -124,9 +124,8 @@ contract DeployDiamondSystem is Script {
         });
 
         // MintFacet
-        bytes4[] memory mintSelectors = new bytes4[](2);
+        bytes4[] memory mintSelectors = new bytes4[](1);
         mintSelectors[0] = EmblemVaultMintFacet.buyWithSignedPrice.selector;
-        mintSelectors[1] = EmblemVaultMintFacet.buyWithQuote.selector;
         cut[4] = IDiamondCut.FacetCut({
             facetAddress: address(mintFacet),
             action: IDiamondCut.FacetCutAction.Add,

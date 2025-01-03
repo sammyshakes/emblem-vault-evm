@@ -120,9 +120,8 @@ contract DiamondBeaconIntegrationTest is Test {
         });
 
         // MintFacet
-        bytes4[] memory mintSelectors = new bytes4[](2);
+        bytes4[] memory mintSelectors = new bytes4[](1);
         mintSelectors[0] = EmblemVaultMintFacet.buyWithSignedPrice.selector;
-        mintSelectors[1] = EmblemVaultMintFacet.buyWithQuote.selector;
         cut[3] = IDiamondCut.FacetCut({
             facetAddress: address(mintFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -227,7 +226,7 @@ contract DiamondBeaconIntegrationTest is Test {
         assertTrue(factory.isCollection(vault));
         assertEq(ERC721VaultImplementation(vault).name(), name);
         assertEq(ERC721VaultImplementation(vault).symbol(), symbol);
-        assertEq(OwnableUpgradeable(vault).owner(), address(diamond));
+        assertEq(OwnableUpgradeable(vault).owner(), factory.owner());
     }
 
     function testUpgradeVaultImplementation() public {

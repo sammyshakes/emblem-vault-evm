@@ -20,7 +20,6 @@ import "../libraries/LibErrors.sol";
 // ========== Interfaces ==========
 import "../interfaces/IERC1155.sol";
 import "../interfaces/IERC20Token.sol";
-import "../interfaces/IMintVaultQuote.sol";
 import "../interfaces/IIsSerialized.sol";
 import "../interfaces/IERC721AVault.sol";
 import "../interfaces/IVaultCollectionFactory.sol";
@@ -203,56 +202,6 @@ contract EmblemVaultMintFacet {
             ),
             "Batch mint failed"
         );
-
-        LibEmblemVaultStorage.nonReentrantAfter();
-    }
-
-    /// @notice Purchase NFTs using a price quote
-    /// @dev Allows users to mint NFTs using a price quote from the quote contract
-    /// @param _nftAddress Address of the NFT contract
-    /// @param _price Price per token
-    /// @param _to Recipient address
-    /// @param _externalTokenId External token ID
-    /// @param _nonce Unique nonce for the transaction
-    /// @param _signature Signature for verification
-    /// @param _serialNumber Serial number for ERC1155 tokens
-    /// @param _amount Number of tokens to mint
-    function buyWithQuote(
-        address _nftAddress,
-        uint256 _price,
-        address _to,
-        uint256 _externalTokenId,
-        uint256 _nonce,
-        bytes calldata _signature,
-        bytes calldata _serialNumber,
-        uint256 _amount
-    ) external payable onlyValidCollection(_nftAddress) {
-        LibEmblemVaultStorage.nonReentrantBefore();
-
-        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        uint256 quote = IMintVaultQuote(vs.quoteContract).quoteExternalPrice(msg.sender, _price);
-        uint256 totalPrice;
-
-        unchecked {
-            totalPrice = quote * _amount;
-            uint256 acceptableRange = (totalPrice * PRICE_TOLERANCE_BPS) / 10_000;
-            LibErrors.revertIfPriceOutOfRange(msg.value, totalPrice, acceptableRange);
-        }
-
-        MintParams memory params = MintParams({
-            nftAddress: _nftAddress,
-            payment: address(0),
-            price: _price,
-            to: _to,
-            externalTokenId: _externalTokenId,
-            nonce: _nonce,
-            signature: _signature,
-            serialNumber: _serialNumber,
-            amount: _amount,
-            isQuote: true
-        });
-
-        _processMint(params);
 
         LibEmblemVaultStorage.nonReentrantAfter();
     }
