@@ -16,7 +16,6 @@ contract EmblemVaultCoreFacet {
     event VaultLocked(address indexed nftAddress, uint256 indexed tokenId, address indexed owner);
     event VaultUnlocked(address indexed nftAddress, uint256 indexed tokenId, address indexed owner);
     event RecipientAddressChanged(address indexed oldRecipient, address indexed newRecipient);
-    event QuoteContractChanged(address indexed oldQuoteContract, address indexed newQuoteContract);
     event MetadataBaseUriChanged(string oldUri, string newUri);
     event WitnessAdded(address indexed witness, uint256 newCount);
     event WitnessRemoved(address indexed witness, uint256 newCount);
@@ -150,15 +149,6 @@ contract EmblemVaultCoreFacet {
         emit RecipientAddressChanged(oldRecipient, _recipient);
     }
 
-    /// @notice Set the quote contract address
-    /// @param _quoteContract New quote contract address
-    function setQuoteContract(address _quoteContract) external onlyOwner {
-        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        address oldQuoteContract = vs.quoteContract;
-        LibEmblemVaultStorage.setQuoteContract(_quoteContract);
-        emit QuoteContractChanged(oldQuoteContract, _quoteContract);
-    }
-
     /// @notice Set the base URI for metadata
     /// @param _uri New base URI
     function setMetadataBaseUri(string calldata _uri) external onlyOwner {
@@ -205,12 +195,6 @@ contract EmblemVaultCoreFacet {
     /// @return The recipient address
     function getRecipientAddress() external view returns (address) {
         return LibEmblemVaultStorage.vaultStorage().recipientAddress;
-    }
-
-    /// @notice Get the current quote contract
-    /// @return The quote contract address
-    function getQuoteContract() external view returns (address) {
-        return LibEmblemVaultStorage.vaultStorage().quoteContract;
     }
 
     /// @notice Get the current metadata base URI

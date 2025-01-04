@@ -87,7 +87,6 @@ contract EmblemVaultInitFacet {
     /// @notice Get the current system configuration
     /// @return metadataBaseUri The base URI for metadata
     /// @return recipientAddress The recipient address for payments
-    /// @return quoteContract The quote contract address
     /// @return claimerContract The claimer contract address
     /// @return byPassable The bypass state
     /// @return witnessCount The number of active witnesses
@@ -97,7 +96,6 @@ contract EmblemVaultInitFacet {
         returns (
             string memory metadataBaseUri,
             address recipientAddress,
-            address quoteContract,
             address claimerContract,
             bool byPassable,
             uint256 witnessCount
@@ -107,7 +105,6 @@ contract EmblemVaultInitFacet {
         return (
             vs.metadataBaseUri,
             vs.recipientAddress,
-            vs.quoteContract,
             vs.claimerContract,
             vs.byPassable,
             vs.witnessCount

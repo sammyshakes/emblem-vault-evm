@@ -29,8 +29,20 @@ contract EmblemVaultCollectionFacet {
     event CollectionBaseURIUpdated(address indexed collection, string newBaseURI);
     event CollectionURIUpdated(address indexed collection, string newURI);
 
+    // ------------------------------------------------------------------------
+    // MODIFIERS
+    // ------------------------------------------------------------------------
     modifier onlyOwner() {
         LibDiamond.enforceIsContractOwner();
+        _;
+    }
+
+    modifier onlyValidCollection(address collection) {
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
+        LibErrors.revertIfFactoryNotSet(vs.vaultFactory);
+        LibErrors.revertIfInvalidCollection(
+            collection, IVaultCollectionFactory(vs.vaultFactory).isCollection(collection)
+        );
         _;
     }
 
@@ -49,15 +61,6 @@ contract EmblemVaultCollectionFacet {
      */
     function getCollectionOwner() external view returns (address) {
         return LibEmblemVaultStorage.getCollectionOwner();
-    }
-
-    modifier onlyValidCollection(address collection) {
-        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        LibErrors.revertIfFactoryNotSet(vs.vaultFactory);
-        LibErrors.revertIfInvalidCollection(
-            collection, IVaultCollectionFactory(vs.vaultFactory).isCollection(collection)
-        );
-        _;
     }
 
     /**

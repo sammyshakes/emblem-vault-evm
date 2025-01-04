@@ -35,7 +35,6 @@ library LibEmblemVaultStorage {
         // Configuration
         string metadataBaseUri;
         address recipientAddress;
-        address quoteContract;
         address vaultFactory; // For beacon pattern integration
         address claimerContract; // Contract handling claim verification
         // Interface IDs (constant but stored for gas optimization)
@@ -151,10 +150,6 @@ library LibEmblemVaultStorage {
     function setRecipientAddress(address _recipient) internal {
         if (_recipient == address(0)) revert ZeroAddress();
         vaultStorage().recipientAddress = _recipient;
-    }
-
-    function setQuoteContract(address _quoteContract) internal {
-        vaultStorage().quoteContract = _quoteContract;
     }
 
     function setVaultFactory(address _factory) internal {

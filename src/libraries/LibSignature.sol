@@ -50,19 +50,6 @@ library LibSignature {
         return keccak256(abi.encodePacked(nftAddress, payment, price, to, tokenId, nonce, amount));
     }
 
-    /// @notice Create hash for quote signature
-    /// @return Hash to be signed
-    function getQuoteSignatureHash(
-        address nftAddress,
-        uint256 price,
-        address to,
-        uint256 tokenId,
-        uint256 nonce,
-        uint256 amount
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(nftAddress, price, to, tokenId, nonce, amount));
-    }
-
     /// @notice Create hash for locked vault signature
     /// @return Hash to be signed
     function getLockedSignatureHash(
@@ -93,21 +80,6 @@ library LibSignature {
     ) internal pure returns (address) {
         bytes32 hash =
             getStandardSignatureHash(nftAddress, payment, price, to, tokenId, nonce, amount);
-        return recoverSigner(hash, signature);
-    }
-
-    /// @notice Verify quote signature
-    /// @return The recovered signer address
-    function verifyQuoteSignature(
-        address nftAddress,
-        uint256 price,
-        address to,
-        uint256 tokenId,
-        uint256 nonce,
-        uint256 amount,
-        bytes memory signature
-    ) internal pure returns (address) {
-        bytes32 hash = getQuoteSignatureHash(nftAddress, price, to, tokenId, nonce, amount);
         return recoverSigner(hash, signature);
     }
 

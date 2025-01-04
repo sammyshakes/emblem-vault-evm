@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 /// @title EmblemVaultMintFacet
 /// @notice Facet contract for handling NFT minting operations in the Emblem Vault system
 /// @dev This facet provides functionality for minting NFTs through various methods including
-/// signed price purchases, quote-based purchases, and batch minting. It supports both ERC721A
+/// signed price purchases and batch minting. It supports both ERC721A
 /// and ERC1155 token standards.
 
 // ========== External Libraries ==========
@@ -50,7 +50,7 @@ contract EmblemVaultMintFacet {
     );
 
     /// @notice Parameters required for minting operations
-    /// @dev This struct encapsulates all necessary data for both standard and quote-based mints
+    /// @dev This struct encapsulates all necessary data for minting operations
     struct MintParams {
         address nftAddress; // Address of the NFT contract
         address payment; // Payment token address (address(0) for ETH)
@@ -61,7 +61,6 @@ contract EmblemVaultMintFacet {
         bytes signature; // Signature for verification
         bytes serialNumber; // Serial number for ERC1155 tokens
         uint256 amount; // Number of tokens to mint
-        bool isQuote; // Flag indicating if this is a quote-based mint
     }
 
     /// @notice Modifier to ensure the collection is valid
@@ -109,8 +108,7 @@ contract EmblemVaultMintFacet {
             nonce: _nonce,
             signature: _signature,
             serialNumber: _serialNumber,
-            amount: _amount,
-            isQuote: false
+            amount: _amount
         });
 
         _processMint(params);
@@ -219,26 +217,16 @@ contract EmblemVaultMintFacet {
             IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, params.price);
         }
 
-        address signer = params.isQuote
-            ? LibSignature.verifyQuoteSignature(
-                params.nftAddress,
-                params.price,
-                params.to,
-                params.externalTokenId,
-                params.nonce,
-                params.amount,
-                params.signature
-            )
-            : LibSignature.verifyStandardSignature(
-                params.nftAddress,
-                params.payment,
-                params.price,
-                params.to,
-                params.externalTokenId,
-                params.nonce,
-                params.amount,
-                params.signature
-            );
+        address signer = LibSignature.verifyStandardSignature(
+            params.nftAddress,
+            params.payment,
+            params.price,
+            params.to,
+            params.externalTokenId,
+            params.nonce,
+            params.amount,
+            params.signature
+        );
 
         LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
 

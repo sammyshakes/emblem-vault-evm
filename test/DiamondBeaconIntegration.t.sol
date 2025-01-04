@@ -99,20 +99,19 @@ contract DiamondBeaconIntegrationTest is Test {
         });
 
         // VaultCoreFacet
-        bytes4[] memory vaultCoreSelectors = new bytes4[](13);
+        bytes4[] memory vaultCoreSelectors = new bytes4[](12);
         vaultCoreSelectors[0] = EmblemVaultCoreFacet.lockVault.selector;
         vaultCoreSelectors[1] = EmblemVaultCoreFacet.unlockVault.selector;
         vaultCoreSelectors[2] = EmblemVaultCoreFacet.isVaultLocked.selector;
         vaultCoreSelectors[3] = EmblemVaultCoreFacet.addWitness.selector;
         vaultCoreSelectors[4] = EmblemVaultCoreFacet.removeWitness.selector;
         vaultCoreSelectors[5] = EmblemVaultCoreFacet.setRecipientAddress.selector;
-        vaultCoreSelectors[6] = EmblemVaultCoreFacet.setQuoteContract.selector;
-        vaultCoreSelectors[7] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
-        vaultCoreSelectors[8] = EmblemVaultCoreFacet.isWitness.selector;
-        vaultCoreSelectors[9] = EmblemVaultCoreFacet.getWitnessCount.selector;
-        vaultCoreSelectors[10] = EmblemVaultCoreFacet.version.selector;
-        vaultCoreSelectors[11] = EmblemVaultCoreFacet.setVaultFactory.selector;
-        vaultCoreSelectors[12] = EmblemVaultCoreFacet.getVaultFactory.selector;
+        vaultCoreSelectors[6] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
+        vaultCoreSelectors[7] = EmblemVaultCoreFacet.isWitness.selector;
+        vaultCoreSelectors[8] = EmblemVaultCoreFacet.getWitnessCount.selector;
+        vaultCoreSelectors[9] = EmblemVaultCoreFacet.version.selector;
+        vaultCoreSelectors[10] = EmblemVaultCoreFacet.setVaultFactory.selector;
+        vaultCoreSelectors[11] = EmblemVaultCoreFacet.getVaultFactory.selector;
         cut[2] = IDiamondCut.FacetCut({
             facetAddress: address(vaultCoreFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -179,7 +178,6 @@ contract DiamondBeaconIntegrationTest is Test {
         (
             string memory baseUri,
             address recipientAddr,
-            address quoteAddr,
             address claimerAddr,
             bool byPassable,
             uint256 witnessCount
@@ -188,7 +186,6 @@ contract DiamondBeaconIntegrationTest is Test {
         assertEq(baseUri, "https://v2.emblemvault.io/meta/");
         assertEq(witnessCount, 1); // owner is initial witness
         assertEq(recipientAddr, address(this)); // Set to owner during initialization
-        assertEq(quoteAddr, address(0)); // Not set in initialization
         assertEq(claimerAddr, address(0)); // Not set in initialization
         assertFalse(byPassable); // Default to false
         assertEq(EmblemVaultCoreFacet(address(diamond)).getVaultFactory(), address(factory));

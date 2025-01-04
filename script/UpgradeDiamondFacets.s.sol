@@ -97,18 +97,17 @@ contract UpgradeDiamondFacets is Script {
     }
 
     function _getCoreSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](11);
+        bytes4[] memory selectors = new bytes4[](10);
         selectors[0] = EmblemVaultCoreFacet.lockVault.selector;
         selectors[1] = EmblemVaultCoreFacet.unlockVault.selector;
         selectors[2] = EmblemVaultCoreFacet.isVaultLocked.selector;
         selectors[3] = EmblemVaultCoreFacet.addWitness.selector;
         selectors[4] = EmblemVaultCoreFacet.removeWitness.selector;
         selectors[5] = EmblemVaultCoreFacet.setRecipientAddress.selector;
-        selectors[6] = EmblemVaultCoreFacet.setQuoteContract.selector;
-        selectors[7] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
-        selectors[8] = EmblemVaultCoreFacet.isWitness.selector;
-        selectors[9] = EmblemVaultCoreFacet.getWitnessCount.selector;
-        selectors[10] = EmblemVaultCoreFacet.version.selector;
+        selectors[6] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
+        selectors[7] = EmblemVaultCoreFacet.isWitness.selector;
+        selectors[8] = EmblemVaultCoreFacet.getWitnessCount.selector;
+        selectors[9] = EmblemVaultCoreFacet.version.selector;
         return selectors;
     }
 

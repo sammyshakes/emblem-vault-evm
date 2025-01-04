@@ -28,12 +28,6 @@ import {LibErrors} from "../src/libraries/LibErrors.sol";
 import "./mocks/MockERC20.sol";
 import "./mocks/MockClaimer.sol";
 
-contract MockQuoteContract {
-    function quoteExternalPrice(address, uint256 price) external pure returns (uint256) {
-        return price * 2; // Simple mock that doubles the price
-    }
-}
-
 contract DiamondVaultTest is Test {
     // Diamond components
     EmblemVaultDiamond diamond;
@@ -50,7 +44,6 @@ contract DiamondVaultTest is Test {
     MockERC20 paymentToken;
     address nftCollection; // This will be created through the factory
     MockClaimer claimer;
-    MockQuoteContract quoteContract;
     VaultCollectionFactory factory;
     ERC721VaultImplementation erc721Implementation;
     ERC1155VaultImplementation erc1155Implementation;
@@ -73,7 +66,6 @@ contract DiamondVaultTest is Test {
     event VaultUnlocked(address indexed nftAddress, uint256 indexed tokenId, address indexed owner);
     event VaultFactorySet(address indexed oldFactory, address indexed newFactory);
     event RecipientAddressChanged(address indexed oldRecipient, address indexed newRecipient);
-    event QuoteContractChanged(address indexed oldQuoteContract, address indexed newQuoteContract);
     event ClaimerContractUpdated(address indexed oldClaimer, address indexed newClaimer);
     event TokenMinted(
         address indexed nftAddress,
@@ -112,7 +104,6 @@ contract DiamondVaultTest is Test {
         // Deploy mock contracts
         paymentToken = new MockERC20("Payment Token", "PAY");
         claimer = new MockClaimer();
-        quoteContract = new MockQuoteContract();
 
         // Deploy implementations
         erc721Implementation = new ERC721VaultImplementation();
@@ -162,20 +153,19 @@ contract DiamondVaultTest is Test {
         });
 
         // VaultCoreFacet
-        bytes4[] memory vaultCoreSelectors = new bytes4[](13);
+        bytes4[] memory vaultCoreSelectors = new bytes4[](12);
         vaultCoreSelectors[0] = EmblemVaultCoreFacet.lockVault.selector;
         vaultCoreSelectors[1] = EmblemVaultCoreFacet.unlockVault.selector;
         vaultCoreSelectors[2] = EmblemVaultCoreFacet.isVaultLocked.selector;
         vaultCoreSelectors[3] = EmblemVaultCoreFacet.addWitness.selector;
         vaultCoreSelectors[4] = EmblemVaultCoreFacet.removeWitness.selector;
         vaultCoreSelectors[5] = EmblemVaultCoreFacet.setRecipientAddress.selector;
-        vaultCoreSelectors[6] = EmblemVaultCoreFacet.setQuoteContract.selector;
-        vaultCoreSelectors[7] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
-        vaultCoreSelectors[8] = EmblemVaultCoreFacet.isWitness.selector;
-        vaultCoreSelectors[9] = EmblemVaultCoreFacet.getWitnessCount.selector;
-        vaultCoreSelectors[10] = EmblemVaultCoreFacet.version.selector;
-        vaultCoreSelectors[11] = EmblemVaultCoreFacet.setVaultFactory.selector;
-        vaultCoreSelectors[12] = EmblemVaultCoreFacet.getVaultFactory.selector;
+        vaultCoreSelectors[6] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
+        vaultCoreSelectors[7] = EmblemVaultCoreFacet.isWitness.selector;
+        vaultCoreSelectors[8] = EmblemVaultCoreFacet.getWitnessCount.selector;
+        vaultCoreSelectors[9] = EmblemVaultCoreFacet.version.selector;
+        vaultCoreSelectors[10] = EmblemVaultCoreFacet.setVaultFactory.selector;
+        vaultCoreSelectors[11] = EmblemVaultCoreFacet.getVaultFactory.selector;
         cut[2] = IDiamondCut.FacetCut({
             facetAddress: address(vaultCoreFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -263,22 +253,17 @@ contract DiamondVaultTest is Test {
         emit RecipientAddressChanged(address(this), address(this));
         EmblemVaultCoreFacet(address(diamond)).setRecipientAddress(address(this));
 
-        // 2. Set quote contract second
-        vm.expectEmit(true, true, true, true);
-        emit QuoteContractChanged(address(0), address(quoteContract));
-        EmblemVaultCoreFacet(address(diamond)).setQuoteContract(address(quoteContract));
-
-        // 3. Set claimer contract third
+        // 2. Set claimer contract
         vm.expectEmit(true, true, true, true);
         emit ClaimerContractUpdated(address(0), address(claimer));
         EmblemVaultClaimFacet(address(diamond)).setClaimerContract(address(claimer));
 
-        // 4. Add witness fourth
+        // 3. Add witness
         vm.expectEmit(true, true, true, true);
         emit WitnessAdded(witness, 2); // owner + witness
         EmblemVaultCoreFacet(address(diamond)).addWitness(witness);
 
-        // 5. Set factory last
+        // 4. Set factory
         vm.expectEmit(true, true, true, true);
         emit VaultFactorySet(address(0), address(factory));
         EmblemVaultCoreFacet(address(diamond)).setVaultFactory(address(factory));
@@ -319,7 +304,6 @@ contract DiamondVaultTest is Test {
         (
             string memory baseUri,
             address recipientAddr,
-            address quoteAddr,
             address claimerAddr,
             bool byPassable,
             uint256 witnessCount
@@ -328,7 +312,6 @@ contract DiamondVaultTest is Test {
         assertEq(baseUri, "https://v2.emblemvault.io/meta/");
         assertEq(witnessCount, 2); // owner + witness
         assertEq(recipientAddr, address(this));
-        assertEq(quoteAddr, address(quoteContract));
         assertEq(claimerAddr, address(claimer));
         assertFalse(byPassable);
         assertEq(EmblemVaultCoreFacet(address(diamond)).getVaultFactory(), address(factory));
