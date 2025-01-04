@@ -30,28 +30,28 @@ contract CreateTestCollections is Script {
 
         // Create ERC721 Collection
         address erc721Collection =
-            diamond.createVaultCollection("Test ERC721 Vault Collection", "TEST721", ERC721_TYPE);
+            diamond.createVaultCollection("Diamond Hands Collection", "DHC", ERC721_TYPE);
         console.log("\nERC721 Collection created at:", erc721Collection);
 
-        // Create ERC1155 Collection
-        address erc1155Collection = diamond.createVaultCollection(
-            "Test ERC1155 Vault Collection",
-            "https://api.emblem.finance/erc1155/metadata/{id}.json",
-            ERC1155_TYPE
-        );
-        console.log("\nERC1155 Collection created at:", erc1155Collection);
+        // // Create ERC1155 Collection
+        // address erc1155Collection = diamond.createVaultCollection(
+        //     "Test ERC1155 Vault Collection",
+        //     "https://api.emblem.finance/erc1155/metadata/{id}.json",
+        //     ERC1155_TYPE
+        // );
+        // console.log("\nERC1155 Collection created at:", erc1155Collection);
 
         vm.stopBroadcast();
 
         // Verify collections were created successfully
         require(diamond.isCollection(erc721Collection), "ERC721 collection not registered");
-        require(diamond.isCollection(erc1155Collection), "ERC1155 collection not registered");
+        // require(diamond.isCollection(erc1155Collection), "ERC1155 collection not registered");
 
         console.log("\nTest Collections Creation Complete");
         console.log("--------------------------------");
         console.log("ERC721 Collection:", erc721Collection);
         console.log("ERC721 Base URI: https://v2.emblemvault.io/meta/ (default)");
-        console.log("ERC1155 Collection:", erc1155Collection);
-        console.log("ERC1155 URI: https://api.emblem.finance/erc1155/metadata/{id}.json");
+        // console.log("ERC1155 Collection:", erc1155Collection);
+        // console.log("ERC1155 URI: https://api.emblem.finance/erc1155/metadata/{id}.json");
     }
 }

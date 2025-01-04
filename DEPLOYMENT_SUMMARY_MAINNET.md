@@ -48,3 +48,20 @@
 
 - **Total Gas Used:** 15,392,384
 - **Total Cost:** 0.095663 ETH
+
+## Deployed Collections
+
+### Diamond Hands Collection (ERC721A)
+
+| Contract                 | Address                                    | Etherscan Link                                                                  | Gas Used | Cost (ETH) |
+| ------------------------ | ------------------------------------------ | ------------------------------------------------------------------------------- | -------- | ---------- |
+| Diamond Hands Collection | 0xAfE0130Bad95763A66871e1F2fd73B8e7ee18037 | [Link](https://etherscan.io/address/0xafe0130bad95763a66871e1f2fd73b8e7ee18037) | 407,999  | 0.002923   |
+
+**Collection Details:**
+
+- Name: Diamond Hands Collection
+- Symbol: DHC
+- Type: ERC721A
+- Base URI: https://v2.emblemvault.io/meta/ (default)
+- Owner: 0xa99526E4Dc81b85C1d248Ca974Eadce81837eCF1
+- Block: 21553053

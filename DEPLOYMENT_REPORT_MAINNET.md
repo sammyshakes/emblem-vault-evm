@@ -341,6 +341,21 @@ Total Beacon System:
 - Average Gas Price: 5.963976818 gwei
 - Total Cost: 0.010160011997992965 ETH
 
+## New Collection Deployments
+
+### Diamond Hands Collection (ERC721A)
+
+- Collection Address: 0xAfE0130Bad95763A66871e1F2fd73B8e7ee18037
+- Transaction Hash: 0xd4125e9d31ddafb066ac6d331ca057083618fda5b306ea41718e1fc9c97922ec
+- Block Number: 21553053
+- Gas Used: 407999
+- Gas Price: 7.164352448 gwei
+- Cost: 0.002923048634431552 ETH
+- Collection Name: Diamond Hands Collection
+- Collection Symbol: DHC
+- Base URI: https://v2.emblemvault.io/meta/ (default)
+- Owner: 0xa99526E4Dc81b85C1d248Ca974Eadce81837eCF1
+
 ## Deployment Verification Results
 
 ### Diamond Ownership Verification

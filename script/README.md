@@ -81,17 +81,25 @@ This will:
 - Deploy the VaultCollectionFactory
 - Set factory in Diamond's CollectionFacet
 
-4. Create test collections:
+4. Create collections:
+
+For ERC721A collections:
 
 ```bash
-forge script script/CreateTestCollections.s.sol:CreateTestCollections --rpc-url fuji --broadcast --verify --slow -vvvv
+forge script script/CreateERC721Collection.s.sol:CreateERC721Collection --rpc-url mainnet --broadcast --verify --slow -vvvv
 ```
 
-This will:
+For ERC1155 collections:
 
-- Create an ERC721 test collection
-- Create an ERC1155 test collection
-- Transfer ownership to Diamond
+```bash
+forge script script/CreateERC1155Collection.s.sol:CreateERC1155Collection --rpc-url mainnet --broadcast --verify --slow -vvvv
+```
+
+Each script will:
+
+- Create the specified collection type
+- Verify the collection is properly registered
+- Display the collection address and metadata URI
 
 5. Mint test vault:
 
