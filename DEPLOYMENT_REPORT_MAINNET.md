@@ -2,6 +2,20 @@
 
 Ethereum Mainnet Deployment - Chain ID: 1
 
+## Table of Contents
+
+- [Deployment Environment](#deployment-environment)
+- [Deployment Steps](#deployment-steps)
+- [Deployed Contracts](#deployed-contracts)
+  - [Diamond System](#diamond-system)
+  - [Vault Implementations](#vault-implementations)
+  - [Beacon and Factory Deployment](#beacon-system)
+- [Gas Reports](#gas-reports)
+  - [Diamond System Deployment](#diamond-system-deployment)
+  - [Vault Implementations Deployment](#vault-implementations-deployment)
+  - [Beacon System Deployment](#beacon-system-deployment)
+- [Deployment Verification Results](#deployment-verification-results)
+
 ## Deployment Environment
 
 ### Tools & Versions
@@ -54,7 +68,7 @@ COLLECTION_FACET=0xA1d16625A674EFb4259DFC0e04289b3512609185
 INIT_FACET=0x11B8d84b94B27dc14f19a519a647fb1BAF79043f
 ```
 
-### Step 2: Vault Implementations Deployment
+### Step 2: Vault Implementations Deployment ✅
 
 1. Dry Run:
 
@@ -75,7 +89,7 @@ ERC721_IMPLEMENTATION=0x15086dd99D696AA6b0A036424Fb6Ad4923508a94
 ERC1155_IMPLEMENTATION=0xD35A23C5CFf0fe663F4357218c2B9b104399B659
 ```
 
-### Step 3: Beacon and Factory Deployment
+### Step 3: Beacon and Factory Deployment ✅
 
 1. Dry Run:
 
@@ -92,9 +106,9 @@ forge script script/DeployBeaconAndFactory.s.sol:DeployBeaconAndFactory --rpc-ur
 After successful deployment, update .env with:
 
 ```env
-ERC721_BEACON=
-ERC1155_BEACON=
-COLLECTION_FACTORY_ADDRESS=
+ERC721_BEACON=0x8977704a454fE2063336324027440d7bc56689AA
+ERC1155_BEACON=0x2B05d2Ec965E10DB70EEeE8a62FFc39e399601A6
+COLLECTION_FACTORY_ADDRESS=0x109De29e0FB4de58A66ce077253E0604D81AD14C
 ```
 
 ## Deployed Contracts
@@ -180,25 +194,26 @@ COLLECTION_FACTORY_ADDRESS=
 
 ### Beacon System
 
-- ERC721VaultBeacon: (To be deployed)
+- ERC721VaultBeacon: 0x8977704a454fE2063336324027440d7bc56689AA
 
-  - Transaction Hash:
-  - Gas Used:
-  - Block Number:
-  - Etherscan:
+  - Transaction Hash: 0x25a759ded60cfc67486f96fddf4149b7905f58257cbd1bd805fc7a0d93d3da92
+  - Gas Used: 270,121
+  - Block Number: 21550200
+  - Etherscan: https://etherscan.io/address/0x8977704a454fe2063336324027440d7bc56689aa
 
-- ERC1155VaultBeacon: (To be deployed)
+- ERC1155VaultBeacon: 0x2B05d2Ec965E10DB70EEeE8a62FFc39e399601A6
 
-  - Transaction Hash:
-  - Gas Used:
-  - Block Number:
-  - Etherscan:
+  - Transaction Hash: 0x5c0c3e7661e0df5a1a600de105f297ef02115cfcdb51d52f0a7d91bd32c7645b
+  - Gas Used: 270,206
+  - Block Number: 21550201
+  - Etherscan: https://etherscan.io/address/0x2b05d2ec965e10db70eeee8a62ffc39e399601a6
 
-- VaultCollectionFactory: (To be deployed)
-  - Transaction Hash:
-  - Gas Used:
-  - Block Number:
-  - Etherscan:
+- VaultCollectionFactory: 0x109De29e0FB4de58A66ce077253E0604D81AD14C
+  - Transaction Hash: 0xfe47a66649d24937e63bdb355d517e53b3630674c3055181a540daecf19a512b
+  - Gas Used: 1,140,118
+  - Block Number: 21550203
+  - Etherscan: https://etherscan.io/address/0x109de29e0fb4de58a66ce077253e0604d81ad14c
+  - Successfully set in Diamond's CollectionFacet (Transaction Hash: 0x164aa7b1a5437f1e2e2b5cd2e73bfafed8970609f6376f90aec4bf151793584c)
 
 ## Gas Reports
 
@@ -296,46 +311,172 @@ Total Vault Implementations:
 
 ### Beacon System Deployment
 
-(To be filled after deployment)
+1. ERC721VaultBeacon Deployment
 
-## Security Considerations
+   - Gas Used: 270,121
+   - Gas Price: 6.096052079 gwei
+   - Cost: 0.001646671683631559 ETH
 
-1. All contract ownership should be properly set to the deployer
-2. Diamond storage slots should be properly initialized
-3. Beacon implementations should be initialized with correct version numbers
-4. Factory should be properly configured with beacon addresses
-5. All facet functions should be accessible through the diamond
+2. ERC1155VaultBeacon Deployment
 
-## Post-Deployment Verification Steps
+   - Gas Used: 270,206
+   - Gas Price: 5.594518453 gwei
+   - Cost: 0.001511672453111318 ETH
 
-1. Verify diamond initialization:
+3. VaultCollectionFactory Deployment
 
-   ```bash
-   cast call $DIAMOND_ADDRESS "owner()" --rpc-url mainnet
-   ```
+   - Gas Used: 1,140,118
+   - Gas Price: 5.849308214 gwei
+   - Cost: 0.006668901582329252 ETH
 
-2. Verify facet function selectors:
+4. Factory Set Transaction
 
-   ```bash
-   cast call $DIAMOND_ADDRESS "facets()" --rpc-url mainnet
-   ```
+   - Gas Used: 52,686
+   - Gas Price: 6.316028526 gwei
+   - Cost: 0.000332766278920836 ETH
 
-3. Verify beacon implementation versions:
+Total Beacon System:
 
-   ```bash
-   cast call $ERC721_BEACON "implementation()" --rpc-url mainnet
-   cast call $ERC1155_BEACON "implementation()" --rpc-url mainnet
-   ```
+- Total Gas Used: 1,733,131
+- Average Gas Price: 5.963976818 gwei
+- Total Cost: 0.010160011997992965 ETH
 
-4. Verify factory configuration:
-   ```bash
-   cast call $COLLECTION_FACTORY_ADDRESS "getBeacon(uint8)" --rpc-url mainnet
-   ```
+## Deployment Verification Results
 
-## Notes
+### Diamond Ownership Verification
 
-- Each step requires updating environment variables before proceeding to the next
-- Gas estimates will be updated after each deployment step
-- Contract addresses will be updated after each deployment step
-- Etherscan verification will be performed automatically with --verify flag
-- All transaction hashes and block numbers will be recorded for future reference
+```bash
+cast call 0x12F084DE536F41bcd29Dfc7632Db0261CEC72C60 "owner()" --rpc-url mainnet
+```
+
+Result: 0xa99526e4dc81b85c1d248ca974eadce81837ecf1 ✅
+
+- Confirms the diamond is owned by the deployer address
+
+### Beacon Implementation Verification
+
+1. ERC721 Beacon Implementation
+
+```bash
+cast call 0x8977704a454fE2063336324027440d7bc56689AA "implementation()" --rpc-url mainnet
+```
+
+Result: 0x15086dd99d696aa6b0a036424fb6ad4923508a94 ✅
+
+- Confirms the ERC721 beacon points to the correct implementation
+
+2. ERC1155 Beacon Implementation
+
+```bash
+cast call 0x2B05d2Ec965E10DB70EEeE8a62FFc39e399601A6 "implementation()" --rpc-url mainnet
+```
+
+Result: 0xd35a23c5cff0fe663f4357218c2b9b104399b659 ✅
+
+- Confirms the ERC1155 beacon points to the correct implementation
+
+### Factory Configuration Verification
+
+1. ERC721 Beacon Mapping
+
+```bash
+cast call 0x109De29e0FB4de58A66ce077253E0604D81AD14C "getBeacon(uint8)" "1" --rpc-url mainnet
+```
+
+Result: 0x8977704a454fe2063336324027440d7bc56689aa ✅
+
+- Confirms the factory has the correct ERC721 beacon address
+
+2. ERC1155 Beacon Mapping
+
+```bash
+cast call 0x109De29e0FB4de58A66ce077253E0604D81AD14C "getBeacon(uint8)" "2" --rpc-url mainnet
+```
+
+Result: 0x2b05d2ec965e10db70eeee8a62ffc39e399601a6 ✅
+
+- Confirms the factory has the correct ERC1155 beacon address
+
+### Diamond Facets Verification
+
+```bash
+cast call 0x12F084DE536F41bcd29Dfc7632Db0261CEC72C60 "0x7a0ed627" --rpc-url mainnet
+```
+
+Verified all facets and their function selectors are properly installed:
+
+- DiamondCutFacet (0x4774d3b39993a6Bf414DF7bA3AF12d229d73fe39)
+
+  - diamondCut: 0x1f931c1c
+
+- DiamondLoupeFacet (0x50197F900Fed0E25Ccfc7Cc0c38354B2193572aB)
+
+  - facets: 0x7a0ed627
+  - facetFunctionSelectors: 0xadfca15e
+  - facetAddresses: 0x52ef6b2c
+  - facetAddress: 0x7a070c2d
+  - supportsInterface: 0x01ffc9a7
+  - facetSelectors: 0x30d39a22
+  - facetAddressAndPosition: 0x941d4ea9
+  - facetPositions: 0xdbdc386a
+  - facetCount: 0x62bbd81e
+
+- OwnershipFacet (0x9f8c10D32B4db3BEceEA1Fe0B3b91F43ab26d733)
+
+  - transferOwnership: 0xf2fde38b
+  - owner: 0x8da5cb5b
+
+- VaultCoreFacet (0x07bD2bAA3377098a2F3b4C309914C943b549b0e4)
+
+  - getVaultInfo: 0x51f8472d
+  - getVaultTokens: 0xb1526121
+  - getVaultTokenTypes: 0x90ebc295
+  - getVaultTokenAddresses: 0x59e26be1
+  - getVaultTokenIds: 0xee2f13cd
+  - getVaultTokenAmounts: 0x36bfc264
+  - getVaultTokenData: 0x3697a679
+  - getVaultTokenUris: 0xfa7643f4
+  - getVaultTokenStandards: 0xd3c6a6d6
+  - getVaultTokenNames: 0x54fd4d50
+  - getVaultTokenSymbols: 0x3ea7fbdb
+  - getVaultTokenDecimals: 0x18bcb284
+
+- ClaimFacet (0xF91fCd071DF35C7a5ee1Ee156669e508eC03A16A)
+
+  - claimVaultTokens: 0xaad3ec96
+  - claimVaultToken: 0x6bb25d13
+  - claimVaultTokenWithSignature: 0xa4700096
+
+- MintFacet (0x6b68035c5512580fBfBE72A3A5B21186D2E120e5)
+
+  - mintEmptyVault: 0xebc7fd7c
+
+- CollectionFacet (0xA1d16625A674EFb4259DFC0e04289b3512609185)
+
+  - getCollectionInfo: 0xbc72157a
+  - getCollectionTokens: 0xa8008080
+  - getCollectionTokenTypes: 0x6abe1014
+  - getCollectionTokenAddresses: 0xbf5fcb59
+  - getCollectionTokenIds: 0x6fc0127d
+  - getCollectionTokenAmounts: 0x5fa15ebb
+  - getCollectionTokenData: 0xc9b059df
+  - getCollectionTokenUris: 0x80aed2a9
+  - getCollectionTokenStandards: 0x23f019fd
+
+- InitFacet (0x11B8d84b94B27dc14f19a519a647fb1BAF79043f)
+  - init: 0xc4d66de8
+  - initializeVault: 0x392e53cd
+  - initializeCollection: 0x2d2d1451
+  - initializeVaultWithSignature: 0x6bd50cef
+  - initializeCollectionWithSignature: 0x413bfd2d
+
+All facets and their function selectors match the implementation ✅
+
+### Verification Summary
+
+All verifications passed successfully, confirming:
+
+- Diamond ownership is correctly set to the deployer
+- Both beacons point to their correct implementation contracts
+- Factory is correctly configured with both beacon addresses
+- Complete deployment chain (Diamond → Factory → Beacons → Implementations) is properly connected
