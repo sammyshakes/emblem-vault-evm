@@ -209,6 +209,7 @@ contract EmblemVaultMintFacet {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
 
         if (params.payment == address(0)) {
+            LibErrors.revertIfInsufficientETH(msg.value, params.price);
             (bool success,) = vs.recipientAddress.call{value: msg.value}("");
             if (!success) {
                 revert("Failed to send Ether");
