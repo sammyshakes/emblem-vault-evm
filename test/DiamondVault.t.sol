@@ -2,7 +2,9 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 import {EmblemVaultDiamond} from "../src/EmblemVaultDiamond.sol";
+import {ERC721AUpgradeable} from "ERC721A-Upgradeable/ERC721AUpgradeable.sol";
 import {IDiamondCut} from "../src/interfaces/IDiamondCut.sol";
 import {DiamondCutFacet} from "../src/facets/DiamondCutFacet.sol";
 import {DiamondLoupeFacet} from "../src/facets/DiamondLoupeFacet.sol";
@@ -10,21 +12,24 @@ import {OwnershipFacet} from "../src/facets/OwnershipFacet.sol";
 import {EmblemVaultCoreFacet} from "../src/facets/EmblemVaultCoreFacet.sol";
 import {EmblemVaultClaimFacet} from "../src/facets/EmblemVaultClaimFacet.sol";
 import {EmblemVaultMintFacet} from "../src/facets/EmblemVaultMintFacet.sol";
-import {EmblemVaultCallbackFacet} from "../src/facets/EmblemVaultCallbackFacet.sol";
+import {EmblemVaultCollectionFacet} from "../src/facets/EmblemVaultCollectionFacet.sol";
 import {EmblemVaultInitFacet} from "../src/facets/EmblemVaultInitFacet.sol";
-import {IHandlerCallback} from "../src/interfaces/IHandlerCallback.sol";
+import {VaultBeacon, ERC721VaultBeacon, ERC1155VaultBeacon} from "../src/beacon/VaultBeacon.sol";
+import {VaultProxy, ERC721VaultProxy, ERC1155VaultProxy} from "../src/beacon/VaultProxy.sol";
+import {
+    IVaultProxy, IERC721VaultProxy, IERC1155VaultProxy
+} from "../src/interfaces/IVaultProxy.sol";
+import {IERC721AVault} from "../src/interfaces/IERC721AVault.sol";
+import {ERC721VaultImplementation} from "../src/implementations/ERC721VaultImplementation.sol";
+import {ERC1155VaultImplementation} from "../src/implementations/ERC1155VaultImplementation.sol";
+import {VaultCollectionFactory} from "../src/factories/VaultCollectionFactory.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {LibErrors} from "../src/libraries/LibErrors.sol";
 import "./mocks/MockERC20.sol";
-import "./mocks/MockERC721.sol";
-import "./mocks/MockERC1155.sol";
 import "./mocks/MockClaimer.sol";
 
-contract MockQuoteContract {
-    function quoteExternalPrice(address, uint256 price) external pure returns (uint256) {
-        return price * 2; // Simple mock that doubles the price
-    }
-}
-
 contract DiamondVaultTest is Test {
+    // Diamond components
     EmblemVaultDiamond diamond;
     DiamondCutFacet diamondCutFacet;
     DiamondLoupeFacet diamondLoupeFacet;
@@ -32,27 +37,63 @@ contract DiamondVaultTest is Test {
     EmblemVaultCoreFacet vaultCoreFacet;
     EmblemVaultClaimFacet claimFacet;
     EmblemVaultMintFacet mintFacet;
-    EmblemVaultCallbackFacet callbackFacet;
+    EmblemVaultCollectionFacet collectionFacet;
     EmblemVaultInitFacet initFacet;
 
     // Mock contracts
     MockERC20 paymentToken;
-    MockERC721 nftToken;
-    MockERC1155 multiToken;
+    address nftCollection; // This will be created through the factory
     MockClaimer claimer;
-    MockQuoteContract quoteContract;
+    VaultCollectionFactory factory;
+    ERC721VaultImplementation erc721Implementation;
+    ERC1155VaultImplementation erc1155Implementation;
+    ERC721VaultBeacon erc721Beacon;
+    ERC1155VaultBeacon erc1155Beacon;
 
     // Test addresses
     address owner = address(this);
     address user1 = address(0x1);
     address user2 = address(0x2);
-    // Use a proper private key for witness
-    uint256 constant witnessPrivateKey = 0x1234567890123456789012345678901234567890123456789012345678901234;
+    uint256 constant witnessPrivateKey =
+        0x1234567890123456789012345678901234567890123456789012345678901234;
     address witness;
-
     address tokenHolder = address(0x4);
 
-    // Allow contract to receive ETH
+    // Events
+    event WitnessAdded(address indexed witness, uint256 newCount);
+    event WitnessRemoved(address indexed witness, uint256 newCount);
+    event VaultLocked(address indexed nftAddress, uint256 indexed tokenId, address indexed owner);
+    event VaultUnlocked(address indexed nftAddress, uint256 indexed tokenId, address indexed owner);
+    event VaultFactorySet(address indexed oldFactory, address indexed newFactory);
+    event RecipientAddressChanged(address indexed oldRecipient, address indexed newRecipient);
+    event ClaimerContractUpdated(address indexed oldClaimer, address indexed newClaimer);
+    event TokenMinted(
+        address indexed nftAddress,
+        address indexed to,
+        uint256 indexed tokenId,
+        uint256 amount,
+        uint256 price,
+        address paymentToken,
+        bytes data
+    );
+
+    // Custom errors
+    error ZeroAddress();
+    error WitnessAlreadyExists();
+    error WitnessDoesNotExist();
+    error NoWitnessesRemaining();
+    error NotWitness();
+    error InvalidCollection();
+    error FactoryNotSet();
+    error VaultAlreadyLocked();
+    error VaultNotLocked();
+    error InvalidSignature();
+    error IncorrectPayment();
+    error NonceAlreadyUsed();
+    error ClaimerNotSet();
+    error NotVaultOwner();
+    error AlreadyClaimed();
+
     receive() external payable {}
     fallback() external payable {}
 
@@ -62,22 +103,27 @@ contract DiamondVaultTest is Test {
 
         // Deploy mock contracts
         paymentToken = new MockERC20("Payment Token", "PAY");
-        nftToken = new MockERC721("Test NFT", "NFT");
-        multiToken = new MockERC1155("https://token.uri/");
         claimer = new MockClaimer();
-        quoteContract = new MockQuoteContract();
 
-        // Deploy facets
+        // Deploy implementations
+        erc721Implementation = new ERC721VaultImplementation();
+        erc1155Implementation = new ERC1155VaultImplementation();
+
+        // Deploy beacons
+        erc721Beacon = new ERC721VaultBeacon(address(erc721Implementation));
+        erc1155Beacon = new ERC1155VaultBeacon(address(erc1155Implementation));
+
+        // Deploy facets first
         diamondCutFacet = new DiamondCutFacet();
         diamondLoupeFacet = new DiamondLoupeFacet();
         ownershipFacet = new OwnershipFacet();
         vaultCoreFacet = new EmblemVaultCoreFacet();
         claimFacet = new EmblemVaultClaimFacet();
         mintFacet = new EmblemVaultMintFacet();
-        callbackFacet = new EmblemVaultCallbackFacet();
+        collectionFacet = new EmblemVaultCollectionFacet();
         initFacet = new EmblemVaultInitFacet();
 
-        // Deploy Diamond
+        // Deploy Diamond with cut facet
         diamond = new EmblemVaultDiamond(owner, address(diamondCutFacet));
 
         // Build cut struct
@@ -107,20 +153,19 @@ contract DiamondVaultTest is Test {
         });
 
         // VaultCoreFacet
-        bytes4[] memory vaultCoreSelectors = new bytes4[](13);
+        bytes4[] memory vaultCoreSelectors = new bytes4[](12);
         vaultCoreSelectors[0] = EmblemVaultCoreFacet.lockVault.selector;
         vaultCoreSelectors[1] = EmblemVaultCoreFacet.unlockVault.selector;
         vaultCoreSelectors[2] = EmblemVaultCoreFacet.isVaultLocked.selector;
         vaultCoreSelectors[3] = EmblemVaultCoreFacet.addWitness.selector;
         vaultCoreSelectors[4] = EmblemVaultCoreFacet.removeWitness.selector;
         vaultCoreSelectors[5] = EmblemVaultCoreFacet.setRecipientAddress.selector;
-        vaultCoreSelectors[6] = EmblemVaultCoreFacet.setQuoteContract.selector;
-        vaultCoreSelectors[7] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
-        vaultCoreSelectors[8] = EmblemVaultCoreFacet.registerContract.selector;
-        vaultCoreSelectors[9] = EmblemVaultCoreFacet.unregisterContract.selector;
-        vaultCoreSelectors[10] = EmblemVaultCoreFacet.getRegisteredContractsOfType.selector;
-        vaultCoreSelectors[11] = EmblemVaultCoreFacet.isRegistered.selector;
-        vaultCoreSelectors[12] = EmblemVaultCoreFacet.version.selector;
+        vaultCoreSelectors[6] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
+        vaultCoreSelectors[7] = EmblemVaultCoreFacet.isWitness.selector;
+        vaultCoreSelectors[8] = EmblemVaultCoreFacet.getWitnessCount.selector;
+        vaultCoreSelectors[9] = EmblemVaultCoreFacet.version.selector;
+        vaultCoreSelectors[10] = EmblemVaultCoreFacet.setVaultFactory.selector;
+        vaultCoreSelectors[11] = EmblemVaultCoreFacet.getVaultFactory.selector;
         cut[2] = IDiamondCut.FacetCut({
             facetAddress: address(vaultCoreFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -128,9 +173,10 @@ contract DiamondVaultTest is Test {
         });
 
         // ClaimFacet
-        bytes4[] memory claimSelectors = new bytes4[](2);
+        bytes4[] memory claimSelectors = new bytes4[](3);
         claimSelectors[0] = EmblemVaultClaimFacet.claim.selector;
         claimSelectors[1] = EmblemVaultClaimFacet.claimWithSignedPrice.selector;
+        claimSelectors[2] = EmblemVaultClaimFacet.setClaimerContract.selector;
         cut[3] = IDiamondCut.FacetCut({
             facetAddress: address(claimFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -140,33 +186,37 @@ contract DiamondVaultTest is Test {
         // MintFacet
         bytes4[] memory mintSelectors = new bytes4[](2);
         mintSelectors[0] = EmblemVaultMintFacet.buyWithSignedPrice.selector;
-        mintSelectors[1] = EmblemVaultMintFacet.buyWithQuote.selector;
+        mintSelectors[1] = EmblemVaultMintFacet.batchBuyWithSignedPrice.selector;
         cut[4] = IDiamondCut.FacetCut({
             facetAddress: address(mintFacet),
             action: IDiamondCut.FacetCutAction.Add,
             functionSelectors: mintSelectors
         });
 
-        // CallbackFacet
-        bytes4[] memory callbackSelectors = new bytes4[](6);
-        callbackSelectors[0] = EmblemVaultCallbackFacet.executeCallbacks.selector;
-        callbackSelectors[1] = EmblemVaultCallbackFacet.registerCallback.selector;
-        callbackSelectors[2] = EmblemVaultCallbackFacet.registerWildcardCallback.selector;
-        callbackSelectors[3] = EmblemVaultCallbackFacet.hasCallback.selector;
-        callbackSelectors[4] = EmblemVaultCallbackFacet.unregisterCallback.selector;
-        callbackSelectors[5] = EmblemVaultCallbackFacet.toggleAllowCallbacks.selector;
+        // CollectionFacet
+        bytes4[] memory collectionSelectors = new bytes4[](9);
+        collectionSelectors[0] = EmblemVaultCollectionFacet.setCollectionFactory.selector;
+        collectionSelectors[1] = EmblemVaultCollectionFacet.createVaultCollection.selector;
+        collectionSelectors[2] = EmblemVaultCollectionFacet.upgradeCollectionImplementation.selector;
+        collectionSelectors[3] = EmblemVaultCollectionFacet.getCollectionImplementation.selector;
+        collectionSelectors[4] = EmblemVaultCollectionFacet.getCollectionBeacon.selector;
+        collectionSelectors[5] = EmblemVaultCollectionFacet.isCollection.selector;
+        collectionSelectors[6] = EmblemVaultCollectionFacet.getCollectionFactory.selector;
+        collectionSelectors[7] = EmblemVaultCollectionFacet.setCollectionBaseURI.selector;
+        collectionSelectors[8] = EmblemVaultCollectionFacet.setCollectionURI.selector;
         cut[5] = IDiamondCut.FacetCut({
-            facetAddress: address(callbackFacet),
+            facetAddress: address(collectionFacet),
             action: IDiamondCut.FacetCutAction.Add,
-            functionSelectors: callbackSelectors
+            functionSelectors: collectionSelectors
         });
 
         // InitializationFacet
-        bytes4[] memory initSelectors = new bytes4[](4);
+        bytes4[] memory initSelectors = new bytes4[](5);
         initSelectors[0] = EmblemVaultInitFacet.initialize.selector;
         initSelectors[1] = EmblemVaultInitFacet.isInitialized.selector;
         initSelectors[2] = EmblemVaultInitFacet.getInterfaceIds.selector;
         initSelectors[3] = EmblemVaultInitFacet.getConfiguration.selector;
+        initSelectors[4] = EmblemVaultInitFacet.getInitializationDetails.selector;
         cut[6] = IDiamondCut.FacetCut({
             facetAddress: address(initFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -179,124 +229,176 @@ contract DiamondVaultTest is Test {
         // Initialize the vault
         EmblemVaultInitFacet(address(diamond)).initialize(owner);
 
+        // Deploy factory with Diamond as controller
+        factory = new VaultCollectionFactory(
+            address(erc721Beacon), address(erc1155Beacon), address(diamond)
+        );
+
+        // Create a test collection through Diamond
+        vm.prank(address(diamond));
+        nftCollection = factory.createERC721Collection("Test NFT", "NFT");
+
         // Setup test environment
         vm.deal(user1, 100 ether);
         vm.deal(user2, 100 ether);
+        vm.deal(tokenHolder, 100 ether);
         paymentToken.mint(user1, 1000 ether);
         paymentToken.mint(user2, 1000 ether);
 
-        // Add witness
+        vm.startPrank(owner);
+
+        // Setup diamond configuration
+        // 1. Set recipient address first
+        vm.expectEmit(true, true, true, true);
+        emit RecipientAddressChanged(address(this), address(this));
+        EmblemVaultCoreFacet(address(diamond)).setRecipientAddress(address(this));
+
+        // 2. Set claimer contract
+        vm.expectEmit(true, true, true, true);
+        emit ClaimerContractUpdated(address(0), address(claimer));
+        EmblemVaultClaimFacet(address(diamond)).setClaimerContract(address(claimer));
+
+        // 3. Add witness
+        vm.expectEmit(true, true, true, true);
+        emit WitnessAdded(witness, 2); // owner + witness
         EmblemVaultCoreFacet(address(diamond)).addWitness(witness);
 
-        // Setup mock tokens
-        nftToken.mint(tokenHolder, 1, "test uri", "");
-        multiToken.mint(tokenHolder, 1, 10);
+        // 4. Set factory
+        vm.expectEmit(true, true, true, true);
+        emit VaultFactorySet(address(0), address(factory));
+        EmblemVaultCoreFacet(address(diamond)).setVaultFactory(address(factory));
 
-        // Register mock contracts
-        EmblemVaultCoreFacet(address(diamond)).registerContract(address(nftToken), 1);
-        EmblemVaultCoreFacet(address(diamond)).registerContract(address(multiToken), 2);
-        EmblemVaultCoreFacet(address(diamond)).registerContract(address(claimer), 6);
-        EmblemVaultCoreFacet(address(diamond)).setQuoteContract(address(quoteContract));
+        vm.stopPrank();
 
-        // Set recipient address to this contract for testing
-        EmblemVaultCoreFacet(address(diamond)).setRecipientAddress(address(this));
+        // Create signature for minting
+        bytes memory signature = createSignature(
+            nftCollection,
+            address(0), // ETH payment
+            1 ether,
+            tokenHolder,
+            1,
+            1, // nonce
+            1, // amount
+            witnessPrivateKey
+        );
+
+        // Mint token through diamond
+        vm.deal(tokenHolder, 1 ether); // Ensure tokenHolder has enough ETH
+        vm.startPrank(tokenHolder);
+        EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            1,
+            1, // nonce
+            signature,
+            "", // no serial number
+            1 // amount
+        );
+        vm.stopPrank();
     }
 
     function testInitialization() public view {
         assertTrue(EmblemVaultInitFacet(address(diamond)).isInitialized());
-        (string memory baseUri,,,,) = EmblemVaultInitFacet(address(diamond)).getConfiguration();
+        (
+            string memory baseUri,
+            address recipientAddr,
+            address claimerAddr,
+            bool byPassable,
+            uint256 witnessCount
+        ) = EmblemVaultInitFacet(address(diamond)).getConfiguration();
+
         assertEq(baseUri, "https://v2.emblemvault.io/meta/");
+        assertEq(witnessCount, 2); // owner + witness
+        assertEq(recipientAddr, address(this));
+        assertEq(claimerAddr, address(claimer));
+        assertFalse(byPassable);
+        assertEq(EmblemVaultCoreFacet(address(diamond)).getVaultFactory(), address(factory));
     }
 
     function testOwnership() public view {
         assertEq(OwnershipFacet(address(diamond)).owner(), owner);
     }
 
-    function testVaultLocking() public {
-        address mockNft = address(nftToken);
-        uint256 tokenId = 1;
-
-        // Lock vault
-        EmblemVaultCoreFacet(address(diamond)).lockVault(mockNft, tokenId);
-        assertTrue(EmblemVaultCoreFacet(address(diamond)).isVaultLocked(mockNft, tokenId));
-
-        // Unlock vault
-        EmblemVaultCoreFacet(address(diamond)).unlockVault(mockNft, tokenId);
-        assertFalse(EmblemVaultCoreFacet(address(diamond)).isVaultLocked(mockNft, tokenId));
-    }
-
-    function testFailLockUnregisteredContract() public {
-        address mockNft = address(0x999); // Unregistered contract
-        uint256 tokenId = 1;
-
-        EmblemVaultCoreFacet(address(diamond)).lockVault(mockNft, tokenId);
+    function testRevertLockInvalidCollection() public {
+        address invalidCollection = address(0x999);
+        vm.expectRevert(InvalidCollection.selector);
+        EmblemVaultCoreFacet(address(diamond)).lockVault(invalidCollection, 1);
     }
 
     function testWitnessManagement() public {
         address newWitness = address(0x456);
 
         // Add witness
+        vm.expectEmit(true, true, true, true);
+        emit WitnessAdded(newWitness, 3); // owner + witness + newWitness
         EmblemVaultCoreFacet(address(diamond)).addWitness(newWitness);
+        assertEq(EmblemVaultCoreFacet(address(diamond)).getWitnessCount(), 3);
 
         // Remove witness
+        vm.expectEmit(true, true, true, true);
+        emit WitnessRemoved(newWitness, 2); // back to owner + witness
         EmblemVaultCoreFacet(address(diamond)).removeWitness(newWitness);
+        assertEq(EmblemVaultCoreFacet(address(diamond)).getWitnessCount(), 2);
     }
 
-    function testContractRegistration() public {
-        address mockContract = address(0x789);
-        uint256 contractType = 1;
+    function testRevertAddExistingWitness() public {
+        vm.expectRevert(WitnessAlreadyExists.selector);
+        EmblemVaultCoreFacet(address(diamond)).addWitness(witness);
+    }
 
-        // Register contract
-        EmblemVaultCoreFacet(address(diamond)).registerContract(mockContract, contractType);
-        assertTrue(EmblemVaultCoreFacet(address(diamond)).isRegistered(mockContract, contractType));
+    function testRevertRemoveNonExistentWitness() public {
+        vm.expectRevert(WitnessDoesNotExist.selector);
+        EmblemVaultCoreFacet(address(diamond)).removeWitness(address(0x999));
+    }
 
-        // Get registered contracts
-        address[] memory contracts = EmblemVaultCoreFacet(address(diamond)).getRegisteredContractsOfType(contractType);
-        assertEq(contracts.length, 2); // nftToken + mockContract
-        assertEq(contracts[1], mockContract);
+    function testRevertRemoveLastWitness() public {
+        // Remove witness (leaving only owner)
+        EmblemVaultCoreFacet(address(diamond)).removeWitness(witness);
+
+        // Try to remove owner (last witness)
+        vm.expectRevert(NoWitnessesRemaining.selector);
+        EmblemVaultCoreFacet(address(diamond)).removeWitness(owner);
     }
 
     function testBasicClaim() public {
-        // Setup
-        address mockNft = address(nftToken);
-        uint256 tokenId = 1;
-
         // First approve and transfer to diamond from tokenHolder
         vm.startPrank(tokenHolder);
-        nftToken.approve(address(diamond), tokenId);
-        nftToken.transferFrom(tokenHolder, address(diamond), tokenId);
+        ERC721VaultImplementation(nftCollection).approve(address(diamond), 1);
+        ERC721VaultImplementation(nftCollection).transferFrom(tokenHolder, address(diamond), 1);
         vm.stopPrank();
 
         // Then claim from user1
         vm.startPrank(user1);
-        EmblemVaultClaimFacet(address(diamond)).claim(mockNft, tokenId);
+        EmblemVaultClaimFacet(address(diamond)).claim(nftCollection, 1);
         vm.stopPrank();
 
         // Verify token was burned
-        vm.expectRevert("ERC721: invalid token ID");
-        nftToken.ownerOf(tokenId);
+        vm.expectRevert(abi.encodeWithSignature("OwnerQueryForNonexistentToken()"));
+        ERC721VaultImplementation(nftCollection).ownerOf(1);
 
         // Verify claim was registered
         bytes32[] memory proof;
-        assertTrue(claimer.isClaimed(mockNft, tokenId, proof));
+        assertTrue(claimer.isClaimed(nftCollection, 1, proof));
     }
 
     function testClaimWithSignedPrice() public {
-        // Setup
-        address mockNft = address(nftToken);
         uint256 tokenId = 1;
         uint256 price = 1 ether;
-        uint256 nonce = 1;
+        uint256 nonce = 2; // Use new nonce since 1 was used in setup
 
         // First approve and transfer to diamond from tokenHolder
         vm.startPrank(tokenHolder);
-        nftToken.approve(address(diamond), tokenId);
-        nftToken.transferFrom(tokenHolder, address(diamond), tokenId);
+        ERC721VaultImplementation(nftCollection).approve(address(diamond), tokenId);
+        ERC721VaultImplementation(nftCollection).transferFrom(
+            tokenHolder, address(diamond), tokenId
+        );
         vm.stopPrank();
 
         // Create signature from witness
         bytes memory signature = createSignature(
-            mockNft,
+            nftCollection,
             address(0), // ETH payment
             price,
             user1,
@@ -309,35 +411,36 @@ contract DiamondVaultTest is Test {
         // Claim with signed price from user1
         vm.startPrank(user1);
         EmblemVaultClaimFacet(address(diamond)).claimWithSignedPrice{value: price}(
-            mockNft, tokenId, nonce, address(0), price, signature
+            nftCollection, tokenId, nonce, address(0), price, signature
         );
         vm.stopPrank();
 
         // Verify token was burned
-        vm.expectRevert("ERC721: invalid token ID");
-        nftToken.ownerOf(tokenId);
+        vm.expectRevert(abi.encodeWithSignature("OwnerQueryForNonexistentToken()"));
+        ERC721VaultImplementation(nftCollection).ownerOf(tokenId);
 
         // Verify claim was registered
         bytes32[] memory proof;
-        assertTrue(claimer.isClaimed(mockNft, tokenId, proof));
+        assertTrue(claimer.isClaimed(nftCollection, tokenId, proof));
     }
 
     function testClaimWithSignedPriceERC20() public {
-        // Setup
-        address mockNft = address(nftToken);
         uint256 tokenId = 1;
         uint256 price = 100 ether;
-        uint256 nonce = 1;
+        uint256 nonce = 2; // Use new nonce since 1 was used in setup
 
         // First approve and transfer to diamond from tokenHolder
         vm.startPrank(tokenHolder);
-        nftToken.approve(address(diamond), tokenId);
-        nftToken.transferFrom(tokenHolder, address(diamond), tokenId);
+        ERC721VaultImplementation(nftCollection).approve(address(diamond), tokenId);
+        ERC721VaultImplementation(nftCollection).transferFrom(
+            tokenHolder, address(diamond), tokenId
+        );
         vm.stopPrank();
 
         // Create signature from witness
-        bytes memory signature =
-            createSignature(mockNft, address(paymentToken), price, user1, tokenId, nonce, 1, witnessPrivateKey);
+        bytes memory signature = createSignature(
+            nftCollection, address(paymentToken), price, user1, tokenId, nonce, 1, witnessPrivateKey
+        );
 
         // Approve payment token
         vm.startPrank(user1);
@@ -345,30 +448,53 @@ contract DiamondVaultTest is Test {
 
         // Claim with signed price
         EmblemVaultClaimFacet(address(diamond)).claimWithSignedPrice(
-            mockNft, tokenId, nonce, address(paymentToken), price, signature
+            nftCollection, tokenId, nonce, address(paymentToken), price, signature
         );
         vm.stopPrank();
 
         // Verify token was burned
-        vm.expectRevert("ERC721: invalid token ID");
-        nftToken.ownerOf(tokenId);
+        vm.expectRevert(abi.encodeWithSignature("OwnerQueryForNonexistentToken()"));
+        ERC721VaultImplementation(nftCollection).ownerOf(tokenId);
 
         // Verify claim was registered
         bytes32[] memory proof;
-        assertTrue(claimer.isClaimed(mockNft, tokenId, proof));
+        assertTrue(claimer.isClaimed(nftCollection, tokenId, proof));
     }
 
     function testBuyWithSignedPrice() public {
-        // Setup
-        address mockNft = address(nftToken);
-        uint256 tokenId = 2;
+        // First verify the mapping for token minted in setup
+        uint256 setupTokenId = 1;
+
+        // Verify the token was minted successfully
+        uint256 supply = ERC721AUpgradeable(nftCollection).totalSupply();
+        assertEq(supply, 1, "Total supply should be 1");
+
+        uint256 balance = ERC721VaultImplementation(nftCollection).balanceOf(tokenHolder);
+        assertEq(balance, 1, "TokenHolder balance should be 1");
+
+        // Get the internal token ID (should be 1 since it's the first token)
+        uint256 firstTokenId = 1;
+
+        // Verify ownership
+        address tokenOwner = ERC721VaultImplementation(nftCollection).ownerOf(firstTokenId);
+        assertEq(tokenOwner, tokenHolder, "Token should be owned by tokenHolder");
+
+        // Verify token ID mappings
+        uint256 externalId = IERC721AVault(nftCollection).getExternalTokenId(firstTokenId);
+        assertEq(externalId, setupTokenId, "External token ID mapping incorrect");
+
+        uint256 internalId = IERC721AVault(nftCollection).getInternalTokenId(setupTokenId);
+        assertEq(internalId, firstTokenId, "Internal token ID mapping incorrect");
+
+        // Now test minting a new token
+        uint256 tokenId = 1000; // Use a much larger token ID
         uint256 price = 1 ether;
-        uint256 nonce = 1;
+        uint256 nonce = 2; // Use new nonce since 1 was used in setup
         bytes memory serialNumber = new bytes(0);
 
         // Create signature from witness
         bytes memory signature = createSignature(
-            mockNft,
+            nftCollection,
             address(0), // ETH payment
             price,
             user1,
@@ -381,25 +507,43 @@ contract DiamondVaultTest is Test {
         // Buy with signed price from user1
         vm.startPrank(user1);
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: price}(
-            mockNft, address(0), price, user1, tokenId, nonce, signature, serialNumber, 1
+            nftCollection, address(0), price, user1, tokenId, nonce, signature, serialNumber, 1
         );
         vm.stopPrank();
 
-        // Verify token was minted to user1
-        assertEq(nftToken.ownerOf(tokenId), user1);
+        // Get the sequential internal token ID (should be 2 since we minted one in setup)
+        uint256 internalTokenId = 2;
+
+        // Verify ownership of new token
+        assertEq(ERC721VaultImplementation(nftCollection).ownerOf(internalTokenId), user1);
+
+        // Verify the mappings for new token
+        assertEq(IERC721AVault(nftCollection).getExternalTokenId(internalTokenId), tokenId);
+        assertEq(IERC721AVault(nftCollection).getInternalTokenId(tokenId), internalTokenId);
     }
 
     function testBuyWithSignedPriceERC20() public {
-        // Setup
-        address mockNft = address(nftToken);
-        uint256 tokenId = 2;
+        // First verify the mapping for token minted in setup
+        uint256 setupTokenId = 1;
+        uint256 setupInternalId = 1;
+
+        // Verify ownership of setup token
+        assertEq(ERC721VaultImplementation(nftCollection).ownerOf(setupInternalId), tokenHolder);
+
+        // Verify the mappings for setup token
+        assertEq(IERC721AVault(nftCollection).getExternalTokenId(setupInternalId), setupTokenId);
+        assertEq(IERC721AVault(nftCollection).getInternalTokenId(setupTokenId), setupInternalId);
+
+        // Now test minting a new token
+        uint256 tokenId = 999_999; // Use an even larger token ID
         uint256 price = 100 ether;
-        uint256 nonce = 1;
+        uint256 nonce = 2; // Use new nonce since 1 was used in setup
         bytes memory serialNumber = new bytes(0);
 
         // Create signature from witness
-        bytes memory signature =
-            createSignature(mockNft, address(paymentToken), price, user1, tokenId, nonce, 1, witnessPrivateKey);
+        bytes memory signature = createSignature(
+            nftCollection, address(paymentToken), price, user1, tokenId, nonce, 1, witnessPrivateKey
+        );
 
         // Approve payment token
         vm.startPrank(user1);
@@ -407,96 +551,82 @@ contract DiamondVaultTest is Test {
 
         // Buy with signed price
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice(
-            mockNft, address(paymentToken), price, user1, tokenId, nonce, signature, serialNumber, 1
+            nftCollection,
+            address(paymentToken),
+            price,
+            user1,
+            tokenId,
+            nonce,
+            signature,
+            serialNumber,
+            1
         );
         vm.stopPrank();
 
-        // Verify token was minted to user1
-        assertEq(nftToken.ownerOf(tokenId), user1);
-    }
+        // Get the sequential internal token ID (should be 2 since we minted one in setup)
+        uint256 internalTokenId = 2;
 
-    function testBuyWithQuote() public {
-        // Setup
-        address mockNft = address(nftToken);
-        uint256 tokenId = 2;
-        uint256 basePrice = 1 ether;
-        uint256 quotedPrice = 2 ether; // MockQuoteContract doubles the price
-        uint256 nonce = 1;
-        bytes memory serialNumber = new bytes(0);
+        // Verify ownership of new token
+        assertEq(ERC721VaultImplementation(nftCollection).ownerOf(internalTokenId), user1);
 
-        // Create signature from witness using the quote signature format
-        bytes memory signature = createSignatureQuote(mockNft, basePrice, user1, tokenId, nonce, 1, witnessPrivateKey);
-
-        // Log the hash and signature components for debugging
-        bytes32 hash = keccak256(abi.encodePacked(mockNft, basePrice, user1, tokenId, nonce, uint256(1)));
-        bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(witnessPrivateKey, prefixedHash);
-        console.log("Expected signer:", witness);
-        console.log("Recovered signer:", ecrecover(prefixedHash, v, r, s));
-
-        // Buy with quote from user1
-        vm.startPrank(user1);
-        EmblemVaultMintFacet(address(diamond)).buyWithQuote{value: quotedPrice}(
-            mockNft, basePrice, user1, tokenId, nonce, signature, serialNumber, 1
-        );
-        vm.stopPrank();
-
-        // Verify token was minted to user1
-        assertEq(nftToken.ownerOf(tokenId), user1);
+        // Verify the mappings for new token
+        assertEq(IERC721AVault(nftCollection).getExternalTokenId(internalTokenId), tokenId);
+        assertEq(IERC721AVault(nftCollection).getInternalTokenId(tokenId), internalTokenId);
     }
 
     function testClaimWithSignedPriceLockedVault() public {
-        // Setup
-        address mockNft = address(nftToken);
         uint256 tokenId = 1;
         uint256 price = 1 ether;
-        uint256 nonce = 1;
+        uint256 nonce = 2; // Use new nonce since 1 was used in setup
 
         // First approve and transfer to diamond from tokenHolder
         vm.startPrank(tokenHolder);
-        nftToken.approve(address(diamond), tokenId);
-        nftToken.transferFrom(tokenHolder, address(diamond), tokenId);
+        ERC721VaultImplementation(nftCollection).approve(address(diamond), tokenId);
+        ERC721VaultImplementation(nftCollection).transferFrom(
+            tokenHolder, address(diamond), tokenId
+        );
         vm.stopPrank();
 
         // Lock the vault
-        EmblemVaultCoreFacet(address(diamond)).lockVault(mockNft, tokenId);
+        EmblemVaultCoreFacet(address(diamond)).lockVault(nftCollection, tokenId);
 
         // Create signature from witness with locked acknowledgement
-        bytes memory signature =
-            createSignatureWithLock(mockNft, address(0), price, user1, tokenId, nonce, 1, witnessPrivateKey);
+        bytes memory signature = createSignatureWithLock(
+            nftCollection, address(0), price, user1, tokenId, nonce, 1, witnessPrivateKey
+        );
 
         // Claim with signed price from user1
         vm.startPrank(user1);
         EmblemVaultClaimFacet(address(diamond)).claimWithSignedPrice{value: price}(
-            mockNft, tokenId, nonce, address(0), price, signature
+            nftCollection, tokenId, nonce, address(0), price, signature
         );
         vm.stopPrank();
 
         // Verify token was burned
-        vm.expectRevert("ERC721: invalid token ID");
-        nftToken.ownerOf(tokenId);
+        vm.expectRevert(abi.encodeWithSignature("OwnerQueryForNonexistentToken()"));
+        ERC721VaultImplementation(nftCollection).ownerOf(tokenId);
 
         // Verify claim was registered
         bytes32[] memory proof;
-        assertTrue(claimer.isClaimed(mockNft, tokenId, proof));
+        assertTrue(claimer.isClaimed(nftCollection, tokenId, proof));
     }
 
-    function testFailClaimWithInvalidSignature() public {
-        // Setup
-        address mockNft = address(nftToken);
+    function testRevertClaimWithInvalidSignature() public {
         uint256 tokenId = 1;
         uint256 price = 1 ether;
-        uint256 nonce = 1;
+        uint256 nonce = 2; // Use new nonce since 1 was used in setup
 
         // First approve and transfer to diamond from tokenHolder
         vm.startPrank(tokenHolder);
-        nftToken.approve(address(diamond), tokenId);
-        nftToken.transferFrom(tokenHolder, address(diamond), tokenId);
+        ERC721VaultImplementation(nftCollection).approve(address(diamond), tokenId);
+        ERC721VaultImplementation(nftCollection).transferFrom(
+            tokenHolder, address(diamond), tokenId
+        );
         vm.stopPrank();
 
         // Create signature with wrong private key
         bytes memory signature = createSignature(
-            mockNft,
+            nftCollection,
             address(0),
             price,
             user1,
@@ -506,66 +636,50 @@ contract DiamondVaultTest is Test {
             0xBAD // Wrong private key
         );
 
+        // Get the recovered address for the error expectation
+        bytes32 hash = keccak256(
+            abi.encodePacked(nftCollection, address(0), price, user1, tokenId, nonce, uint256(1))
+        );
+        bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(0xBAD, prefixedHash);
+        address recoveredSigner = ecrecover(prefixedHash, v, r, s);
+
         // Attempt to claim with invalid signature
         vm.startPrank(user1);
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.NotWitness.selector, recoveredSigner));
         EmblemVaultClaimFacet(address(diamond)).claimWithSignedPrice{value: price}(
-            mockNft, tokenId, nonce, address(0), price, signature
+            nftCollection, tokenId, nonce, address(0), price, signature
         );
         vm.stopPrank();
     }
 
-    function testFailClaimWithWrongPaymentAmount() public {
-        // Setup
-        address mockNft = address(nftToken);
+    function testRevertClaimWithWrongPaymentAmount() public {
         uint256 tokenId = 1;
         uint256 price = 1 ether;
-        uint256 nonce = 1;
+        uint256 nonce = 2; // Use new nonce since 1 was used in setup
 
         // First approve and transfer to diamond from tokenHolder
         vm.startPrank(tokenHolder);
-        nftToken.approve(address(diamond), tokenId);
-        nftToken.transferFrom(tokenHolder, address(diamond), tokenId);
+        ERC721VaultImplementation(nftCollection).approve(address(diamond), tokenId);
+        ERC721VaultImplementation(nftCollection).transferFrom(
+            tokenHolder, address(diamond), tokenId
+        );
         vm.stopPrank();
 
         // Create signature from witness
-        bytes memory signature =
-            createSignature(mockNft, address(0), price, user1, tokenId, nonce, 1, witnessPrivateKey);
+        bytes memory signature = createSignature(
+            nftCollection, address(0), price, user1, tokenId, nonce, 1, witnessPrivateKey
+        );
 
         // Attempt to claim with wrong payment amount
         vm.startPrank(user1);
-        EmblemVaultClaimFacet(address(diamond)).claimWithSignedPrice{value: price / 2}( // Wrong amount
-        mockNft, tokenId, nonce, address(0), price, signature);
+        vm.expectRevert(
+            abi.encodeWithSelector(LibErrors.IncorrectPayment.selector, price / 2, price)
+        );
+        EmblemVaultClaimFacet(address(diamond)).claimWithSignedPrice{value: price / 2}(
+            nftCollection, tokenId, nonce, address(0), price, signature
+        );
         vm.stopPrank();
-    }
-
-    function testBasicCallback() public {
-        address mockNft = address(nftToken);
-        uint256 tokenId = 1;
-        bytes4 functionSelector = bytes4(keccak256("onMint(address,uint256)"));
-
-        // Register callback
-        EmblemVaultCallbackFacet(address(diamond)).registerCallback(
-            mockNft, address(this), tokenId, IHandlerCallback.CallbackType.MINT, functionSelector, false
-        );
-
-        // Verify callback registration
-        assertTrue(
-            EmblemVaultCallbackFacet(address(diamond)).hasCallback(
-                mockNft, address(this), tokenId, IHandlerCallback.CallbackType.MINT
-            )
-        );
-
-        // Unregister callback
-        EmblemVaultCallbackFacet(address(diamond)).unregisterCallback(
-            mockNft, address(this), tokenId, IHandlerCallback.CallbackType.MINT, 0
-        );
-
-        // Verify callback unregistration
-        assertFalse(
-            EmblemVaultCallbackFacet(address(diamond)).hasCallback(
-                mockNft, address(this), tokenId, IHandlerCallback.CallbackType.MINT
-            )
-        );
     }
 
     function testDiamondCut() public view {
@@ -587,8 +701,189 @@ contract DiamondVaultTest is Test {
 
         // Verify OwnershipFacet functions
         assertEq(
-            DiamondLoupeFacet(address(diamond)).getFacetAddress(OwnershipFacet.owner.selector), address(ownershipFacet)
+            DiamondLoupeFacet(address(diamond)).getFacetAddress(OwnershipFacet.owner.selector),
+            address(ownershipFacet)
         );
+    }
+
+    function testBatchBuyWithSignedPrice() public {
+        // Create test data
+        uint256[] memory tokenIds = new uint256[](3);
+        tokenIds[0] = 100;
+        tokenIds[1] = 101;
+        tokenIds[2] = 102;
+
+        uint256[] memory prices = new uint256[](3);
+        prices[0] = 1 ether;
+        prices[1] = 1.5 ether;
+        prices[2] = 2 ether;
+
+        uint256[] memory nonces = new uint256[](3);
+        nonces[0] = 2;
+        nonces[1] = 3;
+        nonces[2] = 4;
+
+        bytes[] memory signatures = new bytes[](3);
+        signatures[0] = createSignature(
+            nftCollection,
+            address(0), // ETH payment
+            prices[0],
+            user1,
+            tokenIds[0],
+            nonces[0],
+            1,
+            witnessPrivateKey
+        );
+        signatures[1] = createSignature(
+            nftCollection,
+            address(0),
+            prices[1],
+            user1,
+            tokenIds[1],
+            nonces[1],
+            1,
+            witnessPrivateKey
+        );
+        signatures[2] = createSignature(
+            nftCollection,
+            address(0),
+            prices[2],
+            user1,
+            tokenIds[2],
+            nonces[2],
+            1,
+            witnessPrivateKey
+        );
+
+        uint256[] memory amounts = new uint256[](3);
+        amounts[0] = 1;
+        amounts[1] = 1;
+        amounts[2] = 1;
+
+        // Calculate total price
+        uint256 totalPrice = prices[0] + prices[1] + prices[2];
+
+        // Execute batch mint
+        vm.startPrank(user1);
+        bytes[] memory serialNumbers = new bytes[](3);
+        EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
+            nftAddress: nftCollection,
+            payment: address(0),
+            prices: prices,
+            to: user1,
+            externalTokenIds: tokenIds,
+            nonces: nonces,
+            signatures: signatures,
+            serialNumbers: serialNumbers,
+            amounts: amounts
+        });
+        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: totalPrice}(params);
+        vm.stopPrank();
+
+        // Verify tokens were minted correctly
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            uint256 internalTokenId = i + 2; // +2 because setup already minted token 1
+
+            // Verify ownership
+            assertEq(ERC721VaultImplementation(nftCollection).ownerOf(internalTokenId), user1);
+
+            // Verify token ID mappings
+            assertEq(IERC721AVault(nftCollection).getExternalTokenId(internalTokenId), tokenIds[i]);
+            assertEq(IERC721AVault(nftCollection).getInternalTokenId(tokenIds[i]), internalTokenId);
+        }
+    }
+
+    function testRevertBatchBuyWithInvalidSignature() public {
+        // Create test data
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 100;
+
+        uint256[] memory prices = new uint256[](1);
+        prices[0] = 1 ether;
+
+        uint256[] memory nonces = new uint256[](1);
+        nonces[0] = 2;
+
+        bytes[] memory signatures = new bytes[](1);
+        // Create signature with wrong private key
+        signatures[0] = createSignature(
+            nftCollection,
+            address(0),
+            prices[0],
+            user1,
+            tokenIds[0],
+            nonces[0],
+            1,
+            0xBAD // Wrong private key
+        );
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
+        // Execute batch mint
+        vm.startPrank(user1);
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.NotWitness.selector, vm.addr(0xBAD)));
+        bytes[] memory serialNumbers = new bytes[](1);
+        EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
+            nftAddress: nftCollection,
+            payment: address(0),
+            prices: prices,
+            to: user1,
+            externalTokenIds: tokenIds,
+            nonces: nonces,
+            signatures: signatures,
+            serialNumbers: serialNumbers,
+            amounts: amounts
+        });
+        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: prices[0]}(params);
+        vm.stopPrank();
+    }
+
+    function testRevertBatchBuyWithInsufficientPayment() public {
+        // Create test data
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 100;
+
+        uint256[] memory prices = new uint256[](1);
+        prices[0] = 1 ether;
+
+        uint256[] memory nonces = new uint256[](1);
+        nonces[0] = 2;
+
+        bytes[] memory signatures = new bytes[](1);
+        signatures[0] = createSignature(
+            nftCollection,
+            address(0),
+            prices[0],
+            user1,
+            tokenIds[0],
+            nonces[0],
+            1,
+            witnessPrivateKey
+        );
+
+        bytes[] memory serialNumbers = new bytes[](1);
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+
+        // Execute batch mint with insufficient ETH
+        vm.startPrank(user1);
+        vm.expectRevert(
+            abi.encodeWithSelector(LibErrors.IncorrectPayment.selector, prices[0] / 2, prices[0])
+        );
+        EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
+            nftAddress: nftCollection,
+            payment: address(0),
+            prices: prices,
+            to: user1,
+            externalTokenIds: tokenIds,
+            nonces: nonces,
+            signatures: signatures,
+            serialNumbers: serialNumbers,
+            amounts: amounts
+        });
+        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: prices[0] / 2}(params);
+        vm.stopPrank();
     }
 
     // Helper function to create signature for standard purchases
@@ -602,34 +897,9 @@ contract DiamondVaultTest is Test {
         uint256 _amount,
         uint256 _privateKey
     ) internal pure returns (bytes memory) {
-        bytes32 hash = keccak256(abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount));
-        console.log("Test hash inputs:");
-        console.log("nftAddress:", _nftAddress);
-        console.log("payment:", _payment);
-        console.log("price:", _price);
-        console.log("to:", _to);
-        console.log("tokenId:", _tokenId);
-        console.log("nonce:", _nonce);
-        console.log("amount:", _amount);
-        console.log("Test hash:", uint256(hash));
-        bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, prefixedHash);
-        console.log("Test recovered signer:", ecrecover(prefixedHash, v, r, s));
-        return abi.encodePacked(r, s, v);
-    }
-
-    // Helper function to create signature for quotes - matches contract's format
-    function createSignatureQuote(
-        address _nftAddress,
-        uint256 _price,
-        address _to,
-        uint256 _tokenId,
-        uint256 _nonce,
-        uint256 _amount,
-        uint256 _privateKey
-    ) internal pure returns (bytes memory) {
-        // Match the exact format used in the contract's getAddressFromSignatureQuote
-        bytes32 hash = keccak256(abi.encodePacked(_nftAddress, _price, _to, _tokenId, _nonce, _amount));
+        bytes32 hash = keccak256(
+            abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount)
+        );
         bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, prefixedHash);
         return abi.encodePacked(r, s, v);
@@ -646,21 +916,27 @@ contract DiamondVaultTest is Test {
         uint256 _amount,
         uint256 _privateKey
     ) internal pure returns (bytes memory) {
-        // Match the exact format used in the contract's getAddressFromSignatureLocked
         bytes32 hash = keccak256(
-            abi.encodePacked(
-                _nftAddress,
-                _payment,
-                _price,
-                _to,
-                _tokenId,
-                _nonce,
-                _amount,
-                bytes1(0x01) // true as bytes1
-            )
+            abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount, true)
         );
         bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, prefixedHash);
         return abi.encodePacked(r, s, v);
+    }
+
+    function testVaultLocking() public {
+        // Lock vault
+        vm.startPrank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit VaultLocked(nftCollection, 1, owner);
+        EmblemVaultCoreFacet(address(diamond)).lockVault(nftCollection, 1);
+        assertTrue(EmblemVaultCoreFacet(address(diamond)).isVaultLocked(nftCollection, 1));
+
+        // Unlock vault
+        vm.expectEmit(true, true, true, true);
+        emit VaultUnlocked(nftCollection, 1, owner);
+        EmblemVaultCoreFacet(address(diamond)).unlockVault(nftCollection, 1);
+        assertFalse(EmblemVaultCoreFacet(address(diamond)).isVaultLocked(nftCollection, 1));
+        vm.stopPrank();
     }
 }

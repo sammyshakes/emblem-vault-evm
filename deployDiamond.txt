@@ -1,0 +1,174 @@
+Compiling 83 files with Solc 0.8.28
+Solc 0.8.28 finished in 12.87s
+Compiler run successful!
+Traces:
+  [8084295] DeployDiamondSystem::run()
+    ├─ [0] VM::envUint("PRIVATE_KEY") [staticcall]
+    │   └─ ← [Return] <env var value>
+    ├─ [0] VM::addr(<pk>) [staticcall]
+    │   └─ ← [Return] 0x107A120f536c8BD891A3c04fcA22a7814E260210
+    ├─ [0] console::log("Deploying Diamond System with deployer:", 0x107A120f536c8BD891A3c04fcA22a7814E260210) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] VM::startBroadcast(<pk>)
+    │   └─ ← [Return] 
+    ├─ [744187] → new DiamondCutFacet@0x8CBbA42B2Ff1A7Eae942A886e4e6a9e126d11A70
+    │   └─ ← [Return] 3717 bytes of code
+    ├─ emit Deployed(name: "DiamondCutFacet", addr: DiamondCutFacet: [0x8CBbA42B2Ff1A7Eae942A886e4e6a9e126d11A70])
+    ├─ [639878] → new DiamondLoupeFacet@0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583
+    │   └─ ← [Return] 3196 bytes of code
+    ├─ emit Deployed(name: "DiamondLoupeFacet", addr: DiamondLoupeFacet: [0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583])
+    ├─ [77935] → new OwnershipFacet@0x0FaACe0AbB543CE9a7C9D3e76c103173D957E8a7
+    │   └─ ← [Return] 389 bytes of code
+    ├─ emit Deployed(name: "OwnershipFacet", addr: OwnershipFacet: [0x0FaACe0AbB543CE9a7C9D3e76c103173D957E8a7])
+    ├─ [869111] → new EmblemVaultCoreFacet@0xF7437Df37F10299E9DC98D7Ab4bf88a16e9F9974
+    │   └─ ← [Return] 4341 bytes of code
+    ├─ emit Deployed(name: "EmblemVaultCoreFacet", addr: EmblemVaultCoreFacet: [0xF7437Df37F10299E9DC98D7Ab4bf88a16e9F9974])
+    ├─ [1013662] → new EmblemVaultClaimFacet@0xf4f3249175498A1437A92692636EE8d462c504D1
+    │   └─ ← [Return] 5063 bytes of code
+    ├─ emit Deployed(name: "EmblemVaultClaimFacet", addr: EmblemVaultClaimFacet: [0xf4f3249175498A1437A92692636EE8d462c504D1])
+    ├─ [985029] → new EmblemVaultMintFacet@0x5540aa081FF8c53b5601711359058d618393c393
+    │   └─ ← [Return] 4920 bytes of code
+    ├─ emit Deployed(name: "EmblemVaultMintFacet", addr: EmblemVaultMintFacet: [0x5540aa081FF8c53b5601711359058d618393c393])
+    ├─ [768807] → new EmblemVaultCollectionFacet@0xa82139006E6e97F79aAA71d5ee11A2C9EdaBEe14
+    │   └─ ← [Return] 3840 bytes of code
+    ├─ emit Deployed(name: "EmblemVaultCollectionFacet", addr: EmblemVaultCollectionFacet: [0xa82139006E6e97F79aAA71d5ee11A2C9EdaBEe14])
+    ├─ [528369] → new EmblemVaultInitFacet@0x3d10DaAd9236A8c3ca354ed0D78E9432F5564215
+    │   └─ ← [Return] 2639 bytes of code
+    ├─ emit Deployed(name: "EmblemVaultInitFacet", addr: EmblemVaultInitFacet: [0x3d10DaAd9236A8c3ca354ed0D78E9432F5564215])
+    ├─ [291044] → new EmblemVaultDiamond@0xDB52869a5e017c934bdc703797978086134904FC
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x107A120f536c8BD891A3c04fcA22a7814E260210)
+    │   ├─ emit DiamondCut(_diamondCut: [FacetCut({ facetAddress: 0x8CBbA42B2Ff1A7Eae942A886e4e6a9e126d11A70, action: 0, functionSelectors: [0x1f931c1c] })], _init: 0x0000000000000000000000000000000000000000, _calldata: 0x)
+    │   └─ ← [Return] 184 bytes of code
+    ├─ emit Deployed(name: "EmblemVaultDiamond", addr: EmblemVaultDiamond: [0xDB52869a5e017c934bdc703797978086134904FC])
+    ├─ [1652549] EmblemVaultDiamond::fallback([FacetCut({ facetAddress: 0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583, action: 0, functionSelectors: [0x7a0ed627, 0xadfca15e, 0x52ef6b2c, 0x7a070c2d, 0x01ffc9a7, 0x30d39a22, 0x941d4ea9, 0xdbdc386a, 0x62bbd81e] }), FacetCut({ facetAddress: 0x0FaACe0AbB543CE9a7C9D3e76c103173D957E8a7, action: 0, functionSelectors: [0xf2fde38b, 0x8da5cb5b] }), FacetCut({ facetAddress: 0xF7437Df37F10299E9DC98D7Ab4bf88a16e9F9974, action: 0, functionSelectors: [0x51f8472d, 0xb1526121, 0x90ebc295, 0x59e26be1, 0xee2f13cd, 0x36bfc264, 0xa57d6178, 0x3697a679, 0xfa7643f4, 0xd3c6a6d6, 0x54fd4d50, 0x3ea7fbdb, 0x18bcb284] }), FacetCut({ facetAddress: 0xf4f3249175498A1437A92692636EE8d462c504D1, action: 0, functionSelectors: [0xaad3ec96, 0x6bb25d13, 0xa4700096] }), FacetCut({ facetAddress: 0x5540aa081FF8c53b5601711359058d618393c393, action: 0, functionSelectors: [0xebc7fd7c, 0xecf96e8b] }), FacetCut({ facetAddress: 0xa82139006E6e97F79aAA71d5ee11A2C9EdaBEe14, action: 0, functionSelectors: [0xbc72157a, 0xa8008080, 0x6abe1014, 0xbf5fcb59, 0x6fc0127d, 0x5fa15ebb, 0xc9b059df, 0x80aed2a9, 0x23f019fd] }), FacetCut({ facetAddress: 0x3d10DaAd9236A8c3ca354ed0D78E9432F5564215, action: 0, functionSelectors: [0xc4d66de8, 0x392e53cd, 0x2d2d1451, 0x6bd50cef, 0x413bfd2d] })], 0x0000000000000000000000000000000000000000, 0x)
+    │   ├─ [1651608] DiamondCutFacet::diamondCut([FacetCut({ facetAddress: 0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583, action: 0, functionSelectors: [0x7a0ed627, 0xadfca15e, 0x52ef6b2c, 0x7a070c2d, 0x01ffc9a7, 0x30d39a22, 0x941d4ea9, 0xdbdc386a, 0x62bbd81e] }), FacetCut({ facetAddress: 0x0FaACe0AbB543CE9a7C9D3e76c103173D957E8a7, action: 0, functionSelectors: [0xf2fde38b, 0x8da5cb5b] }), FacetCut({ facetAddress: 0xF7437Df37F10299E9DC98D7Ab4bf88a16e9F9974, action: 0, functionSelectors: [0x51f8472d, 0xb1526121, 0x90ebc295, 0x59e26be1, 0xee2f13cd, 0x36bfc264, 0xa57d6178, 0x3697a679, 0xfa7643f4, 0xd3c6a6d6, 0x54fd4d50, 0x3ea7fbdb, 0x18bcb284] }), FacetCut({ facetAddress: 0xf4f3249175498A1437A92692636EE8d462c504D1, action: 0, functionSelectors: [0xaad3ec96, 0x6bb25d13, 0xa4700096] }), FacetCut({ facetAddress: 0x5540aa081FF8c53b5601711359058d618393c393, action: 0, functionSelectors: [0xebc7fd7c, 0xecf96e8b] }), FacetCut({ facetAddress: 0xa82139006E6e97F79aAA71d5ee11A2C9EdaBEe14, action: 0, functionSelectors: [0xbc72157a, 0xa8008080, 0x6abe1014, 0xbf5fcb59, 0x6fc0127d, 0x5fa15ebb, 0xc9b059df, 0x80aed2a9, 0x23f019fd] }), FacetCut({ facetAddress: 0x3d10DaAd9236A8c3ca354ed0D78E9432F5564215, action: 0, functionSelectors: [0xc4d66de8, 0x392e53cd, 0x2d2d1451, 0x6bd50cef, 0x413bfd2d] })], 0x0000000000000000000000000000000000000000, 0x) [delegatecall]
+    │   │   ├─ emit DiamondCut(_diamondCut: [FacetCut({ facetAddress: 0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583, action: 0, functionSelectors: [0x7a0ed627, 0xadfca15e, 0x52ef6b2c, 0x7a070c2d, 0x01ffc9a7, 0x30d39a22, 0x941d4ea9, 0xdbdc386a, 0x62bbd81e] }), FacetCut({ facetAddress: 0x0FaACe0AbB543CE9a7C9D3e76c103173D957E8a7, action: 0, functionSelectors: [0xf2fde38b, 0x8da5cb5b] }), FacetCut({ facetAddress: 0xF7437Df37F10299E9DC98D7Ab4bf88a16e9F9974, action: 0, functionSelectors: [0x51f8472d, 0xb1526121, 0x90ebc295, 0x59e26be1, 0xee2f13cd, 0x36bfc264, 0xa57d6178, 0x3697a679, 0xfa7643f4, 0xd3c6a6d6, 0x54fd4d50, 0x3ea7fbdb, 0x18bcb284] }), FacetCut({ facetAddress: 0xf4f3249175498A1437A92692636EE8d462c504D1, action: 0, functionSelectors: [0xaad3ec96, 0x6bb25d13, 0xa4700096] }), FacetCut({ facetAddress: 0x5540aa081FF8c53b5601711359058d618393c393, action: 0, functionSelectors: [0xebc7fd7c, 0xecf96e8b] }), FacetCut({ facetAddress: 0xa82139006E6e97F79aAA71d5ee11A2C9EdaBEe14, action: 0, functionSelectors: [0xbc72157a, 0xa8008080, 0x6abe1014, 0xbf5fcb59, 0x6fc0127d, 0x5fa15ebb, 0xc9b059df, 0x80aed2a9, 0x23f019fd] }), FacetCut({ facetAddress: 0x3d10DaAd9236A8c3ca354ed0D78E9432F5564215, action: 0, functionSelectors: [0xc4d66de8, 0x392e53cd, 0x2d2d1451, 0x6bd50cef, 0x413bfd2d] })], _init: 0x0000000000000000000000000000000000000000, _calldata: 0x)
+    │   │   └─ ← [Stop] 
+    │   └─ ← [Return] 
+    ├─ [171527] EmblemVaultDiamond::fallback(0x107A120f536c8BD891A3c04fcA22a7814E260210)
+    │   ├─ [171088] EmblemVaultInitFacet::initialize(0x107A120f536c8BD891A3c04fcA22a7814E260210) [delegatecall]
+    │   │   ├─ emit VaultInitialized(owner: 0x107A120f536c8BD891A3c04fcA22a7814E260210, metadataBaseUri: "https://v2.emblemvault.io/meta/", byPassable: false, initialized: true)
+    │   │   ├─ emit InterfaceIdSet(interfaceId: 0xd9b67a26, name: "ERC1155")
+    │   │   ├─ emit InterfaceIdSet(interfaceId: 0x74a1476f, name: "ERC20")
+    │   │   ├─ emit InterfaceIdSet(interfaceId: 0x80ac58cd, name: "ERC721")
+    │   │   ├─ emit InterfaceIdSet(interfaceId: 0xf4a95f26, name: "ERC721A")
+    │   │   ├─ emit WitnessInitialized(witness: 0x107A120f536c8BD891A3c04fcA22a7814E260210, witnessCount: 1)
+    │   │   ├─ emit BypassStateInitialized(byPassable: false)
+    │   │   ├─ emit ClaimerContractSet(claimerContract: 0x0000000000000000000000000000000000000000)
+    │   │   └─ ← [Stop] 
+    │   └─ ← [Return] 
+    ├─ [0] VM::stopBroadcast()
+    │   └─ ← [Return] 
+    ├─ [0] console::log("\nDiamond System Deployment Summary:") [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] console::log("--------------------------------") [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] console::log("Diamond:", EmblemVaultDiamond: [0xDB52869a5e017c934bdc703797978086134904FC]) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] console::log("DiamondCutFacet:", DiamondCutFacet: [0x8CBbA42B2Ff1A7Eae942A886e4e6a9e126d11A70]) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] console::log("DiamondLoupeFacet:", DiamondLoupeFacet: [0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583]) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] console::log("OwnershipFacet:", OwnershipFacet: [0x0FaACe0AbB543CE9a7C9D3e76c103173D957E8a7]) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] console::log("VaultCoreFacet:", EmblemVaultCoreFacet: [0xF7437Df37F10299E9DC98D7Ab4bf88a16e9F9974]) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] console::log("ClaimFacet:", EmblemVaultClaimFacet: [0xf4f3249175498A1437A92692636EE8d462c504D1]) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] console::log("MintFacet:", EmblemVaultMintFacet: [0x5540aa081FF8c53b5601711359058d618393c393]) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] console::log("CollectionFacet:", EmblemVaultCollectionFacet: [0xa82139006E6e97F79aAA71d5ee11A2C9EdaBEe14]) [staticcall]
+    │   └─ ← [Stop] 
+    ├─ [0] console::log("InitFacet:", EmblemVaultInitFacet: [0x3d10DaAd9236A8c3ca354ed0D78E9432F5564215]) [staticcall]
+    │   └─ ← [Stop] 
+    └─ ← [Return] 
+
+
+Script ran successfully.
+
+== Logs ==
+  Deploying Diamond System with deployer: 0x107A120f536c8BD891A3c04fcA22a7814E260210
+  
+Diamond System Deployment Summary:
+  --------------------------------
+  Diamond: 0xDB52869a5e017c934bdc703797978086134904FC
+  DiamondCutFacet: 0x8CBbA42B2Ff1A7Eae942A886e4e6a9e126d11A70
+  DiamondLoupeFacet: 0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583
+  OwnershipFacet: 0x0FaACe0AbB543CE9a7C9D3e76c103173D957E8a7
+  VaultCoreFacet: 0xF7437Df37F10299E9DC98D7Ab4bf88a16e9F9974
+  ClaimFacet: 0xf4f3249175498A1437A92692636EE8d462c504D1
+  MintFacet: 0x5540aa081FF8c53b5601711359058d618393c393
+  CollectionFacet: 0xa82139006E6e97F79aAA71d5ee11A2C9EdaBEe14
+  InitFacet: 0x3d10DaAd9236A8c3ca354ed0D78E9432F5564215
+
+## Setting up 1 EVM.
+==========================
+Simulated On-chain Traces:
+
+  [744187] → new DiamondCutFacet@0x8CBbA42B2Ff1A7Eae942A886e4e6a9e126d11A70
+    └─ ← [Return] 3717 bytes of code
+
+  [639878] → new DiamondLoupeFacet@0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583
+    └─ ← [Return] 3196 bytes of code
+
+  [77935] → new OwnershipFacet@0x0FaACe0AbB543CE9a7C9D3e76c103173D957E8a7
+    └─ ← [Return] 389 bytes of code
+
+  [869111] → new EmblemVaultCoreFacet@0xF7437Df37F10299E9DC98D7Ab4bf88a16e9F9974
+    └─ ← [Return] 4341 bytes of code
+
+  [1013662] → new EmblemVaultClaimFacet@0xf4f3249175498A1437A92692636EE8d462c504D1
+    └─ ← [Return] 5063 bytes of code
+
+  [985029] → new EmblemVaultMintFacet@0x5540aa081FF8c53b5601711359058d618393c393
+    └─ ← [Return] 4920 bytes of code
+
+  [768807] → new EmblemVaultCollectionFacet@0xa82139006E6e97F79aAA71d5ee11A2C9EdaBEe14
+    └─ ← [Return] 3840 bytes of code
+
+  [528369] → new EmblemVaultInitFacet@0x3d10DaAd9236A8c3ca354ed0D78E9432F5564215
+    └─ ← [Return] 2639 bytes of code
+
+  [291044] → new EmblemVaultDiamond@0xDB52869a5e017c934bdc703797978086134904FC
+    ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: 0x107A120f536c8BD891A3c04fcA22a7814E260210)
+    ├─ emit DiamondCut(_diamondCut: [FacetCut({ facetAddress: 0x8CBbA42B2Ff1A7Eae942A886e4e6a9e126d11A70, action: 0, functionSelectors: [0x1f931c1c] })], _init: 0x0000000000000000000000000000000000000000, _calldata: 0x)
+    └─ ← [Return] 184 bytes of code
+
+  [1668649] EmblemVaultDiamond::fallback([FacetCut({ facetAddress: 0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583, action: 0, functionSelectors: [0x7a0ed627, 0xadfca15e, 0x52ef6b2c, 0x7a070c2d, 0x01ffc9a7, 0x30d39a22, 0x941d4ea9, 0xdbdc386a, 0x62bbd81e] }), FacetCut({ facetAddress: 0x0FaACe0AbB543CE9a7C9D3e76c103173D957E8a7, action: 0, functionSelectors: [0xf2fde38b, 0x8da5cb5b] }), FacetCut({ facetAddress: 0xF7437Df37F10299E9DC98D7Ab4bf88a16e9F9974, action: 0, functionSelectors: [0x51f8472d, 0xb1526121, 0x90ebc295, 0x59e26be1, 0xee2f13cd, 0x36bfc264, 0xa57d6178, 0x3697a679, 0xfa7643f4, 0xd3c6a6d6, 0x54fd4d50, 0x3ea7fbdb, 0x18bcb284] }), FacetCut({ facetAddress: 0xf4f3249175498A1437A92692636EE8d462c504D1, action: 0, functionSelectors: [0xaad3ec96, 0x6bb25d13, 0xa4700096] }), FacetCut({ facetAddress: 0x5540aa081FF8c53b5601711359058d618393c393, action: 0, functionSelectors: [0xebc7fd7c, 0xecf96e8b] }), FacetCut({ facetAddress: 0xa82139006E6e97F79aAA71d5ee11A2C9EdaBEe14, action: 0, functionSelectors: [0xbc72157a, 0xa8008080, 0x6abe1014, 0xbf5fcb59, 0x6fc0127d, 0x5fa15ebb, 0xc9b059df, 0x80aed2a9, 0x23f019fd] }), FacetCut({ facetAddress: 0x3d10DaAd9236A8c3ca354ed0D78E9432F5564215, action: 0, functionSelectors: [0xc4d66de8, 0x392e53cd, 0x2d2d1451, 0x6bd50cef, 0x413bfd2d] })], 0x0000000000000000000000000000000000000000, 0x)
+    ├─ [1663208] DiamondCutFacet::diamondCut([FacetCut({ facetAddress: 0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583, action: 0, functionSelectors: [0x7a0ed627, 0xadfca15e, 0x52ef6b2c, 0x7a070c2d, 0x01ffc9a7, 0x30d39a22, 0x941d4ea9, 0xdbdc386a, 0x62bbd81e] }), FacetCut({ facetAddress: 0x0FaACe0AbB543CE9a7C9D3e76c103173D957E8a7, action: 0, functionSelectors: [0xf2fde38b, 0x8da5cb5b] }), FacetCut({ facetAddress: 0xF7437Df37F10299E9DC98D7Ab4bf88a16e9F9974, action: 0, functionSelectors: [0x51f8472d, 0xb1526121, 0x90ebc295, 0x59e26be1, 0xee2f13cd, 0x36bfc264, 0xa57d6178, 0x3697a679, 0xfa7643f4, 0xd3c6a6d6, 0x54fd4d50, 0x3ea7fbdb, 0x18bcb284] }), FacetCut({ facetAddress: 0xf4f3249175498A1437A92692636EE8d462c504D1, action: 0, functionSelectors: [0xaad3ec96, 0x6bb25d13, 0xa4700096] }), FacetCut({ facetAddress: 0x5540aa081FF8c53b5601711359058d618393c393, action: 0, functionSelectors: [0xebc7fd7c, 0xecf96e8b] }), FacetCut({ facetAddress: 0xa82139006E6e97F79aAA71d5ee11A2C9EdaBEe14, action: 0, functionSelectors: [0xbc72157a, 0xa8008080, 0x6abe1014, 0xbf5fcb59, 0x6fc0127d, 0x5fa15ebb, 0xc9b059df, 0x80aed2a9, 0x23f019fd] }), FacetCut({ facetAddress: 0x3d10DaAd9236A8c3ca354ed0D78E9432F5564215, action: 0, functionSelectors: [0xc4d66de8, 0x392e53cd, 0x2d2d1451, 0x6bd50cef, 0x413bfd2d] })], 0x0000000000000000000000000000000000000000, 0x) [delegatecall]
+    │   ├─ emit DiamondCut(_diamondCut: [FacetCut({ facetAddress: 0xcB84D06B71083fE90eabFcf92F8bFD45Df3dE583, action: 0, functionSelectors: [0x7a0ed627, 0xadfca15e, 0x52ef6b2c, 0x7a070c2d, 0x01ffc9a7, 0x30d39a22, 0x941d4ea9, 0xdbdc386a, 0x62bbd81e] }), FacetCut({ facetAddress: 0x0FaACe0AbB543CE9a7C9D3e76c103173D957E8a7, action: 0, functionSelectors: [0xf2fde38b, 0x8da5cb5b] }), FacetCut({ facetAddress: 0xF7437Df37F10299E9DC98D7Ab4bf88a16e9F9974, action: 0, functionSelectors: [0x51f8472d, 0xb1526121, 0x90ebc295, 0x59e26be1, 0xee2f13cd, 0x36bfc264, 0xa57d6178, 0x3697a679, 0xfa7643f4, 0xd3c6a6d6, 0x54fd4d50, 0x3ea7fbdb, 0x18bcb284] }), FacetCut({ facetAddress: 0xf4f3249175498A1437A92692636EE8d462c504D1, action: 0, functionSelectors: [0xaad3ec96, 0x6bb25d13, 0xa4700096] }), FacetCut({ facetAddress: 0x5540aa081FF8c53b5601711359058d618393c393, action: 0, functionSelectors: [0xebc7fd7c, 0xecf96e8b] }), FacetCut({ facetAddress: 0xa82139006E6e97F79aAA71d5ee11A2C9EdaBEe14, action: 0, functionSelectors: [0xbc72157a, 0xa8008080, 0x6abe1014, 0xbf5fcb59, 0x6fc0127d, 0x5fa15ebb, 0xc9b059df, 0x80aed2a9, 0x23f019fd] }), FacetCut({ facetAddress: 0x3d10DaAd9236A8c3ca354ed0D78E9432F5564215, action: 0, functionSelectors: [0xc4d66de8, 0x392e53cd, 0x2d2d1451, 0x6bd50cef, 0x413bfd2d] })], _init: 0x0000000000000000000000000000000000000000, _calldata: 0x)
+    │   └─ ← [Stop] 
+    └─ ← [Return] 
+
+  [178027] EmblemVaultDiamond::fallback(0x107A120f536c8BD891A3c04fcA22a7814E260210)
+    ├─ [173088] EmblemVaultInitFacet::initialize(0x107A120f536c8BD891A3c04fcA22a7814E260210) [delegatecall]
+    │   ├─ emit VaultInitialized(owner: 0x107A120f536c8BD891A3c04fcA22a7814E260210, metadataBaseUri: "https://v2.emblemvault.io/meta/", byPassable: false, initialized: true)
+    │   ├─ emit InterfaceIdSet(interfaceId: 0xd9b67a26, name: "ERC1155")
+    │   ├─ emit InterfaceIdSet(interfaceId: 0x74a1476f, name: "ERC20")
+    │   ├─ emit InterfaceIdSet(interfaceId: 0x80ac58cd, name: "ERC721")
+    │   ├─ emit InterfaceIdSet(interfaceId: 0xf4a95f26, name: "ERC721A")
+    │   ├─ emit WitnessInitialized(witness: 0x107A120f536c8BD891A3c04fcA22a7814E260210, witnessCount: 1)
+    │   ├─ emit BypassStateInitialized(byPassable: false)
+    │   ├─ emit ClaimerContractSet(claimerContract: 0x0000000000000000000000000000000000000000)
+    │   └─ ← [Stop] 
+    └─ ← [Return] 
+
+
+==========================
+
+Chain 43113
+
+Estimated gas price: 26 gwei
+
+Estimated total gas used for script: 11629618
+
+Estimated amount required: 0.302370068 ETH
+
+==========================
+
+SIMULATION COMPLETE. To broadcast these transactions, add --broadcast and wallet configuration(s) to the previous command. See forge script --help for more.
+
+Transactions saved to: /home/shakes/shakesdev/emblem-vaults/emblem-vault-diamond/broadcast/DeployDiamondSystem.s.sol/43113/dry-run/run-latest.json
+
+Sensitive values saved to: /home/shakes/shakesdev/emblem-vaults/emblem-vault-diamond/cache/DeployDiamondSystem.s.sol/43113/dry-run/run-latest.json
+

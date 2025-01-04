@@ -15,11 +15,13 @@ contract DeployUpdatedFactory is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 
-        // Get old factory address
+        // Get old factory and Diamond addresses
         address oldFactory = vm.envAddress("COLLECTION_FACTORY_ADDRESS");
+        address diamond = vm.envAddress("DIAMOND_ADDRESS");
 
         console.log("Deploying Updated Factory with deployer:", deployer);
         console.log("Old Factory:", oldFactory);
+        console.log("Diamond:", diamond);
 
         // Get beacon addresses from old factory
         VaultCollectionFactory factory = VaultCollectionFactory(oldFactory);
@@ -32,8 +34,9 @@ contract DeployUpdatedFactory is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy new factory with existing beacons
-        VaultCollectionFactory newFactory = new VaultCollectionFactory(erc721Beacon, erc1155Beacon);
+        // Deploy new factory with existing beacons and Diamond as controller
+        VaultCollectionFactory newFactory =
+            new VaultCollectionFactory(erc721Beacon, erc1155Beacon, diamond);
         console.log("\nNew factory deployed at:", address(newFactory));
 
         vm.stopBroadcast();
@@ -44,5 +47,6 @@ contract DeployUpdatedFactory is Script {
         console.log("New Factory:", address(newFactory));
         console.log("ERC721 Beacon:", erc721Beacon);
         console.log("ERC1155 Beacon:", erc1155Beacon);
+        console.log("Diamond (Controller):", diamond);
     }
 }

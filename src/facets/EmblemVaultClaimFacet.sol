@@ -1,39 +1,91 @@
+/*
+███████╗███╗   ███╗██████╗ ██╗     ███████╗███╗   ███╗    ██╗   ██╗ █████╗ ██╗   ██╗██╗  ████████╗
+██╔════╝████╗ ████║██╔══██╗██║     ██╔════╝████╗ ████║    ██║   ██║██╔══██╗██║   ██║██║  ╚══██╔══╝
+█████╗  ██╔████╔██║██████╔╝██║     █████╗  ██╔████╔██║    ██║   ██║███████║██║   ██║██║     ██║   
+██╔══╝  ██║╚██╔╝██║██╔══██╗██║     ██╔══╝  ██║╚██╔╝██║    ╚██╗ ██╔╝██╔══██║██║   ██║██║     ██║   
+███████╗██║ ╚═╝ ██║██████╔╝███████╗███████╗██║ ╚═╝ ██║     ╚████╔╝ ██║  ██║╚██████╔╝███████╗██║   
+╚══════╝╚═╝     ╚═╝╚═════╝ ╚══════╝╚══════╝╚═╝     ╚═╝      ╚═══╝  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝   
+ ██████╗██╗      █████╗ ██╗███╗   ███╗
+██╔════╝██║     ██╔══██╗██║████╗ ████║
+██║     ██║     ███████║██║██╔████╔██║
+██║     ██║     ██╔══██║██║██║╚██╔╝██║
+╚██████╗███████╗██║  ██║██║██║ ╚═╝ ██║
+ ╚═════╝╚══════╝╚═╝  ╚═╝╚═╝╚═╝     ╚═╝
+*/
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import "../libraries/LibDiamond.sol";
 import "../libraries/LibEmblemVaultStorage.sol";
-import "../interfaces/IERC165.sol";
+import "../libraries/LibSignature.sol";
+import "../libraries/LibInterfaceIds.sol";
+import "../libraries/LibErrors.sol";
 import "../interfaces/IERC721.sol";
 import "../interfaces/IERC1155.sol";
+import "../interfaces/IERC20Token.sol";
+import "../interfaces/IERC721AVault.sol";
+import "../interfaces/IClaimed.sol";
+import "../interfaces/IIsSerialized.sol";
+import "../interfaces/IVaultCollectionFactory.sol";
 
-interface IERC20Token {
-    function transferFrom(address from, address to, uint256 value) external returns (bool);
-}
-
-interface IClaimed {
-    function isClaimed(address _nftAddress, uint256 tokenId, bytes32[] memory proof) external view returns (bool);
-    function claim(address _nftAddress, uint256 tokenId, address claimer) external;
-}
-
-interface IIsSerialized {
-    function getFirstSerialByOwner(address owner, uint256 tokenId) external view returns (uint256);
-    function getTokenIdForSerialNumber(uint256 serialNumber) external view returns (uint256);
-    function getOwnerOfSerial(uint256 serialNumber) external view returns (address);
-    function isOverloadSerial() external view returns (bool);
-}
-
+/// @title EmblemVaultClaimFacet
+/// @notice Facet for handling vault claims and burns
+/// @dev Manages the claiming process for vaults with support for various token standards
 contract EmblemVaultClaimFacet {
-    event TokenClaimed(address indexed nftAddress, uint256 indexed tokenId, address indexed claimer);
-    event TokenClaimedWithPrice(
-        address indexed nftAddress, uint256 indexed tokenId, address indexed claimer, uint256 price
+    // Events
+    event TokenClaimed(
+        address indexed nftAddress,
+        uint256 indexed tokenId,
+        address indexed claimer,
+        uint256 serialNumber,
+        bytes data
     );
+    event TokenClaimedWithPrice(
+        address indexed nftAddress,
+        uint256 indexed tokenId,
+        address indexed claimer,
+        uint256 price,
+        uint256 serialNumber,
+        bytes data
+    );
+    event ClaimerContractUpdated(address indexed oldClaimer, address indexed newClaimer);
 
-    function claim(address _nftAddress, uint256 tokenId) external {
+    modifier onlyValidCollection(address collection) {
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
+        LibErrors.revertIfFactoryNotSet(vs.vaultFactory);
+        LibErrors.revertIfInvalidCollection(
+            collection, IVaultCollectionFactory(vs.vaultFactory).isCollection(collection)
+        );
+        _;
+    }
+
+    function setClaimerContract(address _claimer) external {
+        LibDiamond.enforceIsContractOwner();
+        LibErrors.revertIfZeroAddress(_claimer);
+
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
+        address oldClaimer = vs.claimerContract;
+        LibEmblemVaultStorage.setClaimerContract(_claimer);
+
+        emit ClaimerContractUpdated(oldClaimer, _claimer);
+    }
+
+    function claim(address _nftAddress, uint256 tokenId)
+        external
+        onlyValidCollection(_nftAddress)
+    {
         LibEmblemVaultStorage.nonReentrantBefore();
-        require(!LibEmblemVaultStorage.isVaultLocked(_nftAddress, tokenId), "EmblemVaultClaimFacet: Vault is locked");
-        require(burnRouter(_nftAddress, tokenId, true), "EmblemVaultClaimFacet: Burn failed");
-        emit TokenClaimed(_nftAddress, tokenId, msg.sender);
+
+        LibErrors.revertIfAlreadyLocked(
+            _nftAddress, tokenId, LibEmblemVaultStorage.isVaultLocked(_nftAddress, tokenId)
+        );
+
+        (bool success, uint256 serialNumber, bytes memory data) =
+            burnRouter(_nftAddress, tokenId, true);
+        if (!success) revert LibErrors.BurnFailed(_nftAddress, tokenId);
+
+        emit TokenClaimed(_nftAddress, tokenId, msg.sender, serialNumber, data);
         LibEmblemVaultStorage.nonReentrantAfter();
     }
 
@@ -44,139 +96,105 @@ contract EmblemVaultClaimFacet {
         address _payment,
         uint256 _price,
         bytes calldata _signature
-    ) external payable {
+    ) external payable onlyValidCollection(_nftAddress) {
         LibEmblemVaultStorage.nonReentrantBefore();
         LibEmblemVaultStorage.enforceNotUsedNonce(_nonce);
 
         address signer;
         if (LibEmblemVaultStorage.isVaultLocked(_nftAddress, _tokenId)) {
-            signer = getAddressFromSignatureLocked(
+            signer = LibSignature.verifyLockedSignature(
                 _nftAddress, _payment, _price, msg.sender, _tokenId, _nonce, 1, _signature
             );
         } else {
-            signer = getAddressFromSignature(_nftAddress, _payment, _price, msg.sender, _tokenId, _nonce, 1, _signature);
+            signer = LibSignature.verifyStandardSignature(
+                _nftAddress, _payment, _price, msg.sender, _tokenId, _nonce, 1, _signature
+            );
         }
 
-        LibEmblemVaultStorage.enforceIsWitness(signer);
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
+        LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
 
         if (_payment == address(0)) {
-            require(msg.value == _price, "EmblemVaultClaimFacet: Incorrect ETH amount sent");
+            LibErrors.revertIfIncorrectPayment(msg.value, _price);
             payable(vs.recipientAddress).transfer(_price);
         } else {
-            IERC20Token paymentToken = IERC20Token(_payment);
-            require(
-                paymentToken.transferFrom(msg.sender, vs.recipientAddress, _price),
-                "EmblemVaultClaimFacet: Transfer failed"
-            );
+            if (!IERC20Token(_payment).transferFrom(msg.sender, vs.recipientAddress, _price)) {
+                revert LibErrors.TransferFailed();
+            }
         }
 
         // Unlock vault because server signed it
         LibEmblemVaultStorage.unlockVault(_nftAddress, _tokenId);
-        require(burnRouter(_nftAddress, _tokenId, true), "EmblemVaultClaimFacet: Burn failed");
+
+        (bool success, uint256 serialNumber, bytes memory data) =
+            burnRouter(_nftAddress, _tokenId, true);
+        if (!success) revert LibErrors.BurnFailed(_nftAddress, _tokenId);
 
         LibEmblemVaultStorage.setUsedNonce(_nonce);
-        emit TokenClaimedWithPrice(_nftAddress, _tokenId, msg.sender, _price);
+        emit TokenClaimedWithPrice(_nftAddress, _tokenId, msg.sender, _price, serialNumber, data);
         LibEmblemVaultStorage.nonReentrantAfter();
     }
 
-    function burnRouter(address _nftAddress, uint256 tokenId, bool shouldClaim) internal returns (bool) {
+    function burnRouter(address _nftAddress, uint256 tokenId, bool shouldClaim)
+        internal
+        returns (bool success, uint256 serialNumber, bytes memory data)
+    {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        IClaimed claimer = IClaimed(vs.registeredOfType[6][0]);
+        if (vs.claimerContract == address(0)) revert LibErrors.ClaimerNotSet();
+
+        IClaimed claimer = IClaimed(vs.claimerContract);
         bytes32[] memory proof;
 
-        if (IERC165(_nftAddress).supportsInterface(vs.INTERFACE_ID_ERC1155)) {
+        if (LibInterfaceIds.isERC1155(_nftAddress)) {
             IIsSerialized serialized = IIsSerialized(_nftAddress);
-            uint256 serialNumber = serialized.getFirstSerialByOwner(address(this), tokenId);
-            require(
-                serialized.getTokenIdForSerialNumber(serialNumber) == tokenId,
-                "EmblemVaultClaimFacet: Invalid tokenId serialnumber combination"
-            );
-            require(
-                serialized.getOwnerOfSerial(serialNumber) == address(this), "EmblemVaultClaimFacet: Not owned by vault"
-            );
-            require(!claimer.isClaimed(_nftAddress, serialNumber, proof), "EmblemVaultClaimFacet: Already Claimed");
+            serialNumber = serialized.getFirstSerialByOwner(address(this), tokenId);
+
+            if (serialized.getTokenIdForSerialNumber(serialNumber) != tokenId) {
+                revert LibErrors.InvalidTokenId(tokenId);
+            }
+            if (serialized.getOwnerOfSerial(serialNumber) != address(this)) {
+                revert LibErrors.NotVaultOwner(_nftAddress, tokenId, address(this));
+            }
+            if (claimer.isClaimed(_nftAddress, serialNumber, proof)) {
+                revert LibErrors.AlreadyClaimed(_nftAddress, serialNumber);
+            }
+
             IERC1155(_nftAddress).burn(address(this), tokenId, 1);
             if (shouldClaim) {
                 claimer.claim(_nftAddress, serialNumber, msg.sender);
             }
+            data = "";
         } else {
-            if (IERC165(_nftAddress).supportsInterface(vs.INTERFACE_ID_ERC721A)) {
-                IERC721A token = IERC721A(_nftAddress);
+            if (LibInterfaceIds.isERC721A(_nftAddress)) {
+                IERC721AVault token = IERC721AVault(_nftAddress);
                 uint256 internalTokenId = token.getInternalTokenId(tokenId);
-                require(
-                    !claimer.isClaimed(_nftAddress, internalTokenId, proof), "EmblemVaultClaimFacet: Already Claimed"
-                );
-                require(token.ownerOf(internalTokenId) == address(this), "EmblemVaultClaimFacet: Not owned by vault");
+
+                if (claimer.isClaimed(_nftAddress, internalTokenId, proof)) {
+                    revert LibErrors.AlreadyClaimed(_nftAddress, internalTokenId);
+                }
+                if (token.ownerOf(internalTokenId) != address(this)) {
+                    revert LibErrors.NotVaultOwner(_nftAddress, internalTokenId, address(this));
+                }
+
                 token.burn(internalTokenId);
+                data = "";
+                serialNumber = internalTokenId;
             } else {
-                require(!claimer.isClaimed(_nftAddress, tokenId, proof), "EmblemVaultClaimFacet: Already Claimed");
+                if (claimer.isClaimed(_nftAddress, tokenId, proof)) {
+                    revert LibErrors.AlreadyClaimed(_nftAddress, tokenId);
+                }
                 IERC721 token = IERC721(_nftAddress);
-                require(token.ownerOf(tokenId) == address(this), "EmblemVaultClaimFacet: Not owned by vault");
+                if (token.ownerOf(tokenId) != address(this)) {
+                    revert LibErrors.NotVaultOwner(_nftAddress, tokenId, address(this));
+                }
                 token.burn(tokenId);
+                serialNumber = tokenId;
+                data = "";
             }
             if (shouldClaim) {
                 claimer.claim(_nftAddress, tokenId, msg.sender);
             }
         }
-        return true;
+        return (true, serialNumber, data);
     }
-
-    function getAddressFromSignature(
-        address _nftAddress,
-        address _payment,
-        uint256 _price,
-        address _to,
-        uint256 _tokenId,
-        uint256 _nonce,
-        uint256 _amount,
-        bytes calldata signature
-    ) internal pure returns (address) {
-        bytes32 hash = keccak256(abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount));
-        return recoverSigner(hash, signature);
-    }
-
-    function getAddressFromSignatureLocked(
-        address _nftAddress,
-        address _payment,
-        uint256 _price,
-        address _to,
-        uint256 _tokenId,
-        uint256 _nonce,
-        uint256 _amount,
-        bytes calldata signature
-    ) internal pure returns (address) {
-        bytes32 hash = keccak256(abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount, true));
-        return recoverSigner(hash, signature);
-    }
-
-    function recoverSigner(bytes32 hash, bytes memory sig) internal pure returns (address) {
-        require(sig.length == 65, "EmblemVaultClaimFacet: Invalid signature length");
-
-        bytes32 r;
-        bytes32 s;
-        uint8 v;
-
-        assembly {
-            r := mload(add(sig, 32))
-            s := mload(add(sig, 64))
-            v := byte(0, mload(add(sig, 96)))
-        }
-
-        if (v < 27) {
-            v += 27;
-        }
-
-        require(v == 27 || v == 28, "EmblemVaultClaimFacet: Invalid signature version");
-
-        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
-        bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, hash));
-        return ecrecover(prefixedHash, v, r, s);
-    }
-}
-
-interface IERC721A {
-    function getInternalTokenId(uint256 tokenId) external view returns (uint256);
-    function ownerOf(uint256 tokenId) external view returns (address owner);
-    function burn(uint256 tokenId) external;
 }

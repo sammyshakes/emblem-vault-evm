@@ -9,13 +9,37 @@ Create a `.env` file with:
 ```env
 # Required for all operations
 PRIVATE_KEY=your_private_key
-RPC_URL=your_rpc_url
+DEPLOYER_ADDRESS=0x107A120f536c8BD891A3c04fcA22a7814E260210
 
-# Required for diamond upgrades
-DIAMOND_ADDRESS=deployed_diamond_address
+# Network RPC URLs
+FUJI_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
+
+# Diamond System Addresses
+DIAMOND_ADDRESS=0x79AC7f72699a2938A975b873FB2Fbef86f5D6e4d
+DIAMOND_CUT_FACET=0xB9797497Ed43153a8EB4a3417168F4376b4a24A9
+DIAMOND_LOUPE_FACET=0xF619706cDA244Be007082a6C1f624279B343821d
+OWNERSHIP_FACET=0x8dBaEb6c4FD7477927D1D90c4640E3DEdE3c1E23
+CORE_FACET=0xc566d12e81f86554dd82F1d1Ae63b03707500085
+CLAIM_FACET=0x360e976192440c11F06dbaCd8C87077376c74b1D
+MINT_FACET=0xDB2Cb754330b542E2808FdeD5A4C7C8274c07B7a
+COLLECTION_FACET=0x18b3be2FBF408e29787fda1D77eC53e1B22Ad1Bc
+INIT_FACET=0xe691Dfe8efd784Dcf0Eb09F689f7b7F2Ec1d3237
+
+# Implementation Addresses
+ERC721_IMPLEMENTATION=0xAb5A5667253F5452EeF8cCD3bF2BD890144695e6
+ERC1155_IMPLEMENTATION=0xd2343E5e80434995772c64f1c073B2CF0311D4a8
+
+# Beacon System Addresses
+ERC721_BEACON=0xeCb9dcfBEe7A450B967ADc72110DBca614eE1904
+ERC1155_BEACON=0xDd8C66d318aF05A3162F6Bed3CeD6fD63f7358e8
+COLLECTION_FACTORY_ADDRESS=0xeD6Bbdf42C18643c4c5Cd9903899f518BB72f16E
+
+# Test Collection Addresses
+ERC721_COLLECTION=0x12a84432093C56D9235C7cd390Bb6A7adDA78301
+ERC1155_COLLECTION=0x8D4f8238a9b9Aaaf8246c2C79Ad4596D1EAE14aF
+
+# Upgrade Configuration
 FACETS_TO_UPGRADE=CoreFacet,MintFacet,ClaimFacet,CollectionFacet
-
-# Required for beacon upgrades
 IMPLEMENTATIONS_TO_UPGRADE=ERC721,ERC1155
 ```
 
@@ -24,35 +48,61 @@ IMPLEMENTATIONS_TO_UPGRADE=ERC721,ERC1155
 1. First, deploy the Diamond system:
 
 ```bash
-forge script script/DeployDiamondSystem.s.sol:DeployDiamondSystem --rpc-url $RPC_URL --broadcast
+forge script script/DeployDiamondSystem.s.sol:DeployDiamondSystem --rpc-url fuji --broadcast --verify --slow -vvvv
 ```
 
 This will:
 
-- Deploy all facets (Core, Claim, Mint, Callback, Collection, etc.)
+- Deploy all facets (Core, Claim, Mint, Collection, etc.)
 - Deploy the diamond
 - Add all facets to the diamond
 - Initialize the diamond
-- Save deployment addresses to `.env.diamond`
 
-2. Then, deploy the Beacon system:
+2. Then, deploy the Vault implementations:
 
 ```bash
-forge script script/DeployBeaconSystem.s.sol:DeployBeaconSystem --rpc-url $RPC_URL --broadcast
+forge script script/DeployVaultImplementations.s.sol:DeployVaultImplementations --rpc-url fuji --broadcast --verify --slow -vvvv
 ```
 
 This will:
 
 - Deploy ERC721 and ERC1155 implementations
-- Deploy beacons pointing to these implementations
+- Verify implementations on Snowtrace
+
+3. Deploy beacons and factory:
+
+```bash
+forge script script/DeployBeaconAndFactory.s.sol:DeployBeaconAndFactory --rpc-url fuji --broadcast --verify --slow -vvvv
+```
+
+This will:
+
+- Deploy beacons pointing to implementations
 - Deploy the VaultCollectionFactory
-- Save deployment addresses to `.env.beacon`
+- Set factory in Diamond's CollectionFacet
 
-3. After deployment, set the collection factory in the diamond:
+4. Create test collections:
 
-```solidity
-// Using the CollectionFacet through the diamond
-EmblemVaultCollectionFacet(diamondAddress).setCollectionFactory(factoryAddress);
+```bash
+forge script script/CreateTestCollections.s.sol:CreateTestCollections --rpc-url fuji --broadcast --verify --slow -vvvv
+```
+
+This will:
+
+- Create an ERC721 test collection
+- Create an ERC1155 test collection
+- Transfer ownership to Diamond
+
+5. Mint test vault:
+
+```bash
+forge script script/MintTestVaults.s.sol:MintTestVaults --rpc-url fuji --broadcast --verify --slow -vvvv --sig "mintEmptyVault(address,uint256)" <collection_address> <token_id>
+```
+
+Example:
+
+```bash
+forge script script/MintTestVaults.s.sol:MintTestVaults --rpc-url fuji --broadcast --verify --slow -vvvv --sig "mintEmptyVault(address,uint256)" 0x12a84432093C56D9235C7cd390Bb6A7adDA78301 1
 ```
 
 ## Upgrade Flow
@@ -62,23 +112,15 @@ EmblemVaultCollectionFacet(diamondAddress).setCollectionFactory(factoryAddress);
 1. Set the facets to upgrade in `.env`:
 
 ```env
-DIAMOND_ADDRESS=your_diamond_address
+DIAMOND_ADDRESS=0x79AC7f72699a2938A975b873FB2Fbef86f5D6e4d
 FACETS_TO_UPGRADE=CoreFacet,MintFacet,ClaimFacet,CollectionFacet
 ```
 
 2. Run the upgrade script:
 
 ```bash
-forge script script/UpgradeDiamondFacets.s.sol:UpgradeDiamondFacets --rpc-url $RPC_URL --broadcast
+forge script script/UpgradeDiamondFacets.s.sol:UpgradeDiamondFacets --rpc-url fuji --broadcast --verify --slow -vvvv
 ```
-
-Available facets:
-
-- CoreFacet
-- ClaimFacet
-- MintFacet
-- CallbackFacet
-- CollectionFacet
 
 ### Upgrading Beacon Implementations
 
@@ -91,88 +133,71 @@ IMPLEMENTATIONS_TO_UPGRADE=ERC721,ERC1155
 2. Run the upgrade script:
 
 ```bash
-forge script script/UpgradeBeaconImplementations.s.sol:UpgradeBeaconImplementations --rpc-url $RPC_URL --broadcast
+forge script script/UpgradeBeaconImplementations.s.sol:UpgradeBeaconImplementations --rpc-url fuji --broadcast --verify --slow -vvvv
 ```
-
-This will:
-
-- Deploy new implementation(s)
-- Upgrade the beacon(s) to point to new implementation(s)
-- Update `.env.beacon` with new addresses
 
 ### Updating Collection URIs
 
-The system supports updating URIs for both ERC721 and ERC1155 collections through the UpdateCollectionBaseURI script.
+The system supports updating URIs for both ERC721 and ERC1155 collections:
 
 1. For ERC721 collections:
 
 ```bash
-forge script script/UpdateCollectionBaseURI.s.sol:UpdateCollectionBaseURI --rpc-url $RPC_URL --broadcast -vvvv --sig "run(address,string,uint8)" <collection_address> <new_base_uri> 1
-```
-
-Example:
-
-```bash
-forge script script/UpdateCollectionBaseURI.s.sol:UpdateCollectionBaseURI --rpc-url $RPC_URL --broadcast -vvvv --sig "run(address,string,uint8)" 0x7587d6A2e67eD18cA8279820e608894cC5c145A5 "https://api.emblem.finance/erc721/metadata/" 1
+forge script script/UpdateCollectionBaseURI.s.sol:UpdateCollectionBaseURI --rpc-url fuji --broadcast --verify --slow -vvvv --sig "run(address,string,uint8)" 0x12a84432093C56D9235C7cd390Bb6A7adDA78301 "https://api.emblem.finance/erc721/metadata/" 1
 ```
 
 2. For ERC1155 collections:
 
 ```bash
-forge script script/UpdateCollectionBaseURI.s.sol:UpdateCollectionBaseURI --rpc-url $RPC_URL --broadcast -vvvv --sig "run(address,string,uint8)" <collection_address> <new_uri> 2
+forge script script/UpdateCollectionBaseURI.s.sol:UpdateCollectionBaseURI --rpc-url fuji --broadcast --verify --slow -vvvv --sig "run(address,string,uint8)" 0x8D4f8238a9b9Aaaf8246c2C79Ad4596D1EAE14aF "https://api.emblem.finance/erc1155/metadata/{id}.json" 2
 ```
 
-Example:
+Required environment variables:
+
+```env
+DIAMOND_ADDRESS=0x79AC7f72699a2938A975b873FB2Fbef86f5D6e4d
+ERC721_COLLECTION=0x12a84432093C56D9235C7cd390Bb6A7adDA78301
+ERC1155_COLLECTION=0x8D4f8238a9b9Aaaf8246c2C79Ad4596D1EAE14aF
+```
+
+### Factory Updates
+
+Deploy a new factory using existing beacons:
 
 ```bash
-forge script script/UpdateCollectionBaseURI.s.sol:UpdateCollectionBaseURI --rpc-url $RPC_URL --broadcast -vvvv --sig "run(address,string,uint8)" 0x064724D71E0B3C2bB03384d1188A2F34144a13bd "https://api.emblem.finance/erc1155/metadata/{id}.json" 2
+forge script script/DeployUpdatedFactory.s.sol:DeployUpdatedFactory --rpc-url fuji --broadcast --verify --slow -vvvv
 ```
 
-Parameters:
+Required environment variables:
 
-- collection_address: The address of the collection to update
-- new_base_uri/new_uri: The new URI to set
-- type: 1 for ERC721, 2 for ERC1155
+```env
+DIAMOND_ADDRESS=0x79AC7f72699a2938A975b873FB2Fbef86f5D6e4d
+COLLECTION_FACTORY_ADDRESS=0xeD6Bbdf42C18643c4c5Cd9903899f518BB72f16E
+ERC721_BEACON=0xeCb9dcfBEe7A450B967ADc72110DBca614eE1904
+ERC1155_BEACON=0xDd8C66d318aF05A3162F6Bed3CeD6fD63f7358e8
+```
 
-## Script Details
+### Batch Collection Updates
 
-### DeployDiamondSystem.s.sol
+Update multiple collections and URIs in one transaction:
 
-- Deploys all facets and the diamond
-- Adds facets to diamond with correct function selectors
-- Initializes the diamond
-- Saves addresses to `.env.diamond`
+```bash
+forge script script/UpdateCollectionsAndURIs.s.sol:UpdateCollectionsAndURIs --rpc-url fuji --broadcast --verify --slow -vvvv
+```
 
-### DeployBeaconSystem.s.sol
+Required environment variables:
 
-- Deploys ERC721/ERC1155 implementations
-- Deploys beacons pointing to implementations
-- Deploys VaultCollectionFactory
-- Saves addresses to `.env.beacon`
-
-### UpgradeDiamondFacets.s.sol
-
-- Deploys new versions of specified facets
-- Updates diamond to use new facet implementations
-- Maintains all function selectors during upgrade
-
-### UpgradeBeaconImplementations.s.sol
-
-- Deploys new versions of ERC721/ERC1155 implementations
-- Updates beacons to point to new implementations
-- Updates `.env.beacon` with new addresses
-
-### UpdateCollectionBaseURI.s.sol
-
-- Updates URIs for ERC721 and ERC1155 collections
-- Supports different URI formats for each collection type
-- Verifies collection ownership and type before update
+```env
+DIAMOND_ADDRESS=0x79AC7f72699a2938A975b873FB2Fbef86f5D6e4d
+COLLECTION_FACTORY_ADDRESS=0xeD6Bbdf42C18643c4c5Cd9903899f518BB72f16E
+ERC721_COLLECTION=0x12a84432093C56D9235C7cd390Bb6A7adDA78301
+ERC1155_COLLECTION=0x8D4f8238a9b9Aaaf8246c2C79Ad4596D1EAE14aF
+```
 
 ## Important Notes
 
-1. Always verify the `.env` file has the correct addresses before running upgrade scripts.
-2. The deployment scripts save addresses to `.env.diamond` and `.env.beacon` - keep these files safe.
-3. When upgrading facets, ensure all function selectors are properly maintained.
-4. When upgrading implementations, ensure they remain compatible with existing collections.
-5. When updating URIs, ensure the new URIs are properly formatted and accessible.
-6. For ERC1155 collections, the URI must include the `{id}` placeholder for token IDs.
+1. Always verify the `.env` file has the correct addresses before running scripts
+2. When upgrading facets, ensure all function selectors are properly maintained
+3. When upgrading implementations, ensure they remain compatible with existing collections
+4. When updating URIs, ensure the new URIs are properly formatted and accessible
+5. For ERC1155 collections, the URI must include the `{id}` placeholder for token IDs

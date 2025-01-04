@@ -11,7 +11,8 @@ import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
  */
 contract VaultProxy is IERC165 {
     // Beacon slot follows EIP-1967
-    bytes32 private constant BEACON_SLOT = 0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50;
+    bytes32 private constant BEACON_SLOT =
+        0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50;
 
     // Events
     event BeaconSet(address indexed beacon);
