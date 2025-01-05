@@ -98,8 +98,14 @@ contract EmblemVaultClaimFacet {
         bytes calldata _signature
     ) external payable onlyValidCollection(_nftAddress) {
         LibEmblemVaultStorage.nonReentrantBefore();
-        LibEmblemVaultStorage.enforceNotUsedNonce(_nonce);
 
+        // Checks
+        LibEmblemVaultStorage.enforceNotUsedNonce(_nonce);
+        if (_payment == address(0)) {
+            LibErrors.revertIfIncorrectPayment(msg.value, _price);
+        }
+
+        // Verify signature and witness
         address signer;
         if (LibEmblemVaultStorage.isVaultLocked(_nftAddress, _tokenId)) {
             signer = LibSignature.verifyLockedSignature(
@@ -114,23 +120,25 @@ contract EmblemVaultClaimFacet {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
 
+        // Effects
+        LibEmblemVaultStorage.setUsedNonce(_nonce);
+        LibEmblemVaultStorage.unlockVault(_nftAddress, _tokenId);
+        (bool success, uint256 serialNumber, bytes memory data) =
+            burnRouter(_nftAddress, _tokenId, true);
+        if (!success) revert LibErrors.BurnFailed(_nftAddress, _tokenId);
+
+        // Interactions
         if (_payment == address(0)) {
-            LibErrors.revertIfIncorrectPayment(msg.value, _price);
-            payable(vs.recipientAddress).transfer(_price);
+            (bool _success,) = vs.recipientAddress.call{value: _price}("");
+            if (!_success) {
+                revert LibErrors.ETHTransferFailed();
+            }
         } else {
             if (!IERC20Token(_payment).transferFrom(msg.sender, vs.recipientAddress, _price)) {
                 revert LibErrors.TransferFailed();
             }
         }
 
-        // Unlock vault because server signed it
-        LibEmblemVaultStorage.unlockVault(_nftAddress, _tokenId);
-
-        (bool success, uint256 serialNumber, bytes memory data) =
-            burnRouter(_nftAddress, _tokenId, true);
-        if (!success) revert LibErrors.BurnFailed(_nftAddress, _tokenId);
-
-        LibEmblemVaultStorage.setUsedNonce(_nonce);
         emit TokenClaimedWithPrice(_nftAddress, _tokenId, msg.sender, _price, serialNumber, data);
         LibEmblemVaultStorage.nonReentrantAfter();
     }

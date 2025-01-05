@@ -18,9 +18,8 @@ pragma solidity ^0.8.19;
 
 /// @title EmblemVaultMintFacet
 /// @notice Facet contract for handling NFT minting operations in the Emblem Vault system
-/// @dev This facet provides functionality for minting NFTs through various methods including
-/// signed price purchases and batch minting. It supports both ERC721A
-/// and ERC1155 token standards.
+/// @dev This facet provides functionality for minting NFTs through verified signatures.
+/// It supports both ERC721A and ERC1155 token standards.
 
 // ========== External Libraries ==========
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -114,6 +113,9 @@ contract EmblemVaultMintFacet {
     ) external payable onlyValidCollection(_nftAddress) {
         LibEmblemVaultStorage.nonReentrantBefore();
 
+        // Validate nonce (Checks)
+        LibEmblemVaultStorage.enforceNotUsedNonce(_nonce);
+
         MintParams memory params = MintParams({
             nftAddress: _nftAddress,
             payment: _payment,
@@ -126,7 +128,49 @@ contract EmblemVaultMintFacet {
             amount: _amount
         });
 
-        _processMint(params);
+        // Verify signature and witness (Checks)
+        address signer = LibSignature.verifyStandardSignature(
+            params.nftAddress,
+            params.payment,
+            params.price,
+            params.to,
+            params.externalTokenId,
+            params.nonce,
+            params.amount,
+            params.signature
+        );
+
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
+        LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
+
+        // Mark nonce as used (Effects)
+        LibEmblemVaultStorage.setUsedNonce(_nonce);
+
+        // Process payment (Interactions)
+        if (params.payment == address(0)) {
+            LibErrors.revertIfInsufficientETH(msg.value, params.price);
+            (bool success,) = vs.recipientAddress.call{value: msg.value}("");
+            if (!success) {
+                revert LibErrors.ETHTransferFailed();
+            }
+        } else {
+            IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, params.price);
+        }
+
+        // Mint token (Interactions)
+        if (!_mintRouter(params)) {
+            revert LibErrors.MintFailed(params.nftAddress, params.externalTokenId);
+        }
+
+        emit TokenMinted(
+            params.nftAddress,
+            params.to,
+            params.externalTokenId,
+            params.amount,
+            params.price,
+            params.payment,
+            params.serialNumber
+        );
 
         LibEmblemVaultStorage.nonReentrantAfter();
     }
@@ -161,6 +205,7 @@ contract EmblemVaultMintFacet {
     {
         LibEmblemVaultStorage.nonReentrantBefore();
 
+        // Validate array lengths
         LibErrors.revertIfLengthMismatch(params.externalTokenIds.length, params.prices.length);
         LibErrors.revertIfLengthMismatch(params.externalTokenIds.length, params.nonces.length);
         LibErrors.revertIfLengthMismatch(params.externalTokenIds.length, params.signatures.length);
@@ -169,26 +214,15 @@ contract EmblemVaultMintFacet {
             params.externalTokenIds.length, params.serialNumbers.length
         );
 
-        uint256 totalPrice;
-        for (uint256 i = 0; i < params.prices.length; i++) {
-            totalPrice += params.prices[i] * params.amounts[i];
-        }
-
-        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-
-        if (params.payment == address(0)) {
-            LibErrors.revertIfInsufficientETH(msg.value, totalPrice);
-            (bool success,) = vs.recipientAddress.call{value: msg.value}("");
-            if (!success) {
-                revert LibErrors.ETHTransferFailed();
-            }
-        } else {
-            IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, totalPrice);
-        }
-
+        // Validate and set nonces
         for (uint256 i = 0; i < params.externalTokenIds.length; i++) {
             LibEmblemVaultStorage.enforceNotUsedNonce(params.nonces[i]);
+            LibEmblemVaultStorage.setUsedNonce(params.nonces[i]);
+        }
 
+        // Verify signatures and witnesses
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
+        for (uint256 i = 0; i < params.externalTokenIds.length; i++) {
             address signer = LibSignature.verifyStandardSignature(
                 params.nftAddress,
                 params.payment,
@@ -199,11 +233,27 @@ contract EmblemVaultMintFacet {
                 params.amounts[i],
                 params.signatures[i]
             );
-
             LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
-            LibEmblemVaultStorage.setUsedNonce(params.nonces[i]);
         }
 
+        // Calculate total price
+        uint256 totalPrice;
+        for (uint256 i = 0; i < params.prices.length; i++) {
+            totalPrice += params.prices[i] * params.amounts[i];
+        }
+
+        // Process payment
+        if (params.payment == address(0)) {
+            LibErrors.revertIfInsufficientETH(msg.value, totalPrice);
+            (bool success,) = vs.recipientAddress.call{value: msg.value}("");
+            if (!success) {
+                revert LibErrors.ETHTransferFailed();
+            }
+        } else {
+            IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, totalPrice);
+        }
+
+        // Mint tokens
         require(
             _batchMintRouter(
                 params.nftAddress,
@@ -220,19 +270,7 @@ contract EmblemVaultMintFacet {
     }
 
     function _processMint(MintParams memory params) private {
-        LibEmblemVaultStorage.enforceNotUsedNonce(params.nonce);
-        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-
-        if (params.payment == address(0)) {
-            LibErrors.revertIfInsufficientETH(msg.value, params.price);
-            (bool success,) = vs.recipientAddress.call{value: msg.value}("");
-            if (!success) {
-                revert("Failed to send Ether");
-            }
-        } else {
-            IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, params.price);
-        }
-
+        // Validate and verify signature (Checks)
         address signer = LibSignature.verifyStandardSignature(
             params.nftAddress,
             params.payment,
@@ -244,13 +282,24 @@ contract EmblemVaultMintFacet {
             params.signature
         );
 
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
 
+        // Process payment (Interactions)
+        if (params.payment == address(0)) {
+            LibErrors.revertIfInsufficientETH(msg.value, params.price);
+            (bool success,) = vs.recipientAddress.call{value: msg.value}("");
+            if (!success) {
+                revert LibErrors.ETHTransferFailed();
+            }
+        } else {
+            IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, params.price);
+        }
+
+        // Mint token (Interactions)
         if (!_mintRouter(params)) {
             revert LibErrors.MintFailed(params.nftAddress, params.externalTokenId);
         }
-
-        LibEmblemVaultStorage.setUsedNonce(params.nonce);
 
         emit TokenMinted(
             params.nftAddress,
@@ -298,41 +347,6 @@ contract EmblemVaultMintFacet {
             IERC721AVault(nftAddress).batchMintWithData(to, externalTokenIds, data);
         }
         return true;
-    }
-
-    /// @notice Batch mint NFTs
-    /// @dev Mints multiple NFTs in a single transaction
-    /// @param to Recipient address
-    /// @param externalTokenIds Array of external token IDs to mint
-    function batchMint(address to, uint256[] calldata externalTokenIds) external {
-        uint256[] memory amounts = new uint256[](externalTokenIds.length);
-        bytes[] memory serialNumbers = new bytes[](externalTokenIds.length);
-        for (uint256 i = 0; i < externalTokenIds.length; i++) {
-            amounts[i] = 1;
-        }
-        require(
-            _batchMintRouter(address(this), to, externalTokenIds, amounts, serialNumbers, ""),
-            "Batch mint failed"
-        );
-    }
-
-    /// @notice Batch mint NFTs with additional data
-    /// @dev Mints multiple NFTs with additional data in a single transaction
-    /// @param to Recipient address
-    /// @param externalTokenIds Array of external token IDs to mint
-    /// @param data Additional data to pass with the mint
-    function batchMintWithData(address to, uint256[] calldata externalTokenIds, bytes calldata data)
-        external
-    {
-        uint256[] memory amounts = new uint256[](externalTokenIds.length);
-        bytes[] memory serialNumbers = new bytes[](externalTokenIds.length);
-        for (uint256 i = 0; i < externalTokenIds.length; i++) {
-            amounts[i] = 1;
-        }
-        require(
-            _batchMintRouter(address(this), to, externalTokenIds, amounts, serialNumbers, data),
-            "Batch mint failed"
-        );
     }
 
     function _uintToStrOptimized(uint256 value) internal pure returns (string memory) {

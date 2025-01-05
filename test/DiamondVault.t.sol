@@ -25,8 +25,11 @@ import {ERC1155VaultImplementation} from "../src/implementations/ERC1155VaultImp
 import {VaultCollectionFactory} from "../src/factories/VaultCollectionFactory.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {LibErrors} from "../src/libraries/LibErrors.sol";
+import {LibEmblemVaultStorage} from "../src/libraries/LibEmblemVaultStorage.sol";
 import "./mocks/MockERC20.sol";
 import "./mocks/MockClaimer.sol";
+import "./mocks/ReentrantReceiver.sol";
+import "./mocks/FailingETHReceiver.sol";
 
 contract DiamondVaultTest is Test {
     // Diamond components
@@ -250,8 +253,8 @@ contract DiamondVaultTest is Test {
         // Setup diamond configuration
         // 1. Set recipient address first
         vm.expectEmit(true, true, true, true);
-        emit RecipientAddressChanged(address(this), address(this));
-        EmblemVaultCoreFacet(address(diamond)).setRecipientAddress(address(this));
+        emit RecipientAddressChanged(address(this), address(diamond));
+        EmblemVaultCoreFacet(address(diamond)).setRecipientAddress(address(diamond));
 
         // 2. Set claimer contract
         vm.expectEmit(true, true, true, true);
@@ -311,7 +314,7 @@ contract DiamondVaultTest is Test {
 
         assertEq(baseUri, "https://v2.emblemvault.io/meta/");
         assertEq(witnessCount, 2); // owner + witness
-        assertEq(recipientAddr, address(this));
+        assertEq(recipientAddr, address(diamond));
         assertEq(claimerAddr, address(claimer));
         assertFalse(byPassable);
         assertEq(EmblemVaultCoreFacet(address(diamond)).getVaultFactory(), address(factory));
@@ -836,6 +839,121 @@ contract DiamondVaultTest is Test {
             amounts: amounts
         });
         EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: prices[0]}(params);
+        vm.stopPrank();
+    }
+
+    function testRevertReentrantMint() public {
+        uint256 price = 1 ether;
+        uint256 nonce = 100;
+
+        // Deploy reentrant receiver
+        ReentrantReceiver receiver = new ReentrantReceiver(address(diamond));
+        console.log("Deployed ReentrantReceiver at:", address(receiver));
+
+        // Set receiver as recipient address
+        vm.prank(owner);
+        EmblemVaultCoreFacet(address(diamond)).setRecipientAddress(address(receiver));
+        console.log("Set receiver as recipient address");
+
+        uint256 tokenId = 2; // Use different token ID than setUp
+
+        // Create signature from witness
+        bytes memory signature = createSignature(
+            nftCollection,
+            address(0),
+            price,
+            address(receiver),
+            tokenId,
+            nonce,
+            1,
+            witnessPrivateKey
+        );
+        receiver.setSignature(signature);
+        console.log("Set signature for receiver");
+
+        // Get initial reentrancy state
+        LibEmblemVaultStorage.ReentrancyGuard storage guard =
+            LibEmblemVaultStorage.reentrancyGuard();
+        console.log("Initial guard.entered:", guard.entered);
+
+        // Attempt reentrant mint
+        vm.expectRevert(LibErrors.ETHTransferFailed.selector);
+        console.log("Attempting reentrant mint...");
+        receiver.attemptReentrantMint{value: price}(nftCollection, price, tokenId, nonce);
+
+        // Check final reentrancy state
+        console.log("Final guard.entered:", guard.entered);
+    }
+
+    function testRevertReentrantClaim() public {
+        uint256 tokenId = 1;
+        uint256 price = 1 ether;
+        uint256 nonce = 100;
+
+        // First approve and transfer to diamond from tokenHolder
+        vm.startPrank(tokenHolder);
+        ERC721VaultImplementation(nftCollection).approve(address(diamond), tokenId);
+        ERC721VaultImplementation(nftCollection).transferFrom(
+            tokenHolder, address(diamond), tokenId
+        );
+        vm.stopPrank();
+
+        // Deploy reentrant receiver
+        ReentrantReceiver receiver = new ReentrantReceiver(address(diamond));
+        console.log("Deployed ReentrantReceiver at:", address(receiver));
+
+        // Set receiver as recipient address
+        vm.prank(owner);
+        EmblemVaultCoreFacet(address(diamond)).setRecipientAddress(address(receiver));
+        console.log("Set receiver as recipient address");
+
+        // Create signature from witness
+        bytes memory signature = createSignature(
+            nftCollection,
+            address(0),
+            price,
+            address(receiver),
+            tokenId,
+            nonce,
+            1,
+            witnessPrivateKey
+        );
+        receiver.setSignature(signature);
+        console.log("Set signature for receiver");
+
+        // Get initial reentrancy state
+        LibEmblemVaultStorage.ReentrancyGuard storage guard =
+            LibEmblemVaultStorage.reentrancyGuard();
+        console.log("Initial guard.entered:", guard.entered);
+
+        // Attempt reentrant claim
+        vm.expectRevert(LibErrors.ETHTransferFailed.selector);
+        console.log("Attempting reentrant claim...");
+        receiver.attemptReentrantClaim{value: price}(nftCollection, tokenId, nonce, price);
+
+        // Check final reentrancy state
+        console.log("Final guard.entered:", guard.entered);
+    }
+
+    function testRevertFailedETHTransfer() public {
+        // Deploy failing receiver and set as recipient
+        FailingETHReceiver failingReceiver = new FailingETHReceiver();
+        vm.prank(owner);
+        EmblemVaultCoreFacet(address(diamond)).setRecipientAddress(address(failingReceiver));
+
+        uint256 price = 1 ether;
+        uint256 nonce = 100;
+
+        // Create signature from witness
+        bytes memory signature =
+            createSignature(nftCollection, address(0), price, user1, 2, nonce, 1, witnessPrivateKey);
+
+        // Attempt mint with failing ETH receiver
+        vm.startPrank(user1);
+        vm.expectRevert(LibErrors.ETHTransferFailed.selector);
+        EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: price}(
+            nftCollection, address(0), price, user1, 2, nonce, signature, "", 1
+        );
         vm.stopPrank();
     }
 

@@ -351,10 +351,45 @@ Total Beacon System:
 - Gas Used: 407999
 - Gas Price: 7.164352448 gwei
 - Cost: 0.002923048634431552 ETH
-- Collection Name: Diamond Hands Collection
-- Collection Symbol: DHC
+
+**On-chain Verification:**
+
+```bash
+# Name verification
+> cast call 0xAfE0130Bad95763A66871e1F2fd73B8e7ee18037 "name()" --rpc-url mainnet
+0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000184469616d6f6e642048616e647320436f6c6c656374696f6e0000000000000000
+
+> cast --to-ascii 4469616d6f6e642048616e647320436f6c6c656374696f6e
+"Diamond Hands Collection"
+
+# Symbol verification
+> cast call 0xAfE0130Bad95763A66871e1F2fd73B8e7ee18037 "symbol()" --rpc-url mainnet
+0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000034448430000000000000000000000000000000000000000000000000000000000
+
+> cast --to-ascii 444843
+"DHC"
+
+# Owner verification
+> cast call 0xAfE0130Bad95763A66871e1F2fd73B8e7ee18037 "owner()" --rpc-url mainnet
+0x000000000000000000000000a99526e4dc81b85c1d248ca974eadce81837ecf1
+
+# Collection Type verification
+> cast call 0x109De29e0FB4de58A66ce077253E0604D81AD14C "getCollectionType(address)" 0xAfE0130Bad95763A66871e1F2fd73B8e7ee18037 --rpc-url mainnet
+0x0000000000000000000000000000000000000000000000000000000000000001
+
+# Implementation verification
+> cast call 0x8977704a454fE2063336324027440d7bc56689AA "implementation()" --rpc-url mainnet
+0x00000000000000000000000015086dd99d696aa6b0a036424fb6ad4923508a94
+```
+
+**Verified Details:**
+
+- Collection Name: Diamond Hands Collection ✅
+- Collection Symbol: DHC ✅
 - Base URI: https://v2.emblemvault.io/meta/ (default)
-- Owner: 0xa99526E4Dc81b85C1d248Ca974Eadce81837eCF1
+- Owner: 0xa99526E4Dc81b85C1d248Ca974Eadce81837eCF1 ✅
+- Collection Type: 1 (ERC721A) ✅
+- Implementation: 0x15086dd99d696aa6b0a036424fb6ad4923508a94 ✅
 
 ## Deployment Verification Results
 
