@@ -28,7 +28,7 @@ contract EmblemVaultInitFacet {
         address indexed owner, string metadataBaseUri, bool byPassable, bool initialized
     );
     event InterfaceIdSet(bytes4 indexed interfaceId, string name);
-    event ClaimerContractSet(address indexed claimerContract);
+    event ClaimingEnabled(bool enabled);
     event WitnessInitialized(address indexed witness, uint256 witnessCount);
     event BypassStateInitialized(bool byPassable);
 
@@ -61,8 +61,8 @@ contract EmblemVaultInitFacet {
         vs.witnesses[_owner] = true;
         vs.witnessCount = 1;
 
-        // Initialize with no claimer contract
-        vs.claimerContract = address(0);
+        // Initialize claim tracking
+        vs.claimingEnabled = true;
 
         // Initialize bypass state
         vs.byPassable = false;
@@ -77,7 +77,7 @@ contract EmblemVaultInitFacet {
         emit InterfaceIdSet(vs.INTERFACE_ID_ERC721A, "ERC721A");
         emit WitnessInitialized(_owner, vs.witnessCount);
         emit BypassStateInitialized(vs.byPassable);
-        emit ClaimerContractSet(vs.claimerContract);
+        emit ClaimingEnabled(vs.claimingEnabled);
     }
 
     /// @notice Check if the system is initialized
@@ -102,7 +102,7 @@ contract EmblemVaultInitFacet {
     /// @notice Get the current system configuration
     /// @return metadataBaseUri The base URI for metadata
     /// @return recipientAddress The recipient address for payments
-    /// @return claimerContract The claimer contract address
+    /// @return claimingEnabled Whether claiming is enabled
     /// @return byPassable The bypass state
     /// @return witnessCount The number of active witnesses
     function getConfiguration()
@@ -111,7 +111,7 @@ contract EmblemVaultInitFacet {
         returns (
             string memory metadataBaseUri,
             address recipientAddress,
-            address claimerContract,
+            bool claimingEnabled,
             bool byPassable,
             uint256 witnessCount
         )
@@ -120,7 +120,7 @@ contract EmblemVaultInitFacet {
         return (
             vs.metadataBaseUri,
             vs.recipientAddress,
-            vs.claimerContract,
+            vs.claimingEnabled,
             vs.byPassable,
             vs.witnessCount
         );

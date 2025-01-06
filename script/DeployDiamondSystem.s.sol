@@ -102,9 +102,9 @@ contract DeployDiamondSystem is Script {
         vaultCoreSelectors[6] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
         vaultCoreSelectors[7] = EmblemVaultCoreFacet.isWitness.selector;
         vaultCoreSelectors[8] = EmblemVaultCoreFacet.getWitnessCount.selector;
-        vaultCoreSelectors[9] = EmblemVaultCoreFacet.version.selector;
-        vaultCoreSelectors[10] = EmblemVaultCoreFacet.setVaultFactory.selector;
-        vaultCoreSelectors[11] = EmblemVaultCoreFacet.getVaultFactory.selector;
+        vaultCoreSelectors[9] = EmblemVaultCoreFacet.setVaultFactory.selector;
+        vaultCoreSelectors[10] = EmblemVaultCoreFacet.getVaultFactory.selector;
+        vaultCoreSelectors[11] = EmblemVaultCoreFacet.version.selector;
         cut[2] = IDiamondCut.FacetCut({
             facetAddress: address(vaultCoreFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -112,10 +112,14 @@ contract DeployDiamondSystem is Script {
         });
 
         // ClaimFacet
-        bytes4[] memory claimSelectors = new bytes4[](3);
+        bytes4[] memory claimSelectors = new bytes4[](7);
         claimSelectors[0] = EmblemVaultClaimFacet.claim.selector;
         claimSelectors[1] = EmblemVaultClaimFacet.claimWithSignedPrice.selector;
-        claimSelectors[2] = EmblemVaultClaimFacet.setClaimerContract.selector;
+        claimSelectors[2] = EmblemVaultClaimFacet.setClaimingEnabled.selector;
+        claimSelectors[3] = EmblemVaultClaimFacet.setBurnAddress.selector;
+        claimSelectors[4] = EmblemVaultClaimFacet.isTokenClaimed.selector;
+        claimSelectors[5] = EmblemVaultClaimFacet.getTokenClaimer.selector;
+        claimSelectors[6] = EmblemVaultClaimFacet.getCollectionClaimCount.selector;
         cut[3] = IDiamondCut.FacetCut({
             facetAddress: address(claimFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -123,8 +127,9 @@ contract DeployDiamondSystem is Script {
         });
 
         // MintFacet
-        bytes4[] memory mintSelectors = new bytes4[](1);
+        bytes4[] memory mintSelectors = new bytes4[](2);
         mintSelectors[0] = EmblemVaultMintFacet.buyWithSignedPrice.selector;
+        mintSelectors[1] = EmblemVaultMintFacet.batchBuyWithSignedPrice.selector;
         cut[4] = IDiamondCut.FacetCut({
             facetAddress: address(mintFacet),
             action: IDiamondCut.FacetCutAction.Add,

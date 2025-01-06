@@ -178,7 +178,7 @@ contract DiamondBeaconIntegrationTest is Test {
         (
             string memory baseUri,
             address recipientAddr,
-            address claimerAddr,
+            bool claimingEnabled,
             bool byPassable,
             uint256 witnessCount
         ) = EmblemVaultInitFacet(address(diamond)).getConfiguration();
@@ -186,7 +186,7 @@ contract DiamondBeaconIntegrationTest is Test {
         assertEq(baseUri, "https://v2.emblemvault.io/meta/");
         assertEq(witnessCount, 1); // owner is initial witness
         assertEq(recipientAddr, address(this)); // Set to owner during initialization
-        assertEq(claimerAddr, address(0)); // Not set in initialization
+        assertTrue(claimingEnabled); // Enabled by default in initialization
         assertFalse(byPassable); // Default to false
         assertEq(EmblemVaultCoreFacet(address(diamond)).getVaultFactory(), address(factory));
     }

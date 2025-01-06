@@ -66,7 +66,6 @@ contract DiamondVaultTest is Test {
     event VaultUnlocked(address indexed nftAddress, uint256 indexed tokenId, address indexed owner);
     event VaultFactorySet(address indexed oldFactory, address indexed newFactory);
     event RecipientAddressChanged(address indexed oldRecipient, address indexed newRecipient);
-    event ClaimerContractUpdated(address indexed oldClaimer, address indexed newClaimer);
     event TokenMinted(
         address indexed nftAddress,
         address indexed to,
@@ -97,7 +96,7 @@ contract DiamondVaultTest is Test {
     receive() external payable {}
     fallback() external payable {}
 
-    function setUp() public {
+    function setUp() public virtual {
         // Derive witness address from private key
         witness = vm.addr(witnessPrivateKey);
 
@@ -173,10 +172,14 @@ contract DiamondVaultTest is Test {
         });
 
         // ClaimFacet
-        bytes4[] memory claimSelectors = new bytes4[](3);
+        bytes4[] memory claimSelectors = new bytes4[](7);
         claimSelectors[0] = EmblemVaultClaimFacet.claim.selector;
         claimSelectors[1] = EmblemVaultClaimFacet.claimWithSignedPrice.selector;
-        claimSelectors[2] = EmblemVaultClaimFacet.setClaimerContract.selector;
+        claimSelectors[2] = EmblemVaultClaimFacet.setClaimingEnabled.selector;
+        claimSelectors[3] = EmblemVaultClaimFacet.setBurnAddress.selector;
+        claimSelectors[4] = EmblemVaultClaimFacet.isTokenClaimed.selector;
+        claimSelectors[5] = EmblemVaultClaimFacet.getTokenClaimer.selector;
+        claimSelectors[6] = EmblemVaultClaimFacet.getCollectionClaimCount.selector;
         cut[3] = IDiamondCut.FacetCut({
             facetAddress: address(claimFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -244,6 +247,7 @@ contract DiamondVaultTest is Test {
         vm.deal(tokenHolder, 100 ether);
         paymentToken.mint(user1, 1000 ether);
         paymentToken.mint(user2, 1000 ether);
+        paymentToken.mint(tokenHolder, 1000 ether);
 
         vm.startPrank(owner);
 
@@ -253,17 +257,12 @@ contract DiamondVaultTest is Test {
         emit RecipientAddressChanged(address(this), address(this));
         EmblemVaultCoreFacet(address(diamond)).setRecipientAddress(address(this));
 
-        // 2. Set claimer contract
-        vm.expectEmit(true, true, true, true);
-        emit ClaimerContractUpdated(address(0), address(claimer));
-        EmblemVaultClaimFacet(address(diamond)).setClaimerContract(address(claimer));
-
-        // 3. Add witness
+        // 2. Add witness
         vm.expectEmit(true, true, true, true);
         emit WitnessAdded(witness, 2); // owner + witness
         EmblemVaultCoreFacet(address(diamond)).addWitness(witness);
 
-        // 4. Set factory
+        // 3. Set factory
         vm.expectEmit(true, true, true, true);
         emit VaultFactorySet(address(0), address(factory));
         EmblemVaultCoreFacet(address(diamond)).setVaultFactory(address(factory));
@@ -304,7 +303,7 @@ contract DiamondVaultTest is Test {
         (
             string memory baseUri,
             address recipientAddr,
-            address claimerAddr,
+            bool claimingEnabled,
             bool byPassable,
             uint256 witnessCount
         ) = EmblemVaultInitFacet(address(diamond)).getConfiguration();
@@ -312,7 +311,7 @@ contract DiamondVaultTest is Test {
         assertEq(baseUri, "https://v2.emblemvault.io/meta/");
         assertEq(witnessCount, 2); // owner + witness
         assertEq(recipientAddr, address(this));
-        assertEq(claimerAddr, address(claimer));
+        assertTrue(claimingEnabled);
         assertFalse(byPassable);
         assertEq(EmblemVaultCoreFacet(address(diamond)).getVaultFactory(), address(factory));
     }
@@ -363,24 +362,25 @@ contract DiamondVaultTest is Test {
     }
 
     function testBasicClaim() public {
-        // First approve and transfer to diamond from tokenHolder
+        // Token remains with tokenHolder
         vm.startPrank(tokenHolder);
-        ERC721VaultImplementation(nftCollection).approve(address(diamond), 1);
-        ERC721VaultImplementation(nftCollection).transferFrom(tokenHolder, address(diamond), 1);
-        vm.stopPrank();
 
-        // Then claim from user1
-        vm.startPrank(user1);
+        // Approve diamond to manage the token
+        ERC721VaultImplementation(nftCollection).setApprovalForAll(address(diamond), true);
+
+        // Claim the token
         EmblemVaultClaimFacet(address(diamond)).claim(nftCollection, 1);
         vm.stopPrank();
 
-        // Verify token was burned
+        // Verify token is burned
         vm.expectRevert(abi.encodeWithSignature("OwnerQueryForNonexistentToken()"));
         ERC721VaultImplementation(nftCollection).ownerOf(1);
 
         // Verify claim was registered
-        bytes32[] memory proof;
-        assertTrue(claimer.isClaimed(nftCollection, 1, proof));
+        assertTrue(EmblemVaultClaimFacet(address(diamond)).isTokenClaimed(nftCollection, 1));
+        assertEq(
+            EmblemVaultClaimFacet(address(diamond)).getTokenClaimer(nftCollection, 1), tokenHolder
+        );
     }
 
     function testClaimWithSignedPrice() public {
@@ -388,28 +388,27 @@ contract DiamondVaultTest is Test {
         uint256 price = 1 ether;
         uint256 nonce = 2; // Use new nonce since 1 was used in setup
 
-        // First approve and transfer to diamond from tokenHolder
-        vm.startPrank(tokenHolder);
-        ERC721VaultImplementation(nftCollection).approve(address(diamond), tokenId);
-        ERC721VaultImplementation(nftCollection).transferFrom(
-            tokenHolder, address(diamond), tokenId
-        );
-        vm.stopPrank();
+        console.log("witness: ", witness);
 
+        //deal funds to tokenHolder
+        vm.deal(tokenHolder, price);
+
+        // First approve diamond from tokenHolder
+        vm.startPrank(tokenHolder);
+        ERC721VaultImplementation(nftCollection).setApprovalForAll(address(diamond), true);
         // Create signature from witness
         bytes memory signature = createSignature(
             nftCollection,
             address(0), // ETH payment
             price,
-            user1,
+            tokenHolder,
             tokenId,
             nonce,
             1,
             witnessPrivateKey
         );
 
-        // Claim with signed price from user1
-        vm.startPrank(user1);
+        // Claim
         EmblemVaultClaimFacet(address(diamond)).claimWithSignedPrice{value: price}(
             nftCollection, tokenId, nonce, address(0), price, signature
         );
@@ -420,8 +419,11 @@ contract DiamondVaultTest is Test {
         ERC721VaultImplementation(nftCollection).ownerOf(tokenId);
 
         // Verify claim was registered
-        bytes32[] memory proof;
-        assertTrue(claimer.isClaimed(nftCollection, tokenId, proof));
+        assertTrue(EmblemVaultClaimFacet(address(diamond)).isTokenClaimed(nftCollection, tokenId));
+        assertEq(
+            EmblemVaultClaimFacet(address(diamond)).getTokenClaimer(nftCollection, tokenId),
+            tokenHolder
+        );
     }
 
     function testClaimWithSignedPriceERC20() public {
@@ -429,21 +431,23 @@ contract DiamondVaultTest is Test {
         uint256 price = 100 ether;
         uint256 nonce = 2; // Use new nonce since 1 was used in setup
 
-        // First approve and transfer to diamond from tokenHolder
+        // First approve diamond from tokenHolder
         vm.startPrank(tokenHolder);
-        ERC721VaultImplementation(nftCollection).approve(address(diamond), tokenId);
-        ERC721VaultImplementation(nftCollection).transferFrom(
-            tokenHolder, address(diamond), tokenId
-        );
-        vm.stopPrank();
+        ERC721VaultImplementation(nftCollection).setApprovalForAll(address(diamond), true);
 
         // Create signature from witness
         bytes memory signature = createSignature(
-            nftCollection, address(paymentToken), price, user1, tokenId, nonce, 1, witnessPrivateKey
+            nftCollection,
+            address(paymentToken),
+            price,
+            tokenHolder,
+            tokenId,
+            nonce,
+            1,
+            witnessPrivateKey
         );
 
         // Approve payment token
-        vm.startPrank(user1);
         paymentToken.approve(address(diamond), price);
 
         // Claim with signed price
@@ -457,8 +461,11 @@ contract DiamondVaultTest is Test {
         ERC721VaultImplementation(nftCollection).ownerOf(tokenId);
 
         // Verify claim was registered
-        bytes32[] memory proof;
-        assertTrue(claimer.isClaimed(nftCollection, tokenId, proof));
+        assertTrue(EmblemVaultClaimFacet(address(diamond)).isTokenClaimed(nftCollection, tokenId));
+        assertEq(
+            EmblemVaultClaimFacet(address(diamond)).getTokenClaimer(nftCollection, tokenId),
+            tokenHolder
+        );
     }
 
     function testBuyWithSignedPrice() public {
@@ -580,35 +587,36 @@ contract DiamondVaultTest is Test {
         uint256 nonce = 2; // Use new nonce since 1 was used in setup
 
         // First approve and transfer to diamond from tokenHolder
-        vm.startPrank(tokenHolder);
-        ERC721VaultImplementation(nftCollection).approve(address(diamond), tokenId);
-        ERC721VaultImplementation(nftCollection).transferFrom(
-            tokenHolder, address(diamond), tokenId
-        );
-        vm.stopPrank();
+        vm.prank(tokenHolder);
+        ERC721VaultImplementation(nftCollection).setApprovalForAll(address(diamond), true);
 
         // Lock the vault
         EmblemVaultCoreFacet(address(diamond)).lockVault(nftCollection, tokenId);
 
         // Create signature from witness with locked acknowledgement
         bytes memory signature = createSignatureWithLock(
-            nftCollection, address(0), price, user1, tokenId, nonce, 1, witnessPrivateKey
+            nftCollection, address(0), price, tokenHolder, tokenId, nonce, 1, witnessPrivateKey
         );
 
-        // Claim with signed price from user1
-        vm.startPrank(user1);
+        // deal funds to tokenHolder
+        vm.deal(tokenHolder, price);
+
+        // Claim with signed price
+        vm.prank(tokenHolder);
         EmblemVaultClaimFacet(address(diamond)).claimWithSignedPrice{value: price}(
             nftCollection, tokenId, nonce, address(0), price, signature
         );
-        vm.stopPrank();
 
         // Verify token was burned
         vm.expectRevert(abi.encodeWithSignature("OwnerQueryForNonexistentToken()"));
         ERC721VaultImplementation(nftCollection).ownerOf(tokenId);
 
         // Verify claim was registered
-        bytes32[] memory proof;
-        assertTrue(claimer.isClaimed(nftCollection, tokenId, proof));
+        assertTrue(EmblemVaultClaimFacet(address(diamond)).isTokenClaimed(nftCollection, tokenId));
+        assertEq(
+            EmblemVaultClaimFacet(address(diamond)).getTokenClaimer(nftCollection, tokenId),
+            tokenHolder
+        );
     }
 
     function testRevertClaimWithInvalidSignature() public {

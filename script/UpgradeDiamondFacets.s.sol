@@ -97,7 +97,7 @@ contract UpgradeDiamondFacets is Script {
     }
 
     function _getCoreSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](10);
+        bytes4[] memory selectors = new bytes4[](12);
         selectors[0] = EmblemVaultCoreFacet.lockVault.selector;
         selectors[1] = EmblemVaultCoreFacet.unlockVault.selector;
         selectors[2] = EmblemVaultCoreFacet.isVaultLocked.selector;
@@ -108,20 +108,24 @@ contract UpgradeDiamondFacets is Script {
         selectors[7] = EmblemVaultCoreFacet.isWitness.selector;
         selectors[8] = EmblemVaultCoreFacet.getWitnessCount.selector;
         selectors[9] = EmblemVaultCoreFacet.version.selector;
+        selectors[10] = EmblemVaultCoreFacet.setVaultFactory.selector;
+        selectors[11] = EmblemVaultCoreFacet.getVaultFactory.selector;
         return selectors;
     }
 
     function _getClaimSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](3);
+        bytes4[] memory selectors = new bytes4[](4);
         selectors[0] = EmblemVaultClaimFacet.claim.selector;
         selectors[1] = EmblemVaultClaimFacet.claimWithSignedPrice.selector;
-        selectors[2] = EmblemVaultClaimFacet.setClaimerContract.selector;
+        selectors[2] = EmblemVaultClaimFacet.setClaimingEnabled.selector;
+        selectors[3] = EmblemVaultClaimFacet.setBurnAddress.selector;
         return selectors;
     }
 
     function _getMintSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](1);
+        bytes4[] memory selectors = new bytes4[](2);
         selectors[0] = EmblemVaultMintFacet.buyWithSignedPrice.selector;
+        selectors[1] = EmblemVaultMintFacet.batchBuyWithSignedPrice.selector;
         return selectors;
     }
 
