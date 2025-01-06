@@ -165,9 +165,13 @@ contract EmblemVaultMintFacet {
         LibErrors.revertIfLengthMismatch(params.externalTokenIds.length, params.nonces.length);
         LibErrors.revertIfLengthMismatch(params.externalTokenIds.length, params.signatures.length);
         LibErrors.revertIfLengthMismatch(params.externalTokenIds.length, params.amounts.length);
-        LibErrors.revertIfLengthMismatch(
-            params.externalTokenIds.length, params.serialNumbers.length
-        );
+        // Calculate total tokens being minted
+        uint256 totalTokens;
+        for (uint256 i = 0; i < params.amounts.length; i++) {
+            totalTokens += params.amounts[i];
+        }
+        // Verify serial numbers match total tokens
+        LibErrors.revertIfLengthMismatch(totalTokens, params.serialNumbers.length);
 
         uint256 totalPrice;
         for (uint256 i = 0; i < params.prices.length; i++) {
@@ -300,41 +304,6 @@ contract EmblemVaultMintFacet {
         return true;
     }
 
-    /// @notice Batch mint NFTs
-    /// @dev Mints multiple NFTs in a single transaction
-    /// @param to Recipient address
-    /// @param externalTokenIds Array of external token IDs to mint
-    function batchMint(address to, uint256[] calldata externalTokenIds) external {
-        uint256[] memory amounts = new uint256[](externalTokenIds.length);
-        bytes[] memory serialNumbers = new bytes[](externalTokenIds.length);
-        for (uint256 i = 0; i < externalTokenIds.length; i++) {
-            amounts[i] = 1;
-        }
-        require(
-            _batchMintRouter(address(this), to, externalTokenIds, amounts, serialNumbers, ""),
-            "Batch mint failed"
-        );
-    }
-
-    /// @notice Batch mint NFTs with additional data
-    /// @dev Mints multiple NFTs with additional data in a single transaction
-    /// @param to Recipient address
-    /// @param externalTokenIds Array of external token IDs to mint
-    /// @param data Additional data to pass with the mint
-    function batchMintWithData(address to, uint256[] calldata externalTokenIds, bytes calldata data)
-        external
-    {
-        uint256[] memory amounts = new uint256[](externalTokenIds.length);
-        bytes[] memory serialNumbers = new bytes[](externalTokenIds.length);
-        for (uint256 i = 0; i < externalTokenIds.length; i++) {
-            amounts[i] = 1;
-        }
-        require(
-            _batchMintRouter(address(this), to, externalTokenIds, amounts, serialNumbers, data),
-            "Batch mint failed"
-        );
-    }
-
     function _uintToStrOptimized(uint256 value) internal pure returns (string memory) {
         if (value == 0) {
             return "0";
@@ -355,5 +324,11 @@ contract EmblemVaultMintFacet {
         }
 
         return string(buffer);
+    }
+
+    /// @notice Get the contract version
+    /// @return The version string
+    function version() external pure returns (string memory) {
+        return "1";
     }
 }
