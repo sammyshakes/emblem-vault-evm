@@ -198,4 +198,10 @@ contract EmblemVaultClaimFacet {
         }
         return (true, serialNumber, data);
     }
+
+    /// @notice Returns the version of this facet
+    /// @return version The version string
+    function version() external pure returns (string memory) {
+        return "1";
+    }
 }
