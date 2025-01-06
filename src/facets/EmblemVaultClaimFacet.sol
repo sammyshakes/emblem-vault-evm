@@ -60,6 +60,10 @@ contract EmblemVaultClaimFacet {
         _;
     }
 
+    /// @notice Sets the claimer contract address
+    /// @dev Only callable by the contract owner. Updates the contract used for handling claims
+    /// @param _claimer The address of the new claimer contract
+    /// @dev Reverts if the provided address is zero
     function setClaimerContract(address _claimer) external {
         LibDiamond.enforceIsContractOwner();
         LibErrors.revertIfZeroAddress(_claimer);
@@ -71,6 +75,14 @@ contract EmblemVaultClaimFacet {
         emit ClaimerContractUpdated(oldClaimer, _claimer);
     }
 
+    /// @notice Claims a token from a vault
+    /// @dev Handles the claiming process for both ERC721 and ERC1155 tokens
+    /// @param _nftAddress The address of the NFT contract
+    /// @param tokenId The ID of the token to claim
+    /// @dev Reverts if:
+    /// - The collection is invalid
+    /// - The vault is locked
+    /// - The burn operation fails
     function claim(address _nftAddress, uint256 tokenId)
         external
         onlyValidCollection(_nftAddress)
@@ -89,6 +101,20 @@ contract EmblemVaultClaimFacet {
         LibEmblemVaultStorage.nonReentrantAfter();
     }
 
+    /// @notice Claims a token using a signed price
+    /// @dev Allows claiming with price verification through signatures
+    /// @param _nftAddress The address of the NFT contract
+    /// @param _tokenId The ID of the token to claim
+    /// @param _nonce Unique nonce for the transaction
+    /// @param _payment The payment token address (address(0) for ETH)
+    /// @param _price The price to pay for the claim
+    /// @param _signature The signature for verification
+    /// @dev Reverts if:
+    /// - The collection is invalid
+    /// - The nonce has been used
+    /// - The signature is invalid
+    /// - The payment transfer fails
+    /// - The burn operation fails
     function claimWithSignedPrice(
         address _nftAddress,
         uint256 _tokenId,
@@ -136,6 +162,18 @@ contract EmblemVaultClaimFacet {
         LibEmblemVaultStorage.nonReentrantAfter();
     }
 
+    /// @notice Internal function to handle the burn and claim process
+    /// @dev Routes the burn operation based on token standard (ERC721/ERC1155)
+    /// @param _nftAddress The address of the NFT contract
+    /// @param tokenId The ID of the token to burn
+    /// @param shouldClaim Whether to trigger the claim process
+    /// @return success Whether the burn was successful
+    /// @return serialNumber The serial number of the burned token
+    /// @return data Additional data from the burn operation
+    /// @dev Reverts if:
+    /// - The claimer contract is not set
+    /// - The token is already claimed
+    /// - The vault doesn't own the token
     function burnRouter(address _nftAddress, uint256 tokenId, bool shouldClaim)
         internal
         returns (bool success, uint256 serialNumber, bytes memory data)
