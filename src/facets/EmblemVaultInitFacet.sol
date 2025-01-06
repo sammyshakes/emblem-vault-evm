@@ -28,7 +28,7 @@ contract EmblemVaultInitFacet {
         address indexed owner, string metadataBaseUri, bool byPassable, bool initialized
     );
     event InterfaceIdSet(bytes4 indexed interfaceId, string name);
-    event ClaimingEnabled(bool enabled);
+    event UnvaultingEnabled(bool enabled);
     event WitnessInitialized(address indexed witness, uint256 witnessCount);
     event BypassStateInitialized(bool byPassable);
 
@@ -61,8 +61,8 @@ contract EmblemVaultInitFacet {
         vs.witnesses[_owner] = true;
         vs.witnessCount = 1;
 
-        // Initialize claim tracking
-        vs.claimingEnabled = true;
+        // Initialize unvault tracking
+        vs.unvaultingEnabled = true;
 
         // Initialize bypass state
         vs.byPassable = false;
@@ -77,7 +77,7 @@ contract EmblemVaultInitFacet {
         emit InterfaceIdSet(vs.INTERFACE_ID_ERC721A, "ERC721A");
         emit WitnessInitialized(_owner, vs.witnessCount);
         emit BypassStateInitialized(vs.byPassable);
-        emit ClaimingEnabled(vs.claimingEnabled);
+        emit UnvaultingEnabled(vs.unvaultingEnabled);
     }
 
     /// @notice Check if the system is initialized
@@ -102,7 +102,7 @@ contract EmblemVaultInitFacet {
     /// @notice Get the current system configuration
     /// @return metadataBaseUri The base URI for metadata
     /// @return recipientAddress The recipient address for payments
-    /// @return claimingEnabled Whether claiming is enabled
+    /// @return unvaultingEnabled Whether unvaulting is enabled
     /// @return byPassable The bypass state
     /// @return witnessCount The number of active witnesses
     function getConfiguration()
@@ -111,7 +111,7 @@ contract EmblemVaultInitFacet {
         returns (
             string memory metadataBaseUri,
             address recipientAddress,
-            bool claimingEnabled,
+            bool unvaultingEnabled,
             bool byPassable,
             uint256 witnessCount
         )
@@ -120,7 +120,7 @@ contract EmblemVaultInitFacet {
         return (
             vs.metadataBaseUri,
             vs.recipientAddress,
-            vs.claimingEnabled,
+            vs.unvaultingEnabled,
             vs.byPassable,
             vs.witnessCount
         );
@@ -137,11 +137,5 @@ contract EmblemVaultInitFacet {
     {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         return (LibDiamond.contractOwner(), vs.initialized, vs.witnessCount);
-    }
-
-    /// @notice Get the contract version
-    /// @return The version string
-    function version() external pure returns (string memory) {
-        return "1";
     }
 }

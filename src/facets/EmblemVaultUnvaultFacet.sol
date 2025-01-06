@@ -5,13 +5,13 @@
 ██╔══╝  ██║╚██╔╝██║██╔══██╗██║     ██╔══╝  ██║╚██╔╝██║    ╚██╗ ██╔╝██╔══██║██║   ██║██║     ██║   
 ███████╗██║ ╚═╝ ██║██████╔╝███████╗███████╗██║ ╚═╝ ██║     ╚████╔╝ ██║  ██║╚██████╔╝███████╗██║   
 ╚══════╝╚═╝     ╚═╝╚═════╝ ╚══════╝╚══════╝╚═╝     ╚═╝      ╚═══╝  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝   
- ██████╗██╗      █████╗ ██╗███╗   ███╗
-██╔════╝██║     ██╔══██╗██║████╗ ████║
-██║     ██║     ███████║██║██╔████╔██║
-██║     ██║     ██╔══██║██║██║╚██╔╝██║
-╚██████╗███████╗██║  ██║██║██║ ╚═╝ ██║
- ╚═════╝╚══════╝╚═╝  ╚═╝╚═╝╚═╝     ╚═╝
-*/
+██╗   ██╗███╗   ██╗██╗   ██╗ █████╗ ██╗   ██╗██╗  ████████╗
+██║   ██║████╗  ██║██║   ██║██╔══██╗██║   ██║██║  ╚══██╔══╝
+██║   ██║██╔██╗ ██║██║   ██║███████║██║   ██║██║     ██║   
+██║   ██║██║╚██╗██║╚██╗ ██╔╝██╔══██║██║   ██║██║     ██║   
+╚██████╔╝██║ ╚████║ ╚████╔╝ ██║  ██║╚██████╔╝███████╗██║   
+ ╚═════╝ ╚═╝  ╚═══╝  ╚═══╝  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝
+ */
 
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
@@ -28,27 +28,27 @@ import "../interfaces/IERC721AVault.sol";
 import "../interfaces/IIsSerialized.sol";
 import "../interfaces/IVaultCollectionFactory.sol";
 
-/// @title EmblemVaultClaimFacet
-/// @notice Facet for handling vault claims and burns
-/// @dev Manages the claiming process for vaults with support for various token standards
-contract EmblemVaultClaimFacet {
+/// @title EmblemVaultUnvaultFacet
+/// @notice Facet for handling vault unvaulting and burns
+/// @dev Manages the unvaulting process for vaults with support for various token standards
+contract EmblemVaultUnvaultFacet {
     // Events
-    event TokenClaimed(
+    event TokenUnvaulted(
         address indexed nftAddress,
         uint256 indexed tokenId,
-        address indexed claimer,
+        address indexed unvaulter,
         uint256 serialNumber,
         bytes data
     );
-    event TokenClaimedWithPrice(
+    event TokenUnvaultedWithPrice(
         address indexed nftAddress,
         uint256 indexed tokenId,
-        address indexed claimer,
+        address indexed unvaulter,
         uint256 price,
         uint256 serialNumber,
         bytes data
     );
-    event ClaimingEnabled(bool enabled);
+    event UnvaultingEnabled(bool enabled);
     event BurnAddressUpdated(address indexed addr, bool isBurn);
 
     modifier onlyValidCollection(address collection) {
@@ -60,13 +60,13 @@ contract EmblemVaultClaimFacet {
         _;
     }
 
-    /// @notice Enable or disable claiming
+    /// @notice Enable or disable unvaulting
     /// @dev Only callable by the contract owner
-    /// @param enabled True to enable claiming, false to disable
-    function setClaimingEnabled(bool enabled) external {
+    /// @param enabled True to enable unvaulting, false to disable
+    function setUnvaultingEnabled(bool enabled) external {
         LibDiamond.enforceIsContractOwner();
-        LibEmblemVaultStorage.setClaimingEnabled(enabled);
-        emit ClaimingEnabled(enabled);
+        LibEmblemVaultStorage.setUnvaultingEnabled(enabled);
+        emit UnvaultingEnabled(enabled);
     }
 
     /// @notice Add or remove a burn address
@@ -79,22 +79,22 @@ contract EmblemVaultClaimFacet {
         emit BurnAddressUpdated(addr, isBurn);
     }
 
-    /// @notice Claims a token from a vault
-    /// @dev Handles the claiming process for both ERC721 and ERC1155 tokens
+    /// @notice Unvaults a token from a vault
+    /// @dev Handles the unvaulting process for both ERC721 and ERC1155 tokens
     /// @param _nftAddress The address of the NFT contract
-    /// @param tokenId The ID of the token to claim
+    /// @param tokenId The ID of the token to unvault
     /// @dev Reverts if:
     /// - The collection is invalid
     /// - The vault is locked
     /// - The burn operation fails
-    function claim(address _nftAddress, uint256 tokenId)
+    function unvault(address _nftAddress, uint256 tokenId)
         external
         onlyValidCollection(_nftAddress)
     {
         LibEmblemVaultStorage.nonReentrantBefore();
 
-        if (!LibEmblemVaultStorage.vaultStorage().claimingEnabled) {
-            revert LibEmblemVaultStorage.ClaimingDisabled();
+        if (!LibEmblemVaultStorage.vaultStorage().unvaultingEnabled) {
+            revert LibEmblemVaultStorage.UnvaultingDisabled();
         }
 
         LibErrors.revertIfAlreadyLocked(
@@ -105,17 +105,17 @@ contract EmblemVaultClaimFacet {
             burnRouter(_nftAddress, tokenId, true);
         if (!success) revert LibErrors.BurnFailed(_nftAddress, tokenId);
 
-        emit TokenClaimed(_nftAddress, tokenId, msg.sender, serialNumber, data);
+        emit TokenUnvaulted(_nftAddress, tokenId, msg.sender, serialNumber, data);
         LibEmblemVaultStorage.nonReentrantAfter();
     }
 
-    /// @notice Claims a token using a signed price
-    /// @dev Allows claiming with price verification through signatures
+    /// @notice Unvaults a token using a signed price
+    /// @dev Allows unvaulting with price verification through signatures
     /// @param _nftAddress The address of the NFT contract
-    /// @param _tokenId The ID of the token to claim
+    /// @param _tokenId The ID of the token to unvault
     /// @param _nonce Unique nonce for the transaction
     /// @param _payment The payment token address (address(0) for ETH)
-    /// @param _price The price to pay for the claim
+    /// @param _price The price to pay for the unvault
     /// @param _signature The signature for verification
     /// @dev Reverts if:
     /// - The collection is invalid
@@ -123,7 +123,7 @@ contract EmblemVaultClaimFacet {
     /// - The signature is invalid
     /// - The payment transfer fails
     /// - The burn operation fails
-    function claimWithSignedPrice(
+    function unvaultWithSignedPrice(
         address _nftAddress,
         uint256 _tokenId,
         uint256 _nonce,
@@ -133,8 +133,8 @@ contract EmblemVaultClaimFacet {
     ) external payable onlyValidCollection(_nftAddress) {
         LibEmblemVaultStorage.nonReentrantBefore();
 
-        if (!LibEmblemVaultStorage.vaultStorage().claimingEnabled) {
-            revert LibEmblemVaultStorage.ClaimingDisabled();
+        if (!LibEmblemVaultStorage.vaultStorage().unvaultingEnabled) {
+            revert LibEmblemVaultStorage.UnvaultingDisabled();
         }
 
         LibEmblemVaultStorage.enforceNotUsedNonce(_nonce);
@@ -171,23 +171,23 @@ contract EmblemVaultClaimFacet {
         LibEmblemVaultStorage.unlockVault(_nftAddress, _tokenId);
 
         LibEmblemVaultStorage.setUsedNonce(_nonce);
-        emit TokenClaimedWithPrice(_nftAddress, _tokenId, msg.sender, _price, serialNumber, data);
+        emit TokenUnvaultedWithPrice(_nftAddress, _tokenId, msg.sender, _price, serialNumber, data);
         LibEmblemVaultStorage.nonReentrantAfter();
     }
 
-    /// @notice Internal function to handle the burn and claim process
+    /// @notice Internal function to handle the burn and unvault process
     /// @dev Routes the burn operation based on token standard (ERC721/ERC1155)
     /// @param _nftAddress The address of the NFT contract
     /// @param tokenId The ID of the token to burn
-    /// @param shouldClaim Whether to trigger the claim process
+    /// @param shouldUnvault Whether to trigger the unvault process
     /// @return success Whether the burn was successful
     /// @return serialNumber The serial number of the burned token
     /// @return data Additional data from the burn operation
     /// @dev Reverts if:
-    /// - The claimer contract is not set
-    /// - The token is already claimed
+    /// - The unvaulter contract is not set
+    /// - The token is already unvaulted
     /// - The vault doesn't own the token
-    function burnRouter(address _nftAddress, uint256 tokenId, bool shouldClaim)
+    function burnRouter(address _nftAddress, uint256 tokenId, bool shouldUnvault)
         internal
         returns (bool success, uint256 serialNumber, bytes memory data)
     {
@@ -201,13 +201,13 @@ contract EmblemVaultClaimFacet {
             if (serialized.getOwnerOfSerial(serialNumber) != msg.sender) {
                 revert LibErrors.NotVaultOwner(_nftAddress, tokenId, msg.sender);
             }
-            if (LibEmblemVaultStorage.isClaimed(_nftAddress, serialNumber)) {
-                revert LibErrors.AlreadyClaimed(_nftAddress, serialNumber);
+            if (LibEmblemVaultStorage.isUnvaulted(_nftAddress, serialNumber)) {
+                revert LibErrors.AlreadyUnvaulted(_nftAddress, serialNumber);
             }
 
             IERC1155(_nftAddress).burn(msg.sender, tokenId, 1);
-            if (shouldClaim) {
-                LibEmblemVaultStorage.setClaimed(_nftAddress, serialNumber, msg.sender);
+            if (shouldUnvault) {
+                LibEmblemVaultStorage.setUnvaulted(_nftAddress, serialNumber, msg.sender);
             }
             data = "";
         } else {
@@ -215,30 +215,30 @@ contract EmblemVaultClaimFacet {
                 IERC721AVault token = IERC721AVault(_nftAddress);
                 uint256 internalTokenId = token.getInternalTokenId(tokenId);
 
-                if (LibEmblemVaultStorage.isClaimed(_nftAddress, internalTokenId)) {
-                    revert LibErrors.AlreadyClaimed(_nftAddress, internalTokenId);
+                if (LibEmblemVaultStorage.isUnvaulted(_nftAddress, internalTokenId)) {
+                    revert LibErrors.AlreadyUnvaulted(_nftAddress, internalTokenId);
                 }
                 if (token.ownerOf(internalTokenId) != msg.sender) {
                     revert LibErrors.NotVaultOwner(_nftAddress, internalTokenId, msg.sender);
                 }
 
                 token.burn(internalTokenId);
-                if (shouldClaim) {
-                    LibEmblemVaultStorage.setClaimed(_nftAddress, internalTokenId, msg.sender);
+                if (shouldUnvault) {
+                    LibEmblemVaultStorage.setUnvaulted(_nftAddress, internalTokenId, msg.sender);
                 }
                 data = "";
                 serialNumber = internalTokenId;
             } else {
-                if (LibEmblemVaultStorage.isClaimed(_nftAddress, tokenId)) {
-                    revert LibErrors.AlreadyClaimed(_nftAddress, tokenId);
+                if (LibEmblemVaultStorage.isUnvaulted(_nftAddress, tokenId)) {
+                    revert LibErrors.AlreadyUnvaulted(_nftAddress, tokenId);
                 }
                 IERC721 token = IERC721(_nftAddress);
                 if (token.ownerOf(tokenId) != msg.sender) {
                     revert LibErrors.NotVaultOwner(_nftAddress, tokenId, msg.sender);
                 }
                 token.burn(tokenId);
-                if (shouldClaim) {
-                    LibEmblemVaultStorage.setClaimed(_nftAddress, tokenId, msg.sender);
+                if (shouldUnvault) {
+                    LibEmblemVaultStorage.setUnvaulted(_nftAddress, tokenId, msg.sender);
                 }
                 serialNumber = tokenId;
                 data = "";
@@ -247,26 +247,26 @@ contract EmblemVaultClaimFacet {
         return (true, serialNumber, data);
     }
 
-    /// @notice Check if a token has been claimed
+    /// @notice Check if a token has been unvaulted
     /// @param nft The NFT contract address
     /// @param id The token ID
-    /// @return True if the token has been claimed
-    function isTokenClaimed(address nft, uint256 id) external view returns (bool) {
-        return LibEmblemVaultStorage.isClaimed(nft, id);
+    /// @return True if the token has been unvaulted
+    function isTokenUnvaulted(address nft, uint256 id) external view returns (bool) {
+        return LibEmblemVaultStorage.isUnvaulted(nft, id);
     }
 
-    /// @notice Get the address that claimed a token
+    /// @notice Get the address that unvaulted a token
     /// @param nft The NFT contract address
     /// @param id The token ID
-    /// @return The address that claimed the token
-    function getTokenClaimer(address nft, uint256 id) external view returns (address) {
-        return LibEmblemVaultStorage.getClaimer(nft, id);
+    /// @return The address that unvaulted the token
+    function getTokenUnvaulter(address nft, uint256 id) external view returns (address) {
+        return LibEmblemVaultStorage.getUnvaulter(nft, id);
     }
 
-    /// @notice Get the total number of claims for a collection
+    /// @notice Get the total number of unvaults for a collection
     /// @param nft The NFT contract address
-    /// @return The total number of claims
-    function getCollectionClaimCount(address nft) external view returns (uint256) {
-        return LibEmblemVaultStorage.getClaimCount(nft);
+    /// @return The total number of unvaults
+    function getCollectionUnvaultCount(address nft) external view returns (uint256) {
+        return LibEmblemVaultStorage.getUnvaultCount(nft);
     }
 }

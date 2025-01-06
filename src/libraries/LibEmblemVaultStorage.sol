@@ -17,8 +17,8 @@ library LibEmblemVaultStorage {
     error NotWitness();
     error NonceAlreadyUsed();
     error ZeroAddress();
-    error AlreadyClaimed();
-    error ClaimingDisabled();
+    error AlreadyUnvaulted();
+    error UnvaultingDisabled();
 
     struct ReentrancyGuard {
         bool entered;
@@ -30,7 +30,7 @@ library LibEmblemVaultStorage {
         // System State
         bool initialized;
         bool byPassable;
-        bool claimingEnabled; // Global switch for claiming
+        bool unvaultingEnabled; // Global switch for unvaulting
         // Core Mappings
         mapping(address => mapping(uint256 => bool)) lockedVaults;
         mapping(address => bool) witnesses;
@@ -39,10 +39,10 @@ library LibEmblemVaultStorage {
         string metadataBaseUri;
         address recipientAddress;
         address vaultFactory; // For beacon pattern integration
-        // Claim Tracking
-        mapping(address => mapping(uint256 => bool)) claimed; // nft => identifier => claimed
-        mapping(address => mapping(uint256 => address)) claimers; // nft => identifier => claimer
-        mapping(address => uint256) totalClaimed; // nft => count
+        // Unvault Tracking
+        mapping(address => mapping(uint256 => bool)) unvaulted; // nft => identifier => unvaulted
+        mapping(address => mapping(uint256 => address)) unvaulters; // nft => identifier => unvaulter
+        mapping(address => uint256) totalUnvaulted; // nft => count
         mapping(address => bool) burnAddresses; // For burn address verification
         // Interface IDs (constant but stored for gas optimization)
         bytes4 INTERFACE_ID_ERC1155;
@@ -192,34 +192,32 @@ library LibEmblemVaultStorage {
         }
     }
 
-    // ============ Initialization ============
+    // ============ Unvault Management ============
 
-    // ============ Claim Management ============
-
-    function setClaimed(address nft, uint256 id, address claimer) internal {
+    function setUnvaulted(address nft, uint256 id, address unvaulter) internal {
         VaultStorage storage vs = vaultStorage();
-        if (!vs.claimingEnabled) revert ClaimingDisabled();
-        if (vs.claimed[nft][id]) revert AlreadyClaimed();
+        if (!vs.unvaultingEnabled) revert UnvaultingDisabled();
+        if (vs.unvaulted[nft][id]) revert AlreadyUnvaulted();
 
-        vs.claimed[nft][id] = true;
-        vs.claimers[nft][id] = claimer;
-        vs.totalClaimed[nft]++;
+        vs.unvaulted[nft][id] = true;
+        vs.unvaulters[nft][id] = unvaulter;
+        vs.totalUnvaulted[nft]++;
     }
 
-    function isClaimed(address nft, uint256 id) internal view returns (bool) {
-        return vaultStorage().claimed[nft][id];
+    function isUnvaulted(address nft, uint256 id) internal view returns (bool) {
+        return vaultStorage().unvaulted[nft][id];
     }
 
-    function getClaimer(address nft, uint256 id) internal view returns (address) {
-        return vaultStorage().claimers[nft][id];
+    function getUnvaulter(address nft, uint256 id) internal view returns (address) {
+        return vaultStorage().unvaulters[nft][id];
     }
 
-    function getClaimCount(address nft) internal view returns (uint256) {
-        return vaultStorage().totalClaimed[nft];
+    function getUnvaultCount(address nft) internal view returns (uint256) {
+        return vaultStorage().totalUnvaulted[nft];
     }
 
-    function setClaimingEnabled(bool enabled) internal {
-        vaultStorage().claimingEnabled = enabled;
+    function setUnvaultingEnabled(bool enabled) internal {
+        vaultStorage().unvaultingEnabled = enabled;
     }
 
     function setBurnAddress(address addr, bool isBurn) internal {
@@ -236,7 +234,7 @@ library LibEmblemVaultStorage {
         if (vs.initialized) revert AlreadyInitialized();
 
         vs.metadataBaseUri = "https://v2.emblemvault.io/meta/";
-        vs.claimingEnabled = true;
+        vs.unvaultingEnabled = true;
         vs.INTERFACE_ID_ERC1155 = 0xd9b67a26;
         vs.INTERFACE_ID_ERC20 = 0x74a1476f;
         vs.INTERFACE_ID_ERC721A = 0xf4a95f26;

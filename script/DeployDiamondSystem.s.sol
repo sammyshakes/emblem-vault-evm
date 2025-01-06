@@ -8,7 +8,7 @@ import {DiamondCutFacet} from "../src/facets/DiamondCutFacet.sol";
 import {DiamondLoupeFacet} from "../src/facets/DiamondLoupeFacet.sol";
 import {OwnershipFacet} from "../src/facets/OwnershipFacet.sol";
 import {EmblemVaultCoreFacet} from "../src/facets/EmblemVaultCoreFacet.sol";
-import {EmblemVaultClaimFacet} from "../src/facets/EmblemVaultClaimFacet.sol";
+import {EmblemVaultUnvaultFacet} from "../src/facets/EmblemVaultUnvaultFacet.sol";
 import {EmblemVaultMintFacet} from "../src/facets/EmblemVaultMintFacet.sol";
 import {EmblemVaultCollectionFacet} from "../src/facets/EmblemVaultCollectionFacet.sol";
 import {EmblemVaultInitFacet} from "../src/facets/EmblemVaultInitFacet.sol";
@@ -44,8 +44,8 @@ contract DeployDiamondSystem is Script {
         EmblemVaultCoreFacet vaultCoreFacet = new EmblemVaultCoreFacet();
         emit Deployed("EmblemVaultCoreFacet", address(vaultCoreFacet));
 
-        EmblemVaultClaimFacet claimFacet = new EmblemVaultClaimFacet();
-        emit Deployed("EmblemVaultClaimFacet", address(claimFacet));
+        EmblemVaultUnvaultFacet unvaultFacet = new EmblemVaultUnvaultFacet();
+        emit Deployed("EmblemVaultUnvaultFacet", address(unvaultFacet));
 
         EmblemVaultMintFacet mintFacet = new EmblemVaultMintFacet();
         emit Deployed("EmblemVaultMintFacet", address(mintFacet));
@@ -111,19 +111,19 @@ contract DeployDiamondSystem is Script {
             functionSelectors: vaultCoreSelectors
         });
 
-        // ClaimFacet
-        bytes4[] memory claimSelectors = new bytes4[](7);
-        claimSelectors[0] = EmblemVaultClaimFacet.claim.selector;
-        claimSelectors[1] = EmblemVaultClaimFacet.claimWithSignedPrice.selector;
-        claimSelectors[2] = EmblemVaultClaimFacet.setClaimingEnabled.selector;
-        claimSelectors[3] = EmblemVaultClaimFacet.setBurnAddress.selector;
-        claimSelectors[4] = EmblemVaultClaimFacet.isTokenClaimed.selector;
-        claimSelectors[5] = EmblemVaultClaimFacet.getTokenClaimer.selector;
-        claimSelectors[6] = EmblemVaultClaimFacet.getCollectionClaimCount.selector;
+        // UnvaultFacet
+        bytes4[] memory unvaultSelectors = new bytes4[](7);
+        unvaultSelectors[0] = EmblemVaultUnvaultFacet.unvault.selector;
+        unvaultSelectors[1] = EmblemVaultUnvaultFacet.unvaultWithSignedPrice.selector;
+        unvaultSelectors[2] = EmblemVaultUnvaultFacet.setUnvaultingEnabled.selector;
+        unvaultSelectors[3] = EmblemVaultUnvaultFacet.setBurnAddress.selector;
+        unvaultSelectors[4] = EmblemVaultUnvaultFacet.isTokenUnvaulted.selector;
+        unvaultSelectors[5] = EmblemVaultUnvaultFacet.getTokenUnvaulter.selector;
+        unvaultSelectors[6] = EmblemVaultUnvaultFacet.getCollectionUnvaultCount.selector;
         cut[3] = IDiamondCut.FacetCut({
-            facetAddress: address(claimFacet),
+            facetAddress: address(unvaultFacet),
             action: IDiamondCut.FacetCutAction.Add,
-            functionSelectors: claimSelectors
+            functionSelectors: unvaultSelectors
         });
 
         // MintFacet
@@ -182,7 +182,7 @@ contract DeployDiamondSystem is Script {
         console.log("DiamondLoupeFacet:", address(diamondLoupeFacet));
         console.log("OwnershipFacet:", address(ownershipFacet));
         console.log("VaultCoreFacet:", address(vaultCoreFacet));
-        console.log("ClaimFacet:", address(claimFacet));
+        console.log("UnvaultFacet:", address(unvaultFacet));
         console.log("MintFacet:", address(mintFacet));
         console.log("CollectionFacet:", address(collectionFacet));
         console.log("InitFacet:", address(initFacet));

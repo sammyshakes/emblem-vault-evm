@@ -7,9 +7,9 @@ import "../src/interfaces/IERC1155.sol";
 import "../src/libraries/LibEmblemVaultStorage.sol";
 import "../src/libraries/LibErrors.sol";
 
-contract ClaimTrackingTest is DiamondVaultTest {
+contract UnvaultTrackingTest is DiamondVaultTest {
     // Events
-    event ClaimingEnabled(bool enabled);
+    event UnvaultingEnabled(bool enabled);
     event BurnAddressUpdated(address indexed addr, bool isBurn);
 
     error TokenMappingNotFound();
@@ -18,7 +18,7 @@ contract ClaimTrackingTest is DiamondVaultTest {
         super.setUp();
     }
 
-    function testClaimingEnabledByDefault() public {
+    function testUnvaultingEnabledByDefault() public {
         // Create signature for minting
         bytes memory signature = createSignature(
             nftCollection,
@@ -41,7 +41,7 @@ contract ClaimTrackingTest is DiamondVaultTest {
         // Approve diamond
         ERC721VaultImplementation(nftCollection).setApprovalForAll(address(diamond), true);
 
-        EmblemVaultClaimFacet(address(diamond)).claim(nftCollection, 2);
+        EmblemVaultUnvaultFacet(address(diamond)).unvault(nftCollection, 2);
         vm.stopPrank();
 
         // Verify token was burned
@@ -49,12 +49,12 @@ contract ClaimTrackingTest is DiamondVaultTest {
         ERC721VaultImplementation(nftCollection).ownerOf(2);
     }
 
-    function testDisableClaiming() public {
-        // Disable claiming
+    function testDisableUnvaulting() public {
+        // Disable unvaulting
         vm.startPrank(owner);
         vm.expectEmit(true, true, true, true);
-        emit ClaimingEnabled(false);
-        EmblemVaultClaimFacet(address(diamond)).setClaimingEnabled(false);
+        emit UnvaultingEnabled(false);
+        EmblemVaultUnvaultFacet(address(diamond)).setUnvaultingEnabled(false);
         vm.stopPrank();
 
         // Create signature for minting
@@ -72,12 +72,12 @@ contract ClaimTrackingTest is DiamondVaultTest {
         // Approve diamond to manage tokens
         ERC721VaultImplementation(nftCollection).setApprovalForAll(address(diamond), true);
 
-        vm.expectRevert(LibEmblemVaultStorage.ClaimingDisabled.selector);
-        EmblemVaultClaimFacet(address(diamond)).claim(nftCollection, 2);
+        vm.expectRevert(LibEmblemVaultStorage.UnvaultingDisabled.selector);
+        EmblemVaultUnvaultFacet(address(diamond)).unvault(nftCollection, 2);
         vm.stopPrank();
     }
 
-    function testPreventDoubleClaim() public {
+    function testPreventDoubleUnvault() public {
         // Create signature for minting
         bytes memory signature = createSignature(
             nftCollection, address(0), 1 ether, tokenHolder, 2, 2, 1, witnessPrivateKey
@@ -93,11 +93,11 @@ contract ClaimTrackingTest is DiamondVaultTest {
         // Approve for all to diamond
         ERC721VaultImplementation(nftCollection).setApprovalForAll(address(diamond), true);
 
-        EmblemVaultClaimFacet(address(diamond)).claim(nftCollection, 2);
+        EmblemVaultUnvaultFacet(address(diamond)).unvault(nftCollection, 2);
 
-        // Second claim should fail with TokenMappingNotFound since the token was burned
+        // Second unvault should fail with TokenMappingNotFound since the token was burned
         vm.expectRevert(TokenMappingNotFound.selector);
-        EmblemVaultClaimFacet(address(diamond)).claim(nftCollection, 2);
+        EmblemVaultUnvaultFacet(address(diamond)).unvault(nftCollection, 2);
         vm.stopPrank();
     }
 
@@ -108,30 +108,30 @@ contract ClaimTrackingTest is DiamondVaultTest {
         vm.startPrank(owner);
         vm.expectEmit(true, true, true, true);
         emit BurnAddressUpdated(burnAddr, true);
-        EmblemVaultClaimFacet(address(diamond)).setBurnAddress(burnAddr, true);
+        EmblemVaultUnvaultFacet(address(diamond)).setBurnAddress(burnAddr, true);
 
         // Remove burn address
         vm.expectEmit(true, true, true, true);
         emit BurnAddressUpdated(burnAddr, false);
-        EmblemVaultClaimFacet(address(diamond)).setBurnAddress(burnAddr, false);
+        EmblemVaultUnvaultFacet(address(diamond)).setBurnAddress(burnAddr, false);
         vm.stopPrank();
     }
 
     function testRevertSetBurnAddressNotOwner() public {
         vm.startPrank(user1);
         vm.expectRevert(abi.encodeWithSelector(LibErrors.Unauthorized.selector, user1));
-        EmblemVaultClaimFacet(address(diamond)).setBurnAddress(address(0x123), true);
+        EmblemVaultUnvaultFacet(address(diamond)).setBurnAddress(address(0x123), true);
         vm.stopPrank();
     }
 
-    function testRevertSetClaimingEnabledNotOwner() public {
+    function testRevertSetUnvaultingEnabledNotOwner() public {
         vm.startPrank(user1);
         vm.expectRevert(abi.encodeWithSelector(LibErrors.Unauthorized.selector, user1));
-        EmblemVaultClaimFacet(address(diamond)).setClaimingEnabled(false);
+        EmblemVaultUnvaultFacet(address(diamond)).setUnvaultingEnabled(false);
         vm.stopPrank();
     }
 
-    function testClaimStatusTracking() public {
+    function testUnvaultStatusTracking() public {
         // Create signature for minting
         bytes memory signature = createSignature(
             nftCollection, address(0), 1 ether, tokenHolder, 2, 2, 1, witnessPrivateKey
@@ -147,21 +147,22 @@ contract ClaimTrackingTest is DiamondVaultTest {
         // Approve diamond
         ERC721VaultImplementation(nftCollection).setApprovalForAll(address(diamond), true);
 
-        // Check initial claim status
-        assertFalse(EmblemVaultClaimFacet(address(diamond)).isTokenClaimed(nftCollection, 2));
+        // Check initial unvault status
+        assertFalse(EmblemVaultUnvaultFacet(address(diamond)).isTokenUnvaulted(nftCollection, 2));
 
-        // Claim token
-        EmblemVaultClaimFacet(address(diamond)).claim(nftCollection, 2);
+        // Unvault token
+        EmblemVaultUnvaultFacet(address(diamond)).unvault(nftCollection, 2);
         vm.stopPrank();
 
-        // Verify claim status and claimer
-        assertTrue(EmblemVaultClaimFacet(address(diamond)).isTokenClaimed(nftCollection, 2));
+        // Verify unvault status and unvaulter
+        assertTrue(EmblemVaultUnvaultFacet(address(diamond)).isTokenUnvaulted(nftCollection, 2));
         assertEq(
-            EmblemVaultClaimFacet(address(diamond)).getTokenClaimer(nftCollection, 2), tokenHolder
+            EmblemVaultUnvaultFacet(address(diamond)).getTokenUnvaulter(nftCollection, 2),
+            tokenHolder
         );
     }
 
-    function testERC1155ClaimWithSerialNumber() public {
+    function testERC1155UnvaultWithSerialNumber() public {
         // Create ERC1155 collection through the factory
         vm.startPrank(owner);
         EmblemVaultCollectionFacet(address(diamond)).setCollectionFactory(address(factory));
@@ -187,29 +188,35 @@ contract ClaimTrackingTest is DiamondVaultTest {
         // Approve diamond to burn tokens
         IERC1155(erc1155Collection).setApprovalForAll(address(diamond), true);
 
-        // Check initial claim status
+        // Check initial unvault status
         assertFalse(
-            EmblemVaultClaimFacet(address(diamond)).isTokenClaimed(erc1155Collection, serialNumber)
+            EmblemVaultUnvaultFacet(address(diamond)).isTokenUnvaulted(
+                erc1155Collection, serialNumber
+            )
         );
 
-        // Claim token
-        EmblemVaultClaimFacet(address(diamond)).claim(erc1155Collection, 1);
+        // Unvault token
+        EmblemVaultUnvaultFacet(address(diamond)).unvault(erc1155Collection, 1);
         vm.stopPrank();
 
-        // Verify claim status and claimer
+        // Verify unvault status and unvaulter
         assertTrue(
-            EmblemVaultClaimFacet(address(diamond)).isTokenClaimed(erc1155Collection, serialNumber)
+            EmblemVaultUnvaultFacet(address(diamond)).isTokenUnvaulted(
+                erc1155Collection, serialNumber
+            )
         );
         assertEq(
-            EmblemVaultClaimFacet(address(diamond)).getTokenClaimer(erc1155Collection, serialNumber),
+            EmblemVaultUnvaultFacet(address(diamond)).getTokenUnvaulter(
+                erc1155Collection, serialNumber
+            ),
             tokenHolder
         );
     }
 
-    function testClaimWithSignedPriceWhenDisabled() public {
-        // Disable claiming
+    function testUnvaultWithSignedPriceWhenDisabled() public {
+        // Disable unvaulting
         vm.startPrank(owner);
-        EmblemVaultClaimFacet(address(diamond)).setClaimingEnabled(false);
+        EmblemVaultUnvaultFacet(address(diamond)).setUnvaultingEnabled(false);
         vm.stopPrank();
 
         // Create signature for minting
@@ -229,20 +236,20 @@ contract ClaimTrackingTest is DiamondVaultTest {
         ERC721VaultImplementation(nftCollection).transferFrom(tokenHolder, address(diamond), 2);
         vm.stopPrank();
 
-        // Create claim signature
-        bytes memory claimSignature =
+        // Create unvault signature
+        bytes memory unvaultSignature =
             createSignature(nftCollection, address(0), 1 ether, user1, 2, 3, 1, witnessPrivateKey);
 
-        // Should revert when trying to claim with signed price
+        // Should revert when trying to unvault with signed price
         vm.startPrank(user1);
-        vm.expectRevert(LibEmblemVaultStorage.ClaimingDisabled.selector);
-        EmblemVaultClaimFacet(address(diamond)).claimWithSignedPrice{value: 1 ether}(
-            nftCollection, 2, 3, address(0), 1 ether, claimSignature
+        vm.expectRevert(LibEmblemVaultStorage.UnvaultingDisabled.selector);
+        EmblemVaultUnvaultFacet(address(diamond)).unvaultWithSignedPrice{value: 1 ether}(
+            nftCollection, 2, 3, address(0), 1 ether, unvaultSignature
         );
         vm.stopPrank();
     }
 
-    function testClaimWithLockedVault() public {
+    function testUnvaultWithLockedVault() public {
         // Create signature for minting
         bytes memory signature = createSignature(
             nftCollection, address(0), 1 ether, tokenHolder, 2, 2, 1, witnessPrivateKey
@@ -267,40 +274,41 @@ contract ClaimTrackingTest is DiamondVaultTest {
         EmblemVaultCoreFacet(address(diamond)).lockVault(nftCollection, 2);
         vm.stopPrank();
 
-        // Create claim signature with lock acknowledgement
-        bytes memory claimSignature = createSignatureWithLock(
+        // Create unvault signature with lock acknowledgement
+        bytes memory unvaultSignature = createSignatureWithLock(
             nftCollection, address(0), 1 ether, tokenHolder, 2, 3, 1, witnessPrivateKey
         );
 
-        // Verify balances before claim
+        // Verify balances before unvault
         uint256 userBalanceBefore = tokenHolder.balance;
 
-        // Claim with signed price
+        // Unvault with signed price
         vm.startPrank(tokenHolder);
 
-        EmblemVaultClaimFacet(address(diamond)).claimWithSignedPrice{value: 1 ether}(
-            nftCollection, 2, 3, address(0), 1 ether, claimSignature
+        EmblemVaultUnvaultFacet(address(diamond)).unvaultWithSignedPrice{value: 1 ether}(
+            nftCollection, 2, 3, address(0), 1 ether, unvaultSignature
         );
 
-        // Verify balances after claim
+        // Verify balances after unvault
         uint256 userBalanceAfter = tokenHolder.balance;
 
         assertEq(userBalanceAfter, userBalanceBefore - 1 ether, "User balance incorrect");
         vm.stopPrank();
 
-        // Verify claim status
-        assertTrue(EmblemVaultClaimFacet(address(diamond)).isTokenClaimed(nftCollection, 2));
+        // Verify unvault status
+        assertTrue(EmblemVaultUnvaultFacet(address(diamond)).isTokenUnvaulted(nftCollection, 2));
         assertEq(
-            EmblemVaultClaimFacet(address(diamond)).getTokenClaimer(nftCollection, 2), tokenHolder
+            EmblemVaultUnvaultFacet(address(diamond)).getTokenUnvaulter(nftCollection, 2),
+            tokenHolder
         );
     }
 
-    function testBurnAddressWithClaim() public {
+    function testBurnAddressWithUnvault() public {
         address burnAddr = address(0x123);
 
         // Add burn address
         vm.startPrank(owner);
-        EmblemVaultClaimFacet(address(diamond)).setBurnAddress(burnAddr, true);
+        EmblemVaultUnvaultFacet(address(diamond)).setBurnAddress(burnAddr, true);
         vm.stopPrank();
 
         // Create signature for minting
@@ -318,19 +326,20 @@ contract ClaimTrackingTest is DiamondVaultTest {
         // Approve diamond
         ERC721VaultImplementation(nftCollection).setApprovalForAll(address(diamond), true);
 
-        // Claim
-        EmblemVaultClaimFacet(address(diamond)).claim(nftCollection, 2);
+        // Unvault
+        EmblemVaultUnvaultFacet(address(diamond)).unvault(nftCollection, 2);
         vm.stopPrank();
 
-        // Verify claim status
-        assertTrue(EmblemVaultClaimFacet(address(diamond)).isTokenClaimed(nftCollection, 2));
+        // Verify unvault status
+        assertTrue(EmblemVaultUnvaultFacet(address(diamond)).isTokenUnvaulted(nftCollection, 2));
         assertEq(
-            EmblemVaultClaimFacet(address(diamond)).getTokenClaimer(nftCollection, 2), tokenHolder
+            EmblemVaultUnvaultFacet(address(diamond)).getTokenUnvaulter(nftCollection, 2),
+            tokenHolder
         );
     }
 
-    function testClaimHistory() public {
-        // Create multiple tokens and claim them
+    function testUnvaultHistory() public {
+        // Create multiple tokens and unvault them
         for (uint256 i = 2; i <= 4; i++) {
             // Create signature for minting
             bytes memory signature = createSignature(
@@ -344,22 +353,24 @@ contract ClaimTrackingTest is DiamondVaultTest {
                 nftCollection, address(0), 1 ether, tokenHolder, i, i, signature, "", 1
             );
 
-            // Approve  diamond
+            // Approve diamond
             ERC721VaultImplementation(nftCollection).setApprovalForAll(address(diamond), true);
 
-            // Claim token
-            EmblemVaultClaimFacet(address(diamond)).claim(nftCollection, i);
+            // Unvault token
+            EmblemVaultUnvaultFacet(address(diamond)).unvault(nftCollection, i);
             vm.stopPrank();
         }
 
-        // Verify total claims
-        assertEq(EmblemVaultClaimFacet(address(diamond)).getCollectionClaimCount(nftCollection), 3);
+        // Verify total unvaults
+        assertEq(
+            EmblemVaultUnvaultFacet(address(diamond)).getCollectionUnvaultCount(nftCollection), 3
+        );
 
-        // Verify each claim individually
+        // Verify each unvault individually
         for (uint256 i = 2; i <= 4; i++) {
-            assertTrue(EmblemVaultClaimFacet(address(diamond)).isTokenClaimed(nftCollection, i));
+            assertTrue(EmblemVaultUnvaultFacet(address(diamond)).isTokenUnvaulted(nftCollection, i));
             assertEq(
-                EmblemVaultClaimFacet(address(diamond)).getTokenClaimer(nftCollection, i),
+                EmblemVaultUnvaultFacet(address(diamond)).getTokenUnvaulter(nftCollection, i),
                 tokenHolder
             );
         }

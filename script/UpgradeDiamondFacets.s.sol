@@ -7,7 +7,7 @@ import {DiamondCutFacet} from "../src/facets/DiamondCutFacet.sol";
 import {DiamondLoupeFacet} from "../src/facets/DiamondLoupeFacet.sol";
 import {OwnershipFacet} from "../src/facets/OwnershipFacet.sol";
 import {EmblemVaultCoreFacet} from "../src/facets/EmblemVaultCoreFacet.sol";
-import {EmblemVaultClaimFacet} from "../src/facets/EmblemVaultClaimFacet.sol";
+import {EmblemVaultUnvaultFacet} from "../src/facets/EmblemVaultUnvaultFacet.sol";
 import {EmblemVaultMintFacet} from "../src/facets/EmblemVaultMintFacet.sol";
 import {EmblemVaultCollectionFacet} from "../src/facets/EmblemVaultCollectionFacet.sol";
 import {EmblemVaultInitFacet} from "../src/facets/EmblemVaultInitFacet.sol";
@@ -18,7 +18,7 @@ import {EmblemVaultInitFacet} from "../src/facets/EmblemVaultInitFacet.sol";
  * @dev Run with `forge script script/UpgradeDiamondFacets.s.sol:UpgradeDiamondFacets --rpc-url <your_rpc_url> --broadcast`
  *      Set DIAMOND_ADDRESS and FACETS_TO_UPGRADE in .env file
  *      FACETS_TO_UPGRADE should be a comma-separated list of facet names, e.g.:
- *      FACETS_TO_UPGRADE=CoreFacet,MintFacet,ClaimFacet
+ *      FACETS_TO_UPGRADE=CoreFacet,MintFacet,UnvaultFacet,InitFacet,CollectionFacet
  */
 contract UpgradeDiamondFacets is Script {
     // Events for tracking upgrades
@@ -49,11 +49,11 @@ contract UpgradeDiamondFacets is Script {
                 bytes4[] memory selectors = _getCoreSelectors();
                 cut[cutIndex++] = _createFacetCut(address(newFacet), selectors);
                 emit FacetUpgraded("CoreFacet", address(newFacet));
-            } else if (_strEquals(facetName, "ClaimFacet")) {
-                EmblemVaultClaimFacet newFacet = new EmblemVaultClaimFacet();
-                bytes4[] memory selectors = _getClaimSelectors();
+            } else if (_strEquals(facetName, "UnvaultFacet")) {
+                EmblemVaultUnvaultFacet newFacet = new EmblemVaultUnvaultFacet();
+                bytes4[] memory selectors = _getUnvaultSelectors();
                 cut[cutIndex++] = _createFacetCut(address(newFacet), selectors);
-                emit FacetUpgraded("ClaimFacet", address(newFacet));
+                emit FacetUpgraded("UnvaultFacet", address(newFacet));
             } else if (_strEquals(facetName, "MintFacet")) {
                 EmblemVaultMintFacet newFacet = new EmblemVaultMintFacet();
                 bytes4[] memory selectors = _getMintSelectors();
@@ -113,12 +113,15 @@ contract UpgradeDiamondFacets is Script {
         return selectors;
     }
 
-    function _getClaimSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](4);
-        selectors[0] = EmblemVaultClaimFacet.claim.selector;
-        selectors[1] = EmblemVaultClaimFacet.claimWithSignedPrice.selector;
-        selectors[2] = EmblemVaultClaimFacet.setClaimingEnabled.selector;
-        selectors[3] = EmblemVaultClaimFacet.setBurnAddress.selector;
+    function _getUnvaultSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory selectors = new bytes4[](7);
+        selectors[0] = EmblemVaultUnvaultFacet.unvault.selector;
+        selectors[1] = EmblemVaultUnvaultFacet.unvaultWithSignedPrice.selector;
+        selectors[2] = EmblemVaultUnvaultFacet.setUnvaultingEnabled.selector;
+        selectors[3] = EmblemVaultUnvaultFacet.setBurnAddress.selector;
+        selectors[4] = EmblemVaultUnvaultFacet.isTokenUnvaulted.selector;
+        selectors[5] = EmblemVaultUnvaultFacet.getTokenUnvaulter.selector;
+        selectors[6] = EmblemVaultUnvaultFacet.getCollectionUnvaultCount.selector;
         return selectors;
     }
 
