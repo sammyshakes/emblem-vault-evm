@@ -71,7 +71,7 @@ contract EmblemVaultMintFacet {
         address payment; // Payment token address (address(0) for ETH)
         uint256 price; // Price per token
         address to; // Recipient address
-        uint256 externalTokenId; // External token ID
+        uint256 tokenId; // External token ID
         uint256 nonce; // Unique nonce for the transaction
         bytes signature; // Signature for verification
         bytes serialNumber; // Serial number for ERC1155 tokens
@@ -96,7 +96,7 @@ contract EmblemVaultMintFacet {
     /// @param _payment Payment token address (address(0) for ETH)
     /// @param _price Price per token
     /// @param _to Recipient address
-    /// @param _externalTokenId External token ID
+    /// @param _tokenId External token ID
     /// @param _nonce Unique nonce for the transaction
     /// @param _signature Signature for verification
     /// @param _serialNumber Serial number for ERC1155 tokens
@@ -106,7 +106,7 @@ contract EmblemVaultMintFacet {
         address _payment,
         uint256 _price,
         address _to,
-        uint256 _externalTokenId,
+        uint256 _tokenId,
         uint256 _nonce,
         bytes calldata _signature,
         bytes calldata _serialNumber,
@@ -119,7 +119,7 @@ contract EmblemVaultMintFacet {
             payment: _payment,
             price: _price,
             to: _to,
-            externalTokenId: _externalTokenId,
+            tokenId: _tokenId,
             nonce: _nonce,
             signature: _signature,
             serialNumber: _serialNumber,
@@ -137,7 +137,7 @@ contract EmblemVaultMintFacet {
     /// @param _payment Payment token address (address(0) for ETH)
     /// @param _prices Array of prices per token
     /// @param _to Recipient address
-    /// @param _externalTokenIds Array of external token IDs to mint
+    /// @param _tokenIds Array of token IDs to mint
     /// @param _nonces Array of unique nonces for the transactions
     /// @param _signatures Array of signatures for verification
     /// @param _serialNumbers Array of serial numbers for ERC1155 tokens
@@ -147,7 +147,7 @@ contract EmblemVaultMintFacet {
         address payment;
         uint256[] prices;
         address to;
-        uint256[] externalTokenIds;
+        uint256[] tokenIds;
         uint256[] nonces;
         bytes[] signatures;
         bytes[] serialNumbers;
@@ -161,10 +161,10 @@ contract EmblemVaultMintFacet {
     {
         LibEmblemVaultStorage.nonReentrantBefore();
 
-        LibErrors.revertIfLengthMismatch(params.externalTokenIds.length, params.prices.length);
-        LibErrors.revertIfLengthMismatch(params.externalTokenIds.length, params.nonces.length);
-        LibErrors.revertIfLengthMismatch(params.externalTokenIds.length, params.signatures.length);
-        LibErrors.revertIfLengthMismatch(params.externalTokenIds.length, params.amounts.length);
+        LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.prices.length);
+        LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.nonces.length);
+        LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.signatures.length);
+        LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.amounts.length);
         // Calculate total tokens being minted
         uint256 totalTokens;
         for (uint256 i = 0; i < params.amounts.length; i++) {
@@ -190,7 +190,7 @@ contract EmblemVaultMintFacet {
             IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, totalPrice);
         }
 
-        for (uint256 i = 0; i < params.externalTokenIds.length; i++) {
+        for (uint256 i = 0; i < params.tokenIds.length; i++) {
             LibEmblemVaultStorage.enforceNotUsedNonce(params.nonces[i]);
 
             address signer = LibSignature.verifyStandardSignature(
@@ -198,7 +198,7 @@ contract EmblemVaultMintFacet {
                 params.payment,
                 params.prices[i],
                 params.to,
-                params.externalTokenIds[i],
+                params.tokenIds[i],
                 params.nonces[i],
                 params.amounts[i],
                 params.signatures[i]
@@ -212,7 +212,7 @@ contract EmblemVaultMintFacet {
             _batchMintRouter(
                 params.nftAddress,
                 params.to,
-                params.externalTokenIds,
+                params.tokenIds,
                 params.amounts,
                 params.serialNumbers,
                 ""
@@ -242,7 +242,7 @@ contract EmblemVaultMintFacet {
             params.payment,
             params.price,
             params.to,
-            params.externalTokenId,
+            params.tokenId,
             params.nonce,
             params.amount,
             params.signature
@@ -251,7 +251,7 @@ contract EmblemVaultMintFacet {
         LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
 
         if (!_mintRouter(params)) {
-            revert LibErrors.MintFailed(params.nftAddress, params.externalTokenId);
+            revert LibErrors.MintFailed(params.nftAddress, params.tokenId);
         }
 
         LibEmblemVaultStorage.setUsedNonce(params.nonce);
@@ -259,7 +259,7 @@ contract EmblemVaultMintFacet {
         emit TokenMinted(
             params.nftAddress,
             params.to,
-            params.externalTokenId,
+            params.tokenId,
             params.amount,
             params.price,
             params.payment,
@@ -273,10 +273,10 @@ contract EmblemVaultMintFacet {
 
         if (isERC1155) {
             IERC1155(params.nftAddress).mintWithSerial(
-                params.to, params.externalTokenId, params.amount, params.serialNumber
+                params.to, params.tokenId, params.amount, params.serialNumber
             );
         } else if (isERC721A) {
-            IERC721AVault(params.nftAddress).mint(params.to, params.externalTokenId);
+            IERC721AVault(params.nftAddress).mint(params.to, params.tokenId);
         }
         return true;
     }
@@ -284,7 +284,7 @@ contract EmblemVaultMintFacet {
     function _batchMintRouter(
         address nftAddress,
         address to,
-        uint256[] memory externalTokenIds,
+        uint256[] memory tokenIds,
         uint256[] memory amounts,
         bytes[] memory serialNumbers,
         bytes memory data
@@ -293,13 +293,11 @@ contract EmblemVaultMintFacet {
         bool isERC721A = !isERC1155 && LibInterfaceIds.isERC721A(nftAddress);
 
         if (isERC1155) {
-            for (uint256 i = 0; i < externalTokenIds.length; i++) {
-                IERC1155(nftAddress).mintWithSerial(
-                    to, externalTokenIds[i], amounts[i], serialNumbers[i]
-                );
+            for (uint256 i = 0; i < tokenIds.length; i++) {
+                IERC1155(nftAddress).mintWithSerial(to, tokenIds[i], amounts[i], serialNumbers[i]);
             }
         } else if (isERC721A) {
-            IERC721AVault(nftAddress).batchMintWithData(to, externalTokenIds, data);
+            IERC721AVault(nftAddress).batchMintWithData(to, tokenIds, data);
         }
         return true;
     }
