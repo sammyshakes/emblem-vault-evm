@@ -116,7 +116,8 @@ contract EmblemVaultClaimFacet {
 
         if (_payment == address(0)) {
             LibErrors.revertIfIncorrectPayment(msg.value, _price);
-            payable(vs.recipientAddress).transfer(_price);
+            (bool _success,) = vs.recipientAddress.call{value: _price}("");
+            if (!_success) revert LibErrors.TransferFailed();
         } else {
             if (!IERC20Token(_payment).transferFrom(msg.sender, vs.recipientAddress, _price)) {
                 revert LibErrors.TransferFailed();
