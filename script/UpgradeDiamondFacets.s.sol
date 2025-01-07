@@ -114,7 +114,7 @@ contract UpgradeDiamondFacets is Script {
     }
 
     function _getUnvaultSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](7);
+        bytes4[] memory selectors = new bytes4[](8);
         selectors[0] = EmblemVaultUnvaultFacet.unvault.selector;
         selectors[1] = EmblemVaultUnvaultFacet.unvaultWithSignedPrice.selector;
         selectors[2] = EmblemVaultUnvaultFacet.setUnvaultingEnabled.selector;
@@ -122,18 +122,20 @@ contract UpgradeDiamondFacets is Script {
         selectors[4] = EmblemVaultUnvaultFacet.isTokenUnvaulted.selector;
         selectors[5] = EmblemVaultUnvaultFacet.getTokenUnvaulter.selector;
         selectors[6] = EmblemVaultUnvaultFacet.getCollectionUnvaultCount.selector;
+        selectors[7] = EmblemVaultUnvaultFacet.version.selector;
         return selectors;
     }
 
     function _getMintSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](2);
+        bytes4[] memory selectors = new bytes4[](3);
         selectors[0] = EmblemVaultMintFacet.buyWithSignedPrice.selector;
         selectors[1] = EmblemVaultMintFacet.batchBuyWithSignedPrice.selector;
+        selectors[2] = EmblemVaultMintFacet.version.selector;
         return selectors;
     }
 
     function _getCollectionSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](9);
+        bytes4[] memory selectors = new bytes4[](10);
         selectors[0] = EmblemVaultCollectionFacet.setCollectionFactory.selector;
         selectors[1] = EmblemVaultCollectionFacet.createVaultCollection.selector;
         selectors[2] = EmblemVaultCollectionFacet.upgradeCollectionImplementation.selector;
@@ -143,16 +145,18 @@ contract UpgradeDiamondFacets is Script {
         selectors[6] = EmblemVaultCollectionFacet.getCollectionFactory.selector;
         selectors[7] = EmblemVaultCollectionFacet.setCollectionBaseURI.selector;
         selectors[8] = EmblemVaultCollectionFacet.setCollectionURI.selector;
+        selectors[9] = EmblemVaultCollectionFacet.version.selector;
         return selectors;
     }
 
     function _getInitSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](5);
+        bytes4[] memory selectors = new bytes4[](6);
         selectors[0] = EmblemVaultInitFacet.initialize.selector;
         selectors[1] = EmblemVaultInitFacet.isInitialized.selector;
         selectors[2] = EmblemVaultInitFacet.getInterfaceIds.selector;
         selectors[3] = EmblemVaultInitFacet.getConfiguration.selector;
         selectors[4] = EmblemVaultInitFacet.getInitializationDetails.selector;
+        selectors[5] = EmblemVaultInitFacet.version.selector;
         return selectors;
     }
 

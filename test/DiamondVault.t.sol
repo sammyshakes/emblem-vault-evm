@@ -697,6 +697,23 @@ contract DiamondVaultTest is Test {
         vm.stopPrank();
     }
 
+    function testFacetVersions() public {
+        // CoreFacet
+        assertEq(EmblemVaultCoreFacet(address(diamond)).version(), "0.1.0");
+
+        // CollectionFacet
+        assertEq(EmblemVaultCollectionFacet(address(diamond)).version(), "0.1.0");
+
+        // MintFacet
+        assertEq(EmblemVaultMintFacet(address(diamond)).version(), "0.1.0");
+
+        // UnvaultFacet
+        assertEq(EmblemVaultUnvaultFacet(address(diamond)).version(), "0.1.0");
+
+        // InitFacet
+        assertEq(EmblemVaultInitFacet(address(diamond)).version(), "0.1.0");
+    }
+
     function testVaultLocking() public {
         // Lock vault
         vm.startPrank(owner);
