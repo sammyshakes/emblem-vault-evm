@@ -32,9 +32,9 @@ import "../interfaces/IVaultCollectionFactory.sol";
 contract EmblemVaultCollectionFacet {
     using LibCollectionTypes for uint8;
 
-    /// @notice Get the contract version
+    /// @notice Get the collection facet version
     /// @return The version string
-    function version() external pure returns (string memory) {
+    function getCollectionVersion() external pure returns (string memory) {
         return "0.1.0";
     }
 

@@ -43,9 +43,9 @@ contract EmblemVaultMintFacet {
     using LibEmblemVaultStorage for LibEmblemVaultStorage.VaultStorage;
     using SafeERC20 for IERC20;
 
-    /// @notice Get the contract version
+    /// @notice Get the mint facet version
     /// @return The version string
-    function version() external pure returns (string memory) {
+    function getMintVersion() external pure returns (string memory) {
         return "0.1.0";
     }
 

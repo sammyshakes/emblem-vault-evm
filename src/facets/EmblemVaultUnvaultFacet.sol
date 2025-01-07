@@ -32,9 +32,9 @@ import "../interfaces/IVaultCollectionFactory.sol";
 /// @notice Facet for handling vault unvaulting and burns
 /// @dev Manages the unvaulting process for vaults with support for various token standards
 contract EmblemVaultUnvaultFacet {
-    /// @notice Get the contract version
+    /// @notice Get the unvault facet version
     /// @return The version string
-    function version() external pure returns (string memory) {
+    function getUnvaultVersion() external pure returns (string memory) {
         return "0.1.0";
     }
 

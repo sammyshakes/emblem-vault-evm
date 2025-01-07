@@ -23,9 +23,9 @@ import "../libraries/LibEmblemVaultStorage.sol";
 /// @notice Handles initialization and configuration of the Emblem Vault system
 /// @dev Sets up initial state and provides configuration getters
 contract EmblemVaultInitFacet {
-    /// @notice Get the contract version
+    /// @notice Get the init facet version
     /// @return The version string
-    function version() external pure returns (string memory) {
+    function getInitVersion() external pure returns (string memory) {
         return "0.1.0";
     }
 
