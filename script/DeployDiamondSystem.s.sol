@@ -104,7 +104,7 @@ contract DeployDiamondSystem is Script {
         vaultCoreSelectors[8] = EmblemVaultCoreFacet.getWitnessCount.selector;
         vaultCoreSelectors[9] = EmblemVaultCoreFacet.setVaultFactory.selector;
         vaultCoreSelectors[10] = EmblemVaultCoreFacet.getVaultFactory.selector;
-        vaultCoreSelectors[11] = EmblemVaultCoreFacet.version.selector;
+        vaultCoreSelectors[11] = EmblemVaultCoreFacet.getCoreVersion.selector;
         cut[2] = IDiamondCut.FacetCut({
             facetAddress: address(vaultCoreFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -120,7 +120,7 @@ contract DeployDiamondSystem is Script {
         unvaultSelectors[4] = EmblemVaultUnvaultFacet.isTokenUnvaulted.selector;
         unvaultSelectors[5] = EmblemVaultUnvaultFacet.getTokenUnvaulter.selector;
         unvaultSelectors[6] = EmblemVaultUnvaultFacet.getCollectionUnvaultCount.selector;
-        unvaultSelectors[7] = EmblemVaultUnvaultFacet.version.selector;
+        unvaultSelectors[7] = EmblemVaultUnvaultFacet.getUnvaultVersion.selector;
         cut[3] = IDiamondCut.FacetCut({
             facetAddress: address(unvaultFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -131,7 +131,7 @@ contract DeployDiamondSystem is Script {
         bytes4[] memory mintSelectors = new bytes4[](3);
         mintSelectors[0] = EmblemVaultMintFacet.buyWithSignedPrice.selector;
         mintSelectors[1] = EmblemVaultMintFacet.batchBuyWithSignedPrice.selector;
-        mintSelectors[2] = EmblemVaultMintFacet.version.selector;
+        mintSelectors[2] = EmblemVaultMintFacet.getMintVersion.selector;
         cut[4] = IDiamondCut.FacetCut({
             facetAddress: address(mintFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -149,7 +149,7 @@ contract DeployDiamondSystem is Script {
         collectionSelectors[6] = EmblemVaultCollectionFacet.getCollectionFactory.selector;
         collectionSelectors[7] = EmblemVaultCollectionFacet.setCollectionBaseURI.selector;
         collectionSelectors[8] = EmblemVaultCollectionFacet.setCollectionURI.selector;
-        collectionSelectors[9] = EmblemVaultCollectionFacet.version.selector;
+        collectionSelectors[9] = EmblemVaultCollectionFacet.getCollectionVersion.selector;
         cut[5] = IDiamondCut.FacetCut({
             facetAddress: address(collectionFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -163,7 +163,7 @@ contract DeployDiamondSystem is Script {
         initSelectors[2] = EmblemVaultInitFacet.getInterfaceIds.selector;
         initSelectors[3] = EmblemVaultInitFacet.getConfiguration.selector;
         initSelectors[4] = EmblemVaultInitFacet.getInitializationDetails.selector;
-        initSelectors[5] = EmblemVaultInitFacet.version.selector;
+        initSelectors[5] = EmblemVaultInitFacet.getInitVersion.selector;
         cut[6] = IDiamondCut.FacetCut({
             facetAddress: address(initFacet),
             action: IDiamondCut.FacetCutAction.Add,
