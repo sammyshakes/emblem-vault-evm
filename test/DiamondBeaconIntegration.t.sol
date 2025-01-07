@@ -109,7 +109,7 @@ contract DiamondBeaconIntegrationTest is Test {
         vaultCoreSelectors[6] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
         vaultCoreSelectors[7] = EmblemVaultCoreFacet.isWitness.selector;
         vaultCoreSelectors[8] = EmblemVaultCoreFacet.getWitnessCount.selector;
-        vaultCoreSelectors[9] = EmblemVaultCoreFacet.version.selector;
+        vaultCoreSelectors[9] = EmblemVaultCoreFacet.getCoreVersion.selector;
         vaultCoreSelectors[10] = EmblemVaultCoreFacet.setVaultFactory.selector;
         vaultCoreSelectors[11] = EmblemVaultCoreFacet.getVaultFactory.selector;
         cut[2] = IDiamondCut.FacetCut({

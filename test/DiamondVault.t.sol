@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
+// import "forge-std/console.sol";
 import {EmblemVaultDiamond} from "../src/EmblemVaultDiamond.sol";
 import {ERC721AUpgradeable} from "ERC721A-Upgradeable/ERC721AUpgradeable.sol";
 import {IDiamondCut} from "../src/interfaces/IDiamondCut.sol";
@@ -162,7 +162,7 @@ contract DiamondVaultTest is Test {
         vaultCoreSelectors[6] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
         vaultCoreSelectors[7] = EmblemVaultCoreFacet.isWitness.selector;
         vaultCoreSelectors[8] = EmblemVaultCoreFacet.getWitnessCount.selector;
-        vaultCoreSelectors[9] = EmblemVaultCoreFacet.version.selector;
+        vaultCoreSelectors[9] = EmblemVaultCoreFacet.getCoreVersion.selector;
         vaultCoreSelectors[10] = EmblemVaultCoreFacet.setVaultFactory.selector;
         vaultCoreSelectors[11] = EmblemVaultCoreFacet.getVaultFactory.selector;
         cut[2] = IDiamondCut.FacetCut({
@@ -172,7 +172,7 @@ contract DiamondVaultTest is Test {
         });
 
         // UnvaultFacet
-        bytes4[] memory unvaultSelectors = new bytes4[](7);
+        bytes4[] memory unvaultSelectors = new bytes4[](8);
         unvaultSelectors[0] = EmblemVaultUnvaultFacet.unvault.selector;
         unvaultSelectors[1] = EmblemVaultUnvaultFacet.unvaultWithSignedPrice.selector;
         unvaultSelectors[2] = EmblemVaultUnvaultFacet.setUnvaultingEnabled.selector;
@@ -180,6 +180,7 @@ contract DiamondVaultTest is Test {
         unvaultSelectors[4] = EmblemVaultUnvaultFacet.isTokenUnvaulted.selector;
         unvaultSelectors[5] = EmblemVaultUnvaultFacet.getTokenUnvaulter.selector;
         unvaultSelectors[6] = EmblemVaultUnvaultFacet.getCollectionUnvaultCount.selector;
+        unvaultSelectors[7] = EmblemVaultUnvaultFacet.getUnvaultVersion.selector;
         cut[3] = IDiamondCut.FacetCut({
             facetAddress: address(unvaultFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -187,9 +188,10 @@ contract DiamondVaultTest is Test {
         });
 
         // MintFacet
-        bytes4[] memory mintSelectors = new bytes4[](2);
+        bytes4[] memory mintSelectors = new bytes4[](3);
         mintSelectors[0] = EmblemVaultMintFacet.buyWithSignedPrice.selector;
         mintSelectors[1] = EmblemVaultMintFacet.batchBuyWithSignedPrice.selector;
+        mintSelectors[2] = EmblemVaultMintFacet.getMintVersion.selector;
         cut[4] = IDiamondCut.FacetCut({
             facetAddress: address(mintFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -197,7 +199,7 @@ contract DiamondVaultTest is Test {
         });
 
         // CollectionFacet
-        bytes4[] memory collectionSelectors = new bytes4[](9);
+        bytes4[] memory collectionSelectors = new bytes4[](13);
         collectionSelectors[0] = EmblemVaultCollectionFacet.setCollectionFactory.selector;
         collectionSelectors[1] = EmblemVaultCollectionFacet.createVaultCollection.selector;
         collectionSelectors[2] = EmblemVaultCollectionFacet.upgradeCollectionImplementation.selector;
@@ -207,6 +209,10 @@ contract DiamondVaultTest is Test {
         collectionSelectors[6] = EmblemVaultCollectionFacet.getCollectionFactory.selector;
         collectionSelectors[7] = EmblemVaultCollectionFacet.setCollectionBaseURI.selector;
         collectionSelectors[8] = EmblemVaultCollectionFacet.setCollectionURI.selector;
+        collectionSelectors[9] = EmblemVaultCollectionFacet.getCollectionVersion.selector;
+        collectionSelectors[10] = EmblemVaultCollectionFacet.setCollectionOwner.selector;
+        collectionSelectors[11] = EmblemVaultCollectionFacet.getCollectionOwner.selector;
+        collectionSelectors[12] = EmblemVaultCollectionFacet.getCollectionType.selector;
         cut[5] = IDiamondCut.FacetCut({
             facetAddress: address(collectionFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -214,12 +220,13 @@ contract DiamondVaultTest is Test {
         });
 
         // InitializationFacet
-        bytes4[] memory initSelectors = new bytes4[](5);
+        bytes4[] memory initSelectors = new bytes4[](6);
         initSelectors[0] = EmblemVaultInitFacet.initialize.selector;
         initSelectors[1] = EmblemVaultInitFacet.isInitialized.selector;
         initSelectors[2] = EmblemVaultInitFacet.getInterfaceIds.selector;
         initSelectors[3] = EmblemVaultInitFacet.getConfiguration.selector;
         initSelectors[4] = EmblemVaultInitFacet.getInitializationDetails.selector;
+        initSelectors[5] = EmblemVaultInitFacet.getInitVersion.selector;
         cut[6] = IDiamondCut.FacetCut({
             facetAddress: address(initFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -699,19 +706,19 @@ contract DiamondVaultTest is Test {
 
     function testFacetVersions() public {
         // CoreFacet
-        assertEq(EmblemVaultCoreFacet(address(diamond)).version(), "0.1.0");
+        assertEq(EmblemVaultCoreFacet(address(diamond)).getCoreVersion(), "0.1.0");
 
         // CollectionFacet
-        assertEq(EmblemVaultCollectionFacet(address(diamond)).version(), "0.1.0");
+        assertEq(EmblemVaultCollectionFacet(address(diamond)).getCollectionVersion(), "0.1.0");
 
         // MintFacet
-        assertEq(EmblemVaultMintFacet(address(diamond)).version(), "0.1.0");
+        assertEq(EmblemVaultMintFacet(address(diamond)).getMintVersion(), "0.1.0");
 
         // UnvaultFacet
-        assertEq(EmblemVaultUnvaultFacet(address(diamond)).version(), "0.1.0");
+        assertEq(EmblemVaultUnvaultFacet(address(diamond)).getUnvaultVersion(), "0.1.0");
 
         // InitFacet
-        assertEq(EmblemVaultInitFacet(address(diamond)).version(), "0.1.0");
+        assertEq(EmblemVaultInitFacet(address(diamond)).getInitVersion(), "0.1.0");
     }
 
     function testVaultLocking() public {

@@ -44,12 +44,20 @@ contract VerifyUpgrade is Script {
 
         // 3. Verify collection configuration
         address factory = EmblemVaultCollectionFacet(diamond).getCollectionFactory();
-        address collectionOwner = EmblemVaultCollectionFacet(diamond).getCollectionOwner();
 
         console.log("\nCollection Configuration:");
         console.log("-----------------------");
         console.log("Factory:", factory);
-        console.log("Collection Owner:", collectionOwner);
+        console.log("Note: Collections are owned by factory owner");
+
+        // Try to get global collection owner (not critical if unset)
+        try EmblemVaultCollectionFacet(diamond).getCollectionOwner() returns (
+            address collectionOwner
+        ) {
+            console.log("Global Collection Owner (Optional):", owner);
+        } catch {
+            console.log("Global Collection Owner: Not Set (Using factory owner)");
+        }
 
         // 4. Verify core configuration
         address vaultFactory = EmblemVaultCoreFacet(diamond).getVaultFactory();
