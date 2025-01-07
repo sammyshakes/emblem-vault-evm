@@ -77,7 +77,7 @@ contract EmblemVaultMintFacet {
         address payment; // Payment token address (address(0) for ETH)
         uint256 price; // Price per token
         address to; // Recipient address
-        uint256 tokenId; // External token ID
+        uint256 tokenId; // Token ID
         uint256 nonce; // Unique nonce for the transaction
         bytes signature; // Signature for verification
         bytes serialNumber; // Serial number for ERC1155 tokens
@@ -102,7 +102,7 @@ contract EmblemVaultMintFacet {
     /// @param _payment Payment token address (address(0) for ETH)
     /// @param _price Price per token
     /// @param _to Recipient address
-    /// @param _tokenId External token ID
+    /// @param _tokenId Token ID
     /// @param _nonce Unique nonce for the transaction
     /// @param _signature Signature for verification
     /// @param _serialNumber Serial number for ERC1155 tokens
