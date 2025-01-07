@@ -43,6 +43,12 @@ contract EmblemVaultMintFacet {
     using LibEmblemVaultStorage for LibEmblemVaultStorage.VaultStorage;
     using SafeERC20 for IERC20;
 
+    /// @notice Get the contract version
+    /// @return The version string
+    function version() external pure returns (string memory) {
+        return "0.1.0";
+    }
+
     // Constants for gas optimization
     uint256 private constant PRICE_TOLERANCE_BPS = 200; // 2%
 
