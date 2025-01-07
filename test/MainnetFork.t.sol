@@ -12,12 +12,19 @@ import {OwnershipFacet} from "../src/facets/OwnershipFacet.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IERC721AVault} from "../src/interfaces/IERC721AVault.sol";
 
 contract MainnetForkTest is Test {
     // Mainnet deployed addresses
-    address constant DIAMOND = 0x12F084DE536F41bcd29Dfc7632Db0261CEC72C60;
-    address constant DIAMOND_HANDS_COLLECTION = 0xAfE0130Bad95763A66871e1F2fd73B8e7ee18037;
-    address constant COLLECTION_FACTORY = 0x109De29e0FB4de58A66ce077253E0604D81AD14C;
+    address immutable DIAMOND;
+    address immutable DIAMOND_HANDS_COLLECTION;
+    address immutable COLLECTION_FACTORY;
+
+    constructor() {
+        DIAMOND = vm.envAddress("DIAMOND_ADDRESS");
+        DIAMOND_HANDS_COLLECTION = vm.envAddress("ERC721_COLLECTION");
+        COLLECTION_FACTORY = vm.envAddress("COLLECTION_FACTORY_ADDRESS");
+    }
 
     // Test addresses
     address owner;
@@ -162,5 +169,83 @@ contract MainnetForkTest is Test {
             EmblemVaultCollectionFacet(DIAMOND).getCollectionType(DIAMOND_HANDS_COLLECTION);
         console.log("Collection Type:", collectionType);
         assertEq(collectionType, 1, "Should be ERC721 type");
+    }
+
+    function testMainnetMintWithSignedPrice() public {
+        // Get a witness private key
+        uint256 witnessKey = vm.envUint("PRIVATE_KEY");
+        address witness = vm.addr(witnessKey);
+
+        // Verify witness is authorized
+        assertTrue(EmblemVaultCoreFacet(DIAMOND).isWitness(witness), "Not a valid witness");
+
+        // Get initial balances
+        uint256 initialBalance = IERC721(DIAMOND_HANDS_COLLECTION).balanceOf(user1);
+        uint256 initialEthBalance = user1.balance;
+
+        console.log("Initial NFT Balance:", initialBalance);
+        console.log("Initial ETH Balance:", initialEthBalance);
+
+        // Create mint parameters
+        uint256 price = 0.1 ether;
+        uint256 externalTokenId = uint256(keccak256(abi.encodePacked(block.timestamp, user1))); // Random large number
+        bytes32 salt = bytes32(uint256(1)); // Example salt
+
+        // Create signature using LibSignature format
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(
+                DIAMOND_HANDS_COLLECTION, // nftAddress
+                address(0), // payment token
+                price, // price
+                user1, // recipient
+                externalTokenId, // tokenId (external ID that maps to internal ID)
+                uint256(salt), // nonce
+                uint256(1) // amount
+            )
+        );
+
+        // Add Ethereum signed message prefix
+        bytes32 prefixedHash =
+            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
+
+        // Sign the message
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(witnessKey, prefixedHash);
+
+        // Pack signature in format expected by contract (r,s,v)
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        // Mint with signature
+        vm.prank(user1);
+        EmblemVaultMintFacet(DIAMOND).buyWithSignedPrice{value: price}(
+            DIAMOND_HANDS_COLLECTION, // nftAddress
+            address(0), // payment token (ETH)
+            price, // price
+            user1, // recipient
+            externalTokenId, // tokenId (external ID)
+            uint256(salt), // nonce
+            signature, // signature
+            "", // serialNumber (empty for ERC721)
+            1 // amount (1 for ERC721)
+        );
+
+        // Verify mint was successful
+        uint256 finalBalance = IERC721(DIAMOND_HANDS_COLLECTION).balanceOf(user1);
+        uint256 finalEthBalance = user1.balance;
+
+        console.log("Final NFT Balance:", finalBalance);
+        console.log("Final ETH Balance:", finalEthBalance);
+        console.log("ETH Spent:", initialEthBalance - finalEthBalance);
+        console.log("External Token ID Used:", externalTokenId);
+
+        assertEq(finalBalance, initialBalance + 1, "NFT not minted");
+        assertEq(finalEthBalance, initialEthBalance - price, "Wrong ETH amount spent");
+
+        // Get the internal token ID that was mapped to our external ID
+        uint256 internalTokenId =
+            IERC721AVault(DIAMOND_HANDS_COLLECTION).getInternalTokenId(externalTokenId);
+        console.log("Internal Token ID:", internalTokenId);
+        assertEq(
+            IERC721(DIAMOND_HANDS_COLLECTION).ownerOf(internalTokenId), user1, "Wrong token owner"
+        );
     }
 }
