@@ -98,13 +98,13 @@ library LibErrors {
     /// @notice Nonce already used
     error NonceAlreadyUsed(uint256 nonce);
 
-    // ============ Claim Errors ============
+    // ============ Unvault Errors ============
 
-    /// @notice Claimer contract not set
-    error ClaimerNotSet();
+    /// @notice Unvaulter contract not set
+    error UnvaulterNotSet();
 
-    /// @notice Token already claimed
-    error AlreadyClaimed(address collection, uint256 tokenId);
+    /// @notice Token already unvaulted
+    error AlreadyUnvaulted(address collection, uint256 tokenId);
 
     /// @notice Burn operation failed
     error BurnFailed(address collection, uint256 tokenId);

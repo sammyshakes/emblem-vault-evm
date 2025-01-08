@@ -17,6 +17,8 @@ library LibEmblemVaultStorage {
     error NotWitness();
     error NonceAlreadyUsed();
     error ZeroAddress();
+    error AlreadyUnvaulted();
+    error UnvaultingDisabled();
 
     struct ReentrancyGuard {
         bool entered;
@@ -28,6 +30,7 @@ library LibEmblemVaultStorage {
         // System State
         bool initialized;
         bool byPassable;
+        bool unvaultingEnabled; // Global switch for unvaulting
         // Core Mappings
         mapping(address => mapping(uint256 => bool)) lockedVaults;
         mapping(address => bool) witnesses;
@@ -36,11 +39,14 @@ library LibEmblemVaultStorage {
         string metadataBaseUri;
         address recipientAddress;
         address vaultFactory; // For beacon pattern integration
-        address claimerContract; // Contract handling claim verification
+        // Unvault Tracking
+        mapping(address => mapping(uint256 => bool)) unvaulted; // nft => identifier => unvaulted
+        mapping(address => mapping(uint256 => address)) unvaulters; // nft => identifier => unvaulter
+        mapping(address => uint256) totalUnvaulted; // nft => count
+        mapping(address => bool) burnAddresses; // For burn address verification
         // Interface IDs (constant but stored for gas optimization)
         bytes4 INTERFACE_ID_ERC1155;
         bytes4 INTERFACE_ID_ERC20;
-        bytes4 INTERFACE_ID_ERC721;
         bytes4 INTERFACE_ID_ERC721A;
         // Bypass System
         mapping(address => mapping(bytes4 => bool)) byPassableFunction;
@@ -157,11 +163,6 @@ library LibEmblemVaultStorage {
         vaultStorage().vaultFactory = _factory;
     }
 
-    function setClaimerContract(address _claimer) internal {
-        if (_claimer == address(0)) revert ZeroAddress();
-        vaultStorage().claimerContract = _claimer;
-    }
-
     function setMetadataBaseUri(string memory _uri) internal {
         vaultStorage().metadataBaseUri = _uri;
     }
@@ -191,16 +192,51 @@ library LibEmblemVaultStorage {
         }
     }
 
-    // ============ Initialization ============
+    // ============ Unvault Management ============
+
+    function setUnvaulted(address nft, uint256 id, address unvaulter) internal {
+        VaultStorage storage vs = vaultStorage();
+        if (!vs.unvaultingEnabled) revert UnvaultingDisabled();
+        if (vs.unvaulted[nft][id]) revert AlreadyUnvaulted();
+
+        vs.unvaulted[nft][id] = true;
+        vs.unvaulters[nft][id] = unvaulter;
+        vs.totalUnvaulted[nft]++;
+    }
+
+    function isUnvaulted(address nft, uint256 id) internal view returns (bool) {
+        return vaultStorage().unvaulted[nft][id];
+    }
+
+    function getUnvaulter(address nft, uint256 id) internal view returns (address) {
+        return vaultStorage().unvaulters[nft][id];
+    }
+
+    function getUnvaultCount(address nft) internal view returns (uint256) {
+        return vaultStorage().totalUnvaulted[nft];
+    }
+
+    function setUnvaultingEnabled(bool enabled) internal {
+        vaultStorage().unvaultingEnabled = enabled;
+    }
+
+    function setBurnAddress(address addr, bool isBurn) internal {
+        if (addr == address(0)) revert ZeroAddress();
+        vaultStorage().burnAddresses[addr] = isBurn;
+    }
+
+    function isBurnAddress(address addr) internal view returns (bool) {
+        return vaultStorage().burnAddresses[addr];
+    }
 
     function initializeVaultStorage() internal {
         VaultStorage storage vs = vaultStorage();
         if (vs.initialized) revert AlreadyInitialized();
 
         vs.metadataBaseUri = "https://v2.emblemvault.io/meta/";
+        vs.unvaultingEnabled = true;
         vs.INTERFACE_ID_ERC1155 = 0xd9b67a26;
         vs.INTERFACE_ID_ERC20 = 0x74a1476f;
-        vs.INTERFACE_ID_ERC721 = 0x80ac58cd;
         vs.INTERFACE_ID_ERC721A = 0xf4a95f26;
         vs.recipientAddress = msg.sender;
         vs.vaultFactory = msg.sender;

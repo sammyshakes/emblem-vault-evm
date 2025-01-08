@@ -224,9 +224,9 @@ contract EmblemVaultCoreFacet {
         return LibEmblemVaultStorage.vaultStorage().vaultFactory;
     }
 
-    /// @notice Get the contract version
+    /// @notice Get the core facet version
     /// @return The version string
-    function version() external pure returns (string memory) {
-        return "1";
+    function getCoreVersion() external pure returns (string memory) {
+        return "0.1.0";
     }
 }

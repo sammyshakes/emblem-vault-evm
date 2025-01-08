@@ -7,7 +7,7 @@ import {DiamondCutFacet} from "../src/facets/DiamondCutFacet.sol";
 import {DiamondLoupeFacet} from "../src/facets/DiamondLoupeFacet.sol";
 import {OwnershipFacet} from "../src/facets/OwnershipFacet.sol";
 import {EmblemVaultCoreFacet} from "../src/facets/EmblemVaultCoreFacet.sol";
-import {EmblemVaultClaimFacet} from "../src/facets/EmblemVaultClaimFacet.sol";
+import {EmblemVaultUnvaultFacet} from "../src/facets/EmblemVaultUnvaultFacet.sol";
 import {EmblemVaultMintFacet} from "../src/facets/EmblemVaultMintFacet.sol";
 import {EmblemVaultCollectionFacet} from "../src/facets/EmblemVaultCollectionFacet.sol";
 import {EmblemVaultInitFacet} from "../src/facets/EmblemVaultInitFacet.sol";
@@ -18,7 +18,7 @@ import {EmblemVaultInitFacet} from "../src/facets/EmblemVaultInitFacet.sol";
  * @dev Run with `forge script script/UpgradeDiamondFacets.s.sol:UpgradeDiamondFacets --rpc-url <your_rpc_url> --broadcast`
  *      Set DIAMOND_ADDRESS and FACETS_TO_UPGRADE in .env file
  *      FACETS_TO_UPGRADE should be a comma-separated list of facet names, e.g.:
- *      FACETS_TO_UPGRADE=CoreFacet,MintFacet,ClaimFacet
+ *      FACETS_TO_UPGRADE=CoreFacet,MintFacet,UnvaultFacet,InitFacet,CollectionFacet
  */
 contract UpgradeDiamondFacets is Script {
     // Events for tracking upgrades
@@ -37,43 +37,95 @@ contract UpgradeDiamondFacets is Script {
 
         // Parse facets to upgrade
         string[] memory facetNames = _split(facetsToUpgrade, ",");
-        IDiamondCut.FacetCut[] memory cut = new IDiamondCut.FacetCut[](facetNames.length);
+
+        // Calculate exact number of cuts needed
+        uint256 totalCuts = 0;
+        for (uint256 i = 0; i < facetNames.length; i++) {
+            string memory facetName = facetNames[i];
+            if (_strEquals(facetName, "CoreFacet")) {
+                totalCuts += 2; // Remove old + Add new
+            } else if (_strEquals(facetName, "MintFacet")) {
+                totalCuts += 2; // Replace + Add new
+            } else if (_strEquals(facetName, "InitFacet")) {
+                totalCuts += 2; // Replace existing + Add new
+            } else if (_strEquals(facetName, "CollectionFacet")) {
+                totalCuts += 2; // Replace existing + Add new
+            } else {
+                totalCuts += 1; // Replace
+            }
+        }
+
+        console.log("Total cuts needed:", totalCuts);
+        IDiamondCut.FacetCut[] memory cut = new IDiamondCut.FacetCut[](totalCuts);
         uint256 cutIndex = 0;
 
         // Deploy and prepare upgrades for each facet
         for (uint256 i = 0; i < facetNames.length; i++) {
             string memory facetName = facetNames[i];
+            console.log("Processing facet:", facetName);
 
             if (_strEquals(facetName, "CoreFacet")) {
                 EmblemVaultCoreFacet newFacet = new EmblemVaultCoreFacet();
-                bytes4[] memory selectors = _getCoreSelectors();
-                cut[cutIndex++] = _createFacetCut(address(newFacet), selectors);
+
+                // Add new getCoreVersion function
+                bytes4[] memory newCoreSelectors = new bytes4[](1);
+                newCoreSelectors[0] = EmblemVaultCoreFacet.getCoreVersion.selector;
+                require(cutIndex < totalCuts, "Array bounds exceeded");
+                cut[cutIndex++] = _createAddCut(address(newFacet), newCoreSelectors);
+
+                // Remove old version function
+                bytes4[] memory oldCoreSelectors = _getOldCoreSelectors();
+                require(cutIndex < totalCuts, "Array bounds exceeded");
+                cut[cutIndex++] = IDiamondCut.FacetCut({
+                    facetAddress: address(0),
+                    action: IDiamondCut.FacetCutAction.Remove,
+                    functionSelectors: oldCoreSelectors
+                });
+
                 emit FacetUpgraded("CoreFacet", address(newFacet));
-            } else if (_strEquals(facetName, "ClaimFacet")) {
-                EmblemVaultClaimFacet newFacet = new EmblemVaultClaimFacet();
-                bytes4[] memory selectors = _getClaimSelectors();
-                cut[cutIndex++] = _createFacetCut(address(newFacet), selectors);
-                emit FacetUpgraded("ClaimFacet", address(newFacet));
+            } else if (_strEquals(facetName, "UnvaultFacet")) {
+                EmblemVaultUnvaultFacet newFacet = new EmblemVaultUnvaultFacet();
+                bytes4[] memory selectors = _getUnvaultSelectors();
+                cut[cutIndex++] = _createAddCut(address(newFacet), selectors);
+                emit FacetUpgraded("UnvaultFacet", address(newFacet));
             } else if (_strEquals(facetName, "MintFacet")) {
                 EmblemVaultMintFacet newFacet = new EmblemVaultMintFacet();
-                bytes4[] memory selectors = _getMintSelectors();
-                cut[cutIndex++] = _createFacetCut(address(newFacet), selectors);
+                // Replace existing functions
+                bytes4[] memory existingSelectors = _getExistingMintSelectors();
+                cut[cutIndex++] = _createReplaceCut(address(newFacet), existingSelectors);
+                // Add new function
+                bytes4[] memory newSelectors = _getNewMintSelectors();
+                cut[cutIndex++] = _createAddCut(address(newFacet), newSelectors);
                 emit FacetUpgraded("MintFacet", address(newFacet));
             } else if (_strEquals(facetName, "CollectionFacet")) {
                 EmblemVaultCollectionFacet newFacet = new EmblemVaultCollectionFacet();
-                bytes4[] memory selectors = _getCollectionSelectors();
-                cut[cutIndex++] = _createFacetCut(address(newFacet), selectors);
+                // Replace existing functions
+                bytes4[] memory existingSelectors = _getExistingCollectionSelectors();
+                cut[cutIndex++] = _createReplaceCut(address(newFacet), existingSelectors);
+                // Add new functions
+                bytes4[] memory newSelectors = _getNewCollectionSelectors();
+                cut[cutIndex++] = _createAddCut(address(newFacet), newSelectors);
                 emit FacetUpgraded("CollectionFacet", address(newFacet));
             } else if (_strEquals(facetName, "InitFacet")) {
                 EmblemVaultInitFacet newFacet = new EmblemVaultInitFacet();
-                bytes4[] memory selectors = _getInitSelectors();
-                cut[cutIndex++] = _createFacetCut(address(newFacet), selectors);
+                // Replace existing functions
+                bytes4[] memory existingSelectors = _getExistingInitSelectors();
+                cut[cutIndex++] = _createReplaceCut(address(newFacet), existingSelectors);
+                // Add new function
+                bytes4[] memory newSelectors = _getNewInitSelectors();
+                cut[cutIndex++] = _createAddCut(address(newFacet), newSelectors);
                 emit FacetUpgraded("InitFacet", address(newFacet));
             }
         }
 
+        // Create final cuts array with exact size
+        IDiamondCut.FacetCut[] memory finalCuts = new IDiamondCut.FacetCut[](cutIndex);
+        for (uint256 i = 0; i < cutIndex; i++) {
+            finalCuts[i] = cut[i];
+        }
+
         // Perform diamond cut to upgrade facets
-        IDiamondCut(diamond).diamondCut(cut, address(0), "");
+        IDiamondCut(diamond).diamondCut(finalCuts, address(0), "");
 
         vm.stopBroadcast();
 
@@ -84,7 +136,7 @@ contract UpgradeDiamondFacets is Script {
         console.log("Facets upgraded:", facetsToUpgrade);
     }
 
-    function _createFacetCut(address facet, bytes4[] memory selectors)
+    function _createReplaceCut(address facet, bytes4[] memory selectors)
         internal
         pure
         returns (IDiamondCut.FacetCut memory)
@@ -96,8 +148,20 @@ contract UpgradeDiamondFacets is Script {
         });
     }
 
+    function _createAddCut(address facet, bytes4[] memory selectors)
+        internal
+        pure
+        returns (IDiamondCut.FacetCut memory)
+    {
+        return IDiamondCut.FacetCut({
+            facetAddress: facet,
+            action: IDiamondCut.FacetCutAction.Add,
+            functionSelectors: selectors
+        });
+    }
+
     function _getCoreSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](10);
+        bytes4[] memory selectors = new bytes4[](12);
         selectors[0] = EmblemVaultCoreFacet.lockVault.selector;
         selectors[1] = EmblemVaultCoreFacet.unlockVault.selector;
         selectors[2] = EmblemVaultCoreFacet.isVaultLocked.selector;
@@ -107,25 +171,45 @@ contract UpgradeDiamondFacets is Script {
         selectors[6] = EmblemVaultCoreFacet.setMetadataBaseUri.selector;
         selectors[7] = EmblemVaultCoreFacet.isWitness.selector;
         selectors[8] = EmblemVaultCoreFacet.getWitnessCount.selector;
-        selectors[9] = EmblemVaultCoreFacet.version.selector;
+        selectors[9] = EmblemVaultCoreFacet.getCoreVersion.selector;
+        selectors[10] = EmblemVaultCoreFacet.setVaultFactory.selector;
+        selectors[11] = EmblemVaultCoreFacet.getVaultFactory.selector;
         return selectors;
     }
 
-    function _getClaimSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](3);
-        selectors[0] = EmblemVaultClaimFacet.claim.selector;
-        selectors[1] = EmblemVaultClaimFacet.claimWithSignedPrice.selector;
-        selectors[2] = EmblemVaultClaimFacet.setClaimerContract.selector;
+    function _getOldCoreSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = bytes4(keccak256("version()"));
         return selectors;
     }
 
-    function _getMintSelectors() internal pure returns (bytes4[] memory) {
+    function _getUnvaultSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory selectors = new bytes4[](8);
+        selectors[0] = EmblemVaultUnvaultFacet.unvault.selector;
+        selectors[1] = EmblemVaultUnvaultFacet.unvaultWithSignedPrice.selector;
+        selectors[2] = EmblemVaultUnvaultFacet.setUnvaultingEnabled.selector;
+        selectors[3] = EmblemVaultUnvaultFacet.setBurnAddress.selector;
+        selectors[4] = EmblemVaultUnvaultFacet.isTokenUnvaulted.selector;
+        selectors[5] = EmblemVaultUnvaultFacet.getTokenUnvaulter.selector;
+        selectors[6] = EmblemVaultUnvaultFacet.getCollectionUnvaultCount.selector;
+        selectors[7] = EmblemVaultUnvaultFacet.getUnvaultVersion.selector;
+        return selectors;
+    }
+
+    function _getExistingMintSelectors() internal pure returns (bytes4[] memory) {
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = EmblemVaultMintFacet.buyWithSignedPrice.selector;
         return selectors;
     }
 
-    function _getCollectionSelectors() internal pure returns (bytes4[] memory) {
+    function _getNewMintSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory selectors = new bytes4[](2);
+        selectors[0] = EmblemVaultMintFacet.batchBuyWithSignedPrice.selector;
+        selectors[1] = EmblemVaultMintFacet.getMintVersion.selector;
+        return selectors;
+    }
+
+    function _getExistingCollectionSelectors() internal pure returns (bytes4[] memory) {
         bytes4[] memory selectors = new bytes4[](9);
         selectors[0] = EmblemVaultCollectionFacet.setCollectionFactory.selector;
         selectors[1] = EmblemVaultCollectionFacet.createVaultCollection.selector;
@@ -139,7 +223,16 @@ contract UpgradeDiamondFacets is Script {
         return selectors;
     }
 
-    function _getInitSelectors() internal pure returns (bytes4[] memory) {
+    function _getNewCollectionSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory selectors = new bytes4[](4);
+        selectors[0] = EmblemVaultCollectionFacet.setCollectionOwner.selector;
+        selectors[1] = EmblemVaultCollectionFacet.getCollectionOwner.selector;
+        selectors[2] = EmblemVaultCollectionFacet.getCollectionVersion.selector;
+        selectors[3] = EmblemVaultCollectionFacet.getCollectionType.selector;
+        return selectors;
+    }
+
+    function _getExistingInitSelectors() internal pure returns (bytes4[] memory) {
         bytes4[] memory selectors = new bytes4[](5);
         selectors[0] = EmblemVaultInitFacet.initialize.selector;
         selectors[1] = EmblemVaultInitFacet.isInitialized.selector;
@@ -149,11 +242,22 @@ contract UpgradeDiamondFacets is Script {
         return selectors;
     }
 
+    function _getNewInitSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = EmblemVaultInitFacet.getInitVersion.selector;
+        return selectors;
+    }
+
     function _split(string memory str, string memory delimiter)
         internal
         pure
         returns (string[] memory)
     {
+        // Validate input
+        require(bytes(str).length > 0, "Empty input string");
+        require(bytes(delimiter).length == 1, "Delimiter must be single character");
+
+        // Count delimiters
         uint256 count = 1;
         for (uint256 i = 0; i < bytes(str).length; i++) {
             if (bytes(str)[i] == bytes(delimiter)[0]) count++;
@@ -163,6 +267,7 @@ contract UpgradeDiamondFacets is Script {
         uint256 partIndex = 0;
         uint256 start = 0;
 
+        // Split string
         for (uint256 i = 0; i < bytes(str).length; i++) {
             if (bytes(str)[i] == bytes(delimiter)[0]) {
                 parts[partIndex++] = _substring(str, start, i);
@@ -170,6 +275,12 @@ contract UpgradeDiamondFacets is Script {
             }
         }
         parts[partIndex] = _substring(str, start, bytes(str).length);
+
+        // Log results for debugging
+        console.log("Split %s into %d parts:", str, count);
+        for (uint256 i = 0; i < parts.length; i++) {
+            console.log("- Part %d: %s", i, parts[i]);
+        }
 
         return parts;
     }

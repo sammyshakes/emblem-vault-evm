@@ -32,6 +32,12 @@ import "../interfaces/IVaultCollectionFactory.sol";
 contract EmblemVaultCollectionFacet {
     using LibCollectionTypes for uint8;
 
+    /// @notice Get the collection facet version
+    /// @return The version string
+    function getCollectionVersion() external pure returns (string memory) {
+        return "0.1.0";
+    }
+
     // Events
     event CollectionFactorySet(address indexed oldFactory, address indexed newFactory);
     event CollectionOwnerSet(address indexed owner);
