@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.28;
 
 import "ERC721A-Upgradeable/ERC721AUpgradeable.sol";
 import "ERC721A-Upgradeable/extensions/ERC721ABurnableUpgradeable.sol";
@@ -314,7 +314,8 @@ contract ERC721VaultImplementation is
     function _burnSingle(uint256 internalTokenId, bytes memory data) internal {
         address owner = ownerOf(internalTokenId);
         require(
-            _msgSender() == owner || isApprovedForAll(owner, _msgSender()),
+            _msgSender() == owner || isApprovedForAll(owner, _msgSender())
+                || getApproved(internalTokenId) == _msgSender(),
             NotTokenOwnerOrApproved()
         );
 

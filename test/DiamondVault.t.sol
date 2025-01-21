@@ -704,7 +704,7 @@ contract DiamondVaultTest is Test {
         vm.stopPrank();
     }
 
-    function testFacetVersions() public {
+    function testFacetVersions() public view {
         // CoreFacet
         assertEq(EmblemVaultCoreFacet(address(diamond)).getCoreVersion(), "0.1.0");
 
