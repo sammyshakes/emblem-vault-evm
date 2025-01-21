@@ -189,7 +189,7 @@ contract MainnetForkTest is Test {
         // Create mint parameters
         uint256 price = 0.1 ether;
         uint256 externalTokenId = uint256(keccak256(abi.encodePacked(block.timestamp, user1))); // Random large number
-        bytes32 salt = bytes32(uint256(1)); // Example salt
+        bytes32 salt = bytes32(uint256(200)); // Example salt
 
         // Create signature using LibSignature format
         bytes32 messageHash = keccak256(

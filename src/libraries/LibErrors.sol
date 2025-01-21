@@ -132,6 +132,9 @@ library LibErrors {
     /// @notice Array length mismatch
     error LengthMismatch(uint256 length1, uint256 length2);
 
+    /// @notice Batch size exceeds limit
+    error BatchSizeExceeded(uint256 size, uint256 limit);
+
     // ============ Initialization Errors ============
 
     /// @notice Already initialized
@@ -235,5 +238,10 @@ library LibErrors {
     /// @notice Check for length mismatch
     function revertIfLengthMismatch(uint256 length1, uint256 length2) internal pure {
         if (length1 != length2) revert LengthMismatch(length1, length2);
+    }
+
+    /// @notice Check for batch size limit
+    function revertIfBatchSizeExceeded(uint256 size, uint256 limit) internal pure {
+        if (size > limit) revert BatchSizeExceeded(size, limit);
     }
 }

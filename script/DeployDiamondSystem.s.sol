@@ -92,7 +92,7 @@ contract DeployDiamondSystem is Script {
         });
 
         // VaultCoreFacet
-        bytes4[] memory vaultCoreSelectors = new bytes4[](12);
+        bytes4[] memory vaultCoreSelectors = new bytes4[](17);
         vaultCoreSelectors[0] = EmblemVaultCoreFacet.lockVault.selector;
         vaultCoreSelectors[1] = EmblemVaultCoreFacet.unlockVault.selector;
         vaultCoreSelectors[2] = EmblemVaultCoreFacet.isVaultLocked.selector;
@@ -105,6 +105,11 @@ contract DeployDiamondSystem is Script {
         vaultCoreSelectors[9] = EmblemVaultCoreFacet.setVaultFactory.selector;
         vaultCoreSelectors[10] = EmblemVaultCoreFacet.getVaultFactory.selector;
         vaultCoreSelectors[11] = EmblemVaultCoreFacet.getCoreVersion.selector;
+        vaultCoreSelectors[12] = EmblemVaultCoreFacet.getRecipientAddress.selector;
+        vaultCoreSelectors[13] = EmblemVaultCoreFacet.getMetadataBaseUri.selector;
+        vaultCoreSelectors[14] = EmblemVaultCoreFacet.toggleBypassability.selector;
+        vaultCoreSelectors[15] = EmblemVaultCoreFacet.addBypassRule.selector;
+        vaultCoreSelectors[16] = EmblemVaultCoreFacet.removeBypassRule.selector;
         cut[2] = IDiamondCut.FacetCut({
             facetAddress: address(vaultCoreFacet),
             action: IDiamondCut.FacetCutAction.Add,
@@ -139,7 +144,7 @@ contract DeployDiamondSystem is Script {
         });
 
         // CollectionFacet
-        bytes4[] memory collectionSelectors = new bytes4[](10);
+        bytes4[] memory collectionSelectors = new bytes4[](13);
         collectionSelectors[0] = EmblemVaultCollectionFacet.setCollectionFactory.selector;
         collectionSelectors[1] = EmblemVaultCollectionFacet.createVaultCollection.selector;
         collectionSelectors[2] = EmblemVaultCollectionFacet.upgradeCollectionImplementation.selector;
@@ -150,6 +155,9 @@ contract DeployDiamondSystem is Script {
         collectionSelectors[7] = EmblemVaultCollectionFacet.setCollectionBaseURI.selector;
         collectionSelectors[8] = EmblemVaultCollectionFacet.setCollectionURI.selector;
         collectionSelectors[9] = EmblemVaultCollectionFacet.getCollectionVersion.selector;
+        collectionSelectors[10] = EmblemVaultCollectionFacet.setCollectionOwner.selector;
+        collectionSelectors[11] = EmblemVaultCollectionFacet.getCollectionOwner.selector;
+        collectionSelectors[12] = EmblemVaultCollectionFacet.getCollectionType.selector;
         cut[5] = IDiamondCut.FacetCut({
             facetAddress: address(collectionFacet),
             action: IDiamondCut.FacetCutAction.Add,

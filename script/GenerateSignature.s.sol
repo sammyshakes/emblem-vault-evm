@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import "../src/libraries/LibSignature.sol";
 
 contract GenerateSignature is Script {
-    function run() external {
+    function run() external view {
         // Get witness private key from .env
         // uint256 witnessPrivateKey = vm.envUint("WITNESS_PRIVATE_KEY");
         uint256 witnessPrivateKey = vm.envUint("PRIVATE_KEY"); // Use deployer priv key for testing
@@ -13,7 +13,7 @@ contract GenerateSignature is Script {
         // Parameters for signature (these can be modified as needed)
         address nftAddress = vm.envAddress("COLLECTION_ADDRESS");
         address payment = address(0); // Zero address for ETH payment
-        uint256 price = 0.00001 ether; // 0.00001 ETH for testing
+        uint256 price = 0; // 0.00000000 ETH for testing
         address to = vm.envAddress("RECIPIENT_ADDRESS");
         uint256 tokenId = vm.envUint("TOKEN_ID");
         uint256 nonce = block.timestamp; // Using timestamp as nonce for testing

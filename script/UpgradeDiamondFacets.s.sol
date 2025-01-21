@@ -44,8 +44,6 @@ contract UpgradeDiamondFacets is Script {
             string memory facetName = facetNames[i];
             if (_strEquals(facetName, "CoreFacet")) {
                 totalCuts += 2; // Remove old + Add new
-            } else if (_strEquals(facetName, "MintFacet")) {
-                totalCuts += 2; // Replace + Add new
             } else if (_strEquals(facetName, "InitFacet")) {
                 totalCuts += 2; // Replace existing + Add new
             } else if (_strEquals(facetName, "CollectionFacet")) {
@@ -90,12 +88,8 @@ contract UpgradeDiamondFacets is Script {
                 emit FacetUpgraded("UnvaultFacet", address(newFacet));
             } else if (_strEquals(facetName, "MintFacet")) {
                 EmblemVaultMintFacet newFacet = new EmblemVaultMintFacet();
-                // Replace existing functions
-                bytes4[] memory existingSelectors = _getExistingMintSelectors();
-                cut[cutIndex++] = _createReplaceCut(address(newFacet), existingSelectors);
-                // Add new function
-                bytes4[] memory newSelectors = _getNewMintSelectors();
-                cut[cutIndex++] = _createAddCut(address(newFacet), newSelectors);
+                bytes4[] memory selectors = _getMintSelectors();
+                cut[cutIndex++] = _createReplaceCut(address(newFacet), selectors);
                 emit FacetUpgraded("MintFacet", address(newFacet));
             } else if (_strEquals(facetName, "CollectionFacet")) {
                 EmblemVaultCollectionFacet newFacet = new EmblemVaultCollectionFacet();
@@ -196,16 +190,11 @@ contract UpgradeDiamondFacets is Script {
         return selectors;
     }
 
-    function _getExistingMintSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](1);
+    function _getMintSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory selectors = new bytes4[](3);
         selectors[0] = EmblemVaultMintFacet.buyWithSignedPrice.selector;
-        return selectors;
-    }
-
-    function _getNewMintSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](2);
-        selectors[0] = EmblemVaultMintFacet.batchBuyWithSignedPrice.selector;
-        selectors[1] = EmblemVaultMintFacet.getMintVersion.selector;
+        selectors[1] = EmblemVaultMintFacet.batchBuyWithSignedPrice.selector;
+        selectors[2] = EmblemVaultMintFacet.getMintVersion.selector;
         return selectors;
     }
 

@@ -2,17 +2,17 @@
 
 ## Diamond System
 
-| Contract          | Address                                    | Etherscan Link                                                                  | Gas Used  | Cost (ETH) |
-| ----------------- | ------------------------------------------ | ------------------------------------------------------------------------------- | --------- | ---------- |
-| Diamond           | 0x12F084DE536F41bcd29Dfc7632Db0261CEC72C60 | [Link](https://etherscan.io/address/0x12F084DE536F41bcd29Dfc7632Db0261CEC72C60) | 407,096   | 0.002427   |
-| DiamondCutFacet   | 0x4774d3b39993a6Bf414DF7bA3AF12d229d73fe39 | [Link](https://etherscan.io/address/0x4774d3b39993a6Bf414DF7bA3AF12d229d73fe39) | 857,165   | 0.005167   |
-| DiamondLoupeFacet | 0x50197F900Fed0E25Ccfc7Cc0c38354B2193572aB | [Link](https://etherscan.io/address/0x50197F900Fed0E25Ccfc7Cc0c38354B2193572aB) | 744,500   | 0.004480   |
-| OwnershipFacet    | 0x9f8c10D32B4db3BEceEA1Fe0B3b91F43ab26d733 | [Link](https://etherscan.io/address/0x9f8c10D32B4db3BEceEA1Fe0B3b91F43ab26d733) | 137,493   | 0.000822   |
-| VaultCoreFacet    | 0x07bD2bAA3377098a2F3b4C309914C943b549b0e4 | [Link](https://etherscan.io/address/0x07bD2bAA3377098a2F3b4C309914C943b549b0e4) | 941,617   | 0.005648   |
-| ClaimFacet        | 0xF91fCd071DF35C7a5ee1Ee156669e508eC03A16A | [Link](https://etherscan.io/address/0xF91fCd071DF35C7a5ee1Ee156669e508eC03A16A) | 1,143,742 | 0.006735   |
-| MintFacet         | 0x6b68035c5512580fBfBE72A3A5B21186D2E120e5 | [Link](https://etherscan.io/address/0x6b68035c5512580fBfBE72A3A5B21186D2E120e5) | 1,298,631 | 0.007805   |
-| CollectionFacet   | 0xA1d16625A674EFb4259DFC0e04289b3512609185 | [Link](https://etherscan.io/address/0xA1d16625A674EFb4259DFC0e04289b3512609185) | 890,333   | 0.005279   |
-| InitFacet         | 0x11B8d84b94B27dc14f19a519a647fb1BAF79043f | [Link](https://etherscan.io/address/0x11B8d84b94B27dc14f19a519a647fb1BAF79043f) | 607,635   | 0.003674   |
+| Contract             | Address                                    | Etherscan Link                                                                  | Gas Used  | Cost (ETH) |
+| -------------------- | ------------------------------------------ | ------------------------------------------------------------------------------- | --------- | ---------- |
+| Diamond              | 0x12F084DE536F41bcd29Dfc7632Db0261CEC72C60 | [Link](https://etherscan.io/address/0x12F084DE536F41bcd29Dfc7632Db0261CEC72C60) | 407,096   | 0.002427   |
+| DiamondCutFacet      | 0x4774d3b39993a6Bf414DF7bA3AF12d229d73fe39 | [Link](https://etherscan.io/address/0x4774d3b39993a6Bf414DF7bA3AF12d229d73fe39) | 857,165   | 0.005167   |
+| DiamondLoupeFacet    | 0x50197F900Fed0E25Ccfc7Cc0c38354B2193572aB | [Link](https://etherscan.io/address/0x50197F900Fed0E25Ccfc7Cc0c38354B2193572aB) | 744,500   | 0.004480   |
+| OwnershipFacet       | 0x9f8c10D32B4db3BEceEA1Fe0B3b91F43ab26d733 | [Link](https://etherscan.io/address/0x9f8c10D32B4db3BEceEA1Fe0B3b91F43ab26d733) | 137,493   | 0.000822   |
+| VaultCoreFacet       | 0x07bD2bAA3377098a2F3b4C309914C943b549b0e4 | [Link](https://etherscan.io/address/0x07bD2bAA3377098a2F3b4C309914C943b549b0e4) | 941,617   | 0.005648   |
+| ClaimFacet           | 0xF91fCd071DF35C7a5ee1Ee156669e508eC03A16A | [Link](https://etherscan.io/address/0xF91fCd071DF35C7a5ee1Ee156669e508eC03A16A) | 1,143,742 | 0.006735   |
+| MintFacet (Upgraded) | 0x3b6f613f16C5b3C696Ba1826bd2d3583258cA76c | [Link](https://etherscan.io/address/0x3b6f613f16C5b3C696Ba1826bd2d3583258cA76c) | 1,235,918 | 0.008069   |
+| CollectionFacet      | 0xA1d16625A674EFb4259DFC0e04289b3512609185 | [Link](https://etherscan.io/address/0xA1d16625A674EFb4259DFC0e04289b3512609185) | 890,333   | 0.005279   |
+| InitFacet            | 0x11B8d84b94B27dc14f19a519a647fb1BAF79043f | [Link](https://etherscan.io/address/0x11B8d84b94B27dc14f19a519a647fb1BAF79043f) | 607,635   | 0.003674   |
 
 **Total Diamond System:**
 
@@ -65,3 +65,12 @@
 - Base URI: https://v2.emblemvault.io/meta/ (default)
 - Owner: 0xa99526E4Dc81b85C1d248Ca974Eadce81837eCF1
 - Block: 21553053
+
+## Upgrades
+
+### MintFacet Upgrade (Block: 21670920)
+
+- Added MAX_BATCH_SIZE constant (45) to limit batch operations
+- Upgraded implementation to enforce batch size limit
+- Gas Used: 1,235,918
+- Cost: 0.008069 ETH

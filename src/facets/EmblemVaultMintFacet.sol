@@ -51,6 +51,7 @@ contract EmblemVaultMintFacet {
 
     // Constants for gas optimization
     uint256 private constant PRICE_TOLERANCE_BPS = 200; // 2%
+    uint256 public constant MAX_BATCH_SIZE = 45; // Maximum batch size to stay under 4M gas
 
     /// @notice Emitted when a token is successfully minted
     /// @param nftAddress The address of the NFT contract
@@ -166,6 +167,9 @@ contract EmblemVaultMintFacet {
         onlyValidCollection(params.nftAddress)
     {
         LibEmblemVaultStorage.nonReentrantBefore();
+
+        // Check batch size limit
+        LibErrors.revertIfBatchSizeExceeded(params.tokenIds.length, MAX_BATCH_SIZE);
 
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.prices.length);
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.nonces.length);

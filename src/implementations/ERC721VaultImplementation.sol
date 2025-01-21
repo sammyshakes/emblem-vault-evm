@@ -314,7 +314,8 @@ contract ERC721VaultImplementation is
     function _burnSingle(uint256 internalTokenId, bytes memory data) internal {
         address owner = ownerOf(internalTokenId);
         require(
-            _msgSender() == owner || isApprovedForAll(owner, _msgSender()),
+            _msgSender() == owner || isApprovedForAll(owner, _msgSender())
+                || getApproved(internalTokenId) == _msgSender(),
             NotTokenOwnerOrApproved()
         );
 

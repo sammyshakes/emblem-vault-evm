@@ -27,7 +27,7 @@ A modular and upgradeable vault system built on the EIP-2535 Diamond Standard, a
 #### Functional Facets
 
 - **CoreFacet:** `0xEE483847aa8E52887A1C5477b8F5b0af28922681`
-- **MintFacet:** `0xA137e2d3DeC0874512C8A71E7Ab176b6FaCB165d`
+- **MintFacet:** `0x3b6f613f16C5b3C696Ba1826bd2d3583258cA76c`
 - **UnvaultFacet:** `0x79B66cf2f6b90f2Ee837c7eB41163F7725B56B25` (Replaced ClaimFacet)
 - **InitFacet:** `0x5657a10c1AAe46Ae383342d7516290B4FecD9295`
 - **CollectionFacet:** `0x76060779BF7164B40A63588C01d0E632B213A726`
