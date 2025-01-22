@@ -85,6 +85,29 @@ contract EmblemVaultMintFacet {
         uint256 amount; // Number of tokens to mint
     }
 
+    /// @notice Batch buy NFTs using signed prices
+    /// @dev Allows users to mint multiple NFTs in a batch using signed prices
+    /// @param _nftAddress Address of the NFT contract
+    /// @param _payment Payment token address (address(0) for ETH)
+    /// @param _prices Array of prices per token
+    /// @param _to Recipient address
+    /// @param _tokenIds Array of token IDs to mint
+    /// @param _nonces Array of unique nonces for the transactions
+    /// @param _signatures Array of signatures for verification
+    /// @param _serialNumbers Array of serial numbers for ERC1155 tokens
+    /// @param _amounts Array of amounts to mint for each token
+    struct BatchBuyParams {
+        address nftAddress;
+        address payment;
+        uint256[] prices;
+        address to;
+        uint256[] tokenIds;
+        uint256[] nonces;
+        bytes[] signatures;
+        bytes[] serialNumbers;
+        uint256[] amounts;
+    }
+
     /// @notice Modifier to ensure the collection is valid
     /// @dev Reverts if the collection is not registered with the vault factory
     /// @param collection The address of the collection to validate
@@ -138,29 +161,6 @@ contract EmblemVaultMintFacet {
         LibEmblemVaultStorage.nonReentrantAfter();
     }
 
-    /// @notice Batch buy NFTs using signed prices
-    /// @dev Allows users to mint multiple NFTs in a batch using signed prices
-    /// @param _nftAddress Address of the NFT contract
-    /// @param _payment Payment token address (address(0) for ETH)
-    /// @param _prices Array of prices per token
-    /// @param _to Recipient address
-    /// @param _tokenIds Array of token IDs to mint
-    /// @param _nonces Array of unique nonces for the transactions
-    /// @param _signatures Array of signatures for verification
-    /// @param _serialNumbers Array of serial numbers for ERC1155 tokens
-    /// @param _amounts Array of amounts to mint for each token
-    struct BatchBuyParams {
-        address nftAddress;
-        address payment;
-        uint256[] prices;
-        address to;
-        uint256[] tokenIds;
-        uint256[] nonces;
-        bytes[] signatures;
-        bytes[] serialNumbers;
-        uint256[] amounts;
-    }
-
     function batchBuyWithSignedPrice(BatchBuyParams calldata params)
         external
         payable
@@ -175,32 +175,17 @@ contract EmblemVaultMintFacet {
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.nonces.length);
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.signatures.length);
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.amounts.length);
-        // Calculate total tokens being minted
-        uint256 totalTokens;
-        for (uint256 i = 0; i < params.amounts.length; i++) {
-            totalTokens += params.amounts[i];
-        }
         // Verify serial numbers match total tokens
-        LibErrors.revertIfLengthMismatch(totalTokens, params.serialNumbers.length);
-
+        uint256 totalTokens;
         uint256 totalPrice;
-        for (uint256 i = 0; i < params.prices.length; i++) {
-            totalPrice += params.prices[i] * params.amounts[i];
-        }
-
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
 
-        if (params.payment == address(0)) {
-            LibErrors.revertIfInsufficientETH(msg.value, totalPrice);
-            (bool success,) = vs.recipientAddress.call{value: msg.value}("");
-            if (!success) {
-                revert LibErrors.ETHTransferFailed();
-            }
-        } else {
-            IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, totalPrice);
-        }
-
         for (uint256 i = 0; i < params.tokenIds.length; i++) {
+            // Calculate totals
+            totalTokens += params.amounts[i];
+            totalPrice += params.prices[i];
+
+            // Verify signature and nonce
             LibEmblemVaultStorage.enforceNotUsedNonce(params.nonces[i]);
 
             address signer = LibSignature.verifyStandardSignature(
@@ -216,6 +201,18 @@ contract EmblemVaultMintFacet {
 
             LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
             LibEmblemVaultStorage.setUsedNonce(params.nonces[i]);
+        }
+
+        LibErrors.revertIfLengthMismatch(totalTokens, params.serialNumbers.length);
+
+        if (params.payment == address(0)) {
+            LibErrors.revertIfInsufficientETH(msg.value, totalPrice);
+            (bool success,) = vs.recipientAddress.call{value: msg.value}("");
+            if (!success) {
+                revert LibErrors.ETHTransferFailed();
+            }
+        } else {
+            IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, totalPrice);
         }
 
         require(
