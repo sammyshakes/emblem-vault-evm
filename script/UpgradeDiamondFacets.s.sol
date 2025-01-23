@@ -84,7 +84,7 @@ contract UpgradeDiamondFacets is Script {
             } else if (_strEquals(facetName, "UnvaultFacet")) {
                 EmblemVaultUnvaultFacet newFacet = new EmblemVaultUnvaultFacet();
                 bytes4[] memory selectors = _getUnvaultSelectors();
-                cut[cutIndex++] = _createAddCut(address(newFacet), selectors);
+                cut[cutIndex++] = _createReplaceCut(address(newFacet), selectors);
                 emit FacetUpgraded("UnvaultFacet", address(newFacet));
             } else if (_strEquals(facetName, "MintFacet")) {
                 EmblemVaultMintFacet newFacet = new EmblemVaultMintFacet();
@@ -178,7 +178,7 @@ contract UpgradeDiamondFacets is Script {
     }
 
     function _getUnvaultSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](8);
+        bytes4[] memory selectors = new bytes4[](9);
         selectors[0] = EmblemVaultUnvaultFacet.unvault.selector;
         selectors[1] = EmblemVaultUnvaultFacet.unvaultWithSignedPrice.selector;
         selectors[2] = EmblemVaultUnvaultFacet.setUnvaultingEnabled.selector;
@@ -187,6 +187,7 @@ contract UpgradeDiamondFacets is Script {
         selectors[5] = EmblemVaultUnvaultFacet.getTokenUnvaulter.selector;
         selectors[6] = EmblemVaultUnvaultFacet.getCollectionUnvaultCount.selector;
         selectors[7] = EmblemVaultUnvaultFacet.getUnvaultVersion.selector;
+        selectors[8] = EmblemVaultUnvaultFacet.batchUnvaultWithSignedPrice.selector;
         return selectors;
     }
 

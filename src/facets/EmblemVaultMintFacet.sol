@@ -230,6 +230,9 @@ contract EmblemVaultMintFacet {
         LibEmblemVaultStorage.nonReentrantAfter();
     }
 
+    /// @notice Internal function to process a mint transaction
+    /// @dev Handles payment verification, signature validation, and mint execution
+    /// @param params MintParams struct containing all minting parameters
     function _processMint(MintParams memory params) private {
         LibEmblemVaultStorage.enforceNotUsedNonce(params.nonce);
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
@@ -274,6 +277,10 @@ contract EmblemVaultMintFacet {
         );
     }
 
+    /// @notice Internal router function to handle minting based on token type
+    /// @dev Routes to appropriate mint function based on whether token is ERC1155 or ERC721A
+    /// @param params MintParams struct containing minting parameters
+    /// @return bool True if mint was successful
     function _mintRouter(MintParams memory params) private returns (bool) {
         bool isERC1155 = LibInterfaceIds.isERC1155(params.nftAddress);
         bool isERC721A = !isERC1155 && LibInterfaceIds.isERC721A(params.nftAddress);
@@ -288,6 +295,15 @@ contract EmblemVaultMintFacet {
         return true;
     }
 
+    /// @notice Internal router function to handle batch minting based on token type
+    /// @dev Routes to appropriate batch mint function based on whether token is ERC1155 or ERC721A
+    /// @param nftAddress Address of the NFT contract
+    /// @param to Recipient address
+    /// @param tokenIds Array of token IDs to mint
+    /// @param amounts Array of amounts to mint for each token
+    /// @param serialNumbers Array of serial numbers for ERC1155 tokens
+    /// @param data Additional data for the mint operation
+    /// @return bool True if batch mint was successful
     function _batchMintRouter(
         address nftAddress,
         address to,
@@ -309,6 +325,10 @@ contract EmblemVaultMintFacet {
         return true;
     }
 
+    /// @notice Converts a uint256 to its string representation
+    /// @dev Optimized version that avoids expensive string operations
+    /// @param value The uint256 value to convert
+    /// @return string memory The string representation of the value
     function _uintToStrOptimized(uint256 value) internal pure returns (string memory) {
         if (value == 0) {
             return "0";

@@ -117,7 +117,7 @@ contract DeployDiamondSystem is Script {
         });
 
         // UnvaultFacet
-        bytes4[] memory unvaultSelectors = new bytes4[](8);
+        bytes4[] memory unvaultSelectors = new bytes4[](9);
         unvaultSelectors[0] = EmblemVaultUnvaultFacet.unvault.selector;
         unvaultSelectors[1] = EmblemVaultUnvaultFacet.unvaultWithSignedPrice.selector;
         unvaultSelectors[2] = EmblemVaultUnvaultFacet.setUnvaultingEnabled.selector;
@@ -126,6 +126,7 @@ contract DeployDiamondSystem is Script {
         unvaultSelectors[5] = EmblemVaultUnvaultFacet.getTokenUnvaulter.selector;
         unvaultSelectors[6] = EmblemVaultUnvaultFacet.getCollectionUnvaultCount.selector;
         unvaultSelectors[7] = EmblemVaultUnvaultFacet.getUnvaultVersion.selector;
+        unvaultSelectors[8] = EmblemVaultUnvaultFacet.batchUnvaultWithSignedPrice.selector;
         cut[3] = IDiamondCut.FacetCut({
             facetAddress: address(unvaultFacet),
             action: IDiamondCut.FacetCutAction.Add,
