@@ -32,6 +32,9 @@ import "../interfaces/IVaultCollectionFactory.sol";
 /// @notice Facet for handling vault unvaulting and burns
 /// @dev Manages the unvaulting process for vaults with support for various token standards
 contract EmblemVaultUnvaultFacet {
+    // Constants for gas optimization
+    uint256 public constant MAX_BATCH_SIZE = 45; // Maximum batch size to stay under 4M gas
+
     /// @notice Get the unvault facet version
     /// @return The version string
     function getUnvaultVersion() external pure returns (string memory) {
@@ -56,6 +59,17 @@ contract EmblemVaultUnvaultFacet {
     );
     event UnvaultingEnabled(bool enabled);
     event BurnAddressUpdated(address indexed addr, bool isBurn);
+
+    /// @notice Parameters required for batch unvaulting operations
+    /// @dev This struct encapsulates all necessary data for batch unvaulting
+    struct BatchUnvaultParams {
+        address[] nftAddresses;
+        uint256[] tokenIds;
+        uint256[] nonces;
+        address[] payments;
+        uint256[] prices;
+        bytes[] signatures;
+    }
 
     modifier onlyValidCollection(address collection) {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
@@ -112,6 +126,105 @@ contract EmblemVaultUnvaultFacet {
         if (!success) revert LibErrors.BurnFailed(_nftAddress, tokenId);
 
         emit TokenUnvaulted(_nftAddress, tokenId, msg.sender, serialNumber, data);
+        LibEmblemVaultStorage.nonReentrantAfter();
+    }
+
+    /// @notice Batch unvault tokens using signed prices
+    /// @dev Allows users to unvault multiple tokens in a batch using signed prices
+    /// @param params BatchUnvaultParams struct containing:
+    /// - nftAddresses: Array of NFT contract addresses
+    /// - tokenIds: Array of token IDs to unvault
+    /// - nonces: Array of unique nonces for the transactions
+    /// - payments: Array of payment token addresses (address(0) for ETH)
+    /// - prices: Array of prices to pay for each unvault
+    /// - signatures: Array of signatures for verification
+    function batchUnvaultWithSignedPrice(BatchUnvaultParams calldata params) external payable {
+        LibEmblemVaultStorage.nonReentrantBefore();
+
+        // Check batch size limit
+        LibErrors.revertIfBatchSizeExceeded(params.tokenIds.length, MAX_BATCH_SIZE);
+
+        // Validate array lengths
+        LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.nftAddresses.length);
+        LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.nonces.length);
+        LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.payments.length);
+        LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.prices.length);
+        LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.signatures.length);
+
+        uint256 totalEthValue;
+        LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
+
+        for (uint256 i = 0; i < params.tokenIds.length; i++) {
+            // Validate collection
+            LibErrors.revertIfInvalidCollection(
+                params.nftAddresses[i],
+                IVaultCollectionFactory(vs.vaultFactory).isCollection(params.nftAddresses[i])
+            );
+
+            // Verify nonce and signature
+            LibEmblemVaultStorage.enforceNotUsedNonce(params.nonces[i]);
+
+            address signer;
+            if (LibEmblemVaultStorage.isVaultLocked(params.nftAddresses[i], params.tokenIds[i])) {
+                signer = LibSignature.verifyLockedSignature(
+                    params.nftAddresses[i],
+                    params.payments[i],
+                    params.prices[i],
+                    msg.sender,
+                    params.tokenIds[i],
+                    params.nonces[i],
+                    1,
+                    params.signatures[i]
+                );
+            } else {
+                signer = LibSignature.verifyStandardSignature(
+                    params.nftAddresses[i],
+                    params.payments[i],
+                    params.prices[i],
+                    msg.sender,
+                    params.tokenIds[i],
+                    params.nonces[i],
+                    1,
+                    params.signatures[i]
+                );
+            }
+
+            LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
+
+            // Process payment
+            if (params.payments[i] == address(0)) {
+                totalEthValue += params.prices[i];
+            } else {
+                IERC20Token(params.payments[i]).transferFrom(
+                    msg.sender, vs.recipientAddress, params.prices[i]
+                );
+            }
+
+            // Execute unvault
+            (bool success, uint256 serialNumber, bytes memory data) =
+                burnRouter(params.nftAddresses[i], params.tokenIds[i], true);
+            if (!success) revert LibErrors.BurnFailed(params.nftAddresses[i], params.tokenIds[i]);
+
+            // Update state
+            LibEmblemVaultStorage.unlockVault(params.nftAddresses[i], params.tokenIds[i]);
+            LibEmblemVaultStorage.setUsedNonce(params.nonces[i]);
+            emit TokenUnvaultedWithPrice(
+                params.nftAddresses[i],
+                params.tokenIds[i],
+                msg.sender,
+                params.prices[i],
+                serialNumber,
+                data
+            );
+        }
+
+        // Handle ETH payments
+        if (totalEthValue > 0) {
+            LibErrors.revertIfIncorrectPayment(msg.value, totalEthValue);
+            (bool success,) = vs.recipientAddress.call{value: totalEthValue}("");
+            if (!success) revert LibErrors.TransferFailed();
+        }
+
         LibEmblemVaultStorage.nonReentrantAfter();
     }
 
