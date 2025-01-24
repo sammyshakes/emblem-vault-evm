@@ -24,19 +24,11 @@ import "../libraries/LibCollectionTypes.sol";
 import "../interfaces/IVaultBeacon.sol";
 import "../interfaces/IVaultCollectionFactory.sol";
 
-/**
- * @title EmblemVaultCollectionFacet
- * @notice Facet for managing vault collections and their implementations
- * @dev Integrates with beacon proxy pattern for collection management
- */
+/// @title EmblemVaultCollectionFacet
+/// @notice Facet for managing vault collections and their implementations
+/// @dev Integrates with beacon proxy pattern for collection managemen
 contract EmblemVaultCollectionFacet {
     using LibCollectionTypes for uint8;
-
-    /// @notice Get the collection facet version
-    /// @return The version string
-    function getCollectionVersion() external pure returns (string memory) {
-        return "0.1.0";
-    }
 
     // Events
     event CollectionFactorySet(address indexed oldFactory, address indexed newFactory);
@@ -67,27 +59,21 @@ contract EmblemVaultCollectionFacet {
         _;
     }
 
-    /**
-     * @notice Set the collection owner address
-     * @param owner The address of the new collection owner
-     */
+    /// @notice Set the collection owner address
+    /// @param owner The address of the new collection owner
     function setCollectionOwner(address owner) external onlyOwner {
         LibEmblemVaultStorage.setCollectionOwner(owner);
         emit CollectionOwnerSet(owner);
     }
 
-    /**
-     * @notice Get the current collection owner address
-     * @return The address of the current collection owner
-     */
+    /// @notice Get the current collection owner address
+    /// @return The address of the current collection owner
     function getCollectionOwner() external view returns (address) {
         return LibEmblemVaultStorage.getCollectionOwner();
     }
 
-    /**
-     * @notice Set the collection factory address
-     * @param _factory Address of the new factory
-     */
+    /// @notice Set the collection factory address
+    /// @param _factory Address of the new factory
     function setCollectionFactory(address _factory) external onlyOwner {
         LibErrors.revertIfZeroAddress(_factory);
 
@@ -98,13 +84,11 @@ contract EmblemVaultCollectionFacet {
         emit CollectionFactorySet(oldFactory, _factory);
     }
 
-    /**
-     * @notice Create a new vault collection
-     * @param name The name of the collection
-     * @param symbol The symbol (for ERC721) or URI (for ERC1155)
-     * @param collectionType The type of collection (1 for ERC721, 2 for ERC1155)
-     * @return collection The address of the new collection contract
-     */
+    /// @notice Create a new vault collection
+    /// @param name The name of the collection
+    /// @param symbol The symbol (for ERC721) or URI (for ERC1155)
+    /// @param collectionType The type of collection (1 for ERC721, 2 for ERC1155)
+    /// @return collection The address of the new collection contract
     function createVaultCollection(string memory name, string memory symbol, uint8 collectionType)
         external
         onlyOwner
@@ -128,11 +112,9 @@ contract EmblemVaultCollectionFacet {
         emit VaultCollectionCreated(collection, collectionType, name);
     }
 
-    /**
-     * @notice Set base URI for an ERC721 collection
-     * @param collection The collection address
-     * @param newBaseURI The new base URI
-     */
+    /// @notice Set base URI for an ERC721 collection
+    /// @param collection The collection address
+    /// @param newBaseURI The new base URI
     function setCollectionBaseURI(address collection, string memory newBaseURI)
         external
         onlyOwner
@@ -152,11 +134,9 @@ contract EmblemVaultCollectionFacet {
         emit CollectionBaseURIUpdated(collection, newBaseURI);
     }
 
-    /**
-     * @notice Set URI for an ERC1155 collection
-     * @param collection The collection address
-     * @param newURI The new URI
-     */
+    /// @notice Set URI for an ERC1155 collection
+    /// @param collection The collection address
+    /// @param newURI The new URI
     function setCollectionURI(address collection, string memory newURI)
         external
         onlyOwner
@@ -176,11 +156,9 @@ contract EmblemVaultCollectionFacet {
         emit CollectionURIUpdated(collection, newURI);
     }
 
-    /**
-     * @notice Upgrade collection implementation
-     * @param collectionType The type of collection (1 for ERC721, 2 for ERC1155)
-     * @param newImplementation Address of the new implementation
-     */
+    /// @notice Upgrade collection implementation
+    /// @param collectionType The type of collection (1 for ERC721, 2 for ERC1155)
+    /// @param newImplementation Address of the new implementation
     function upgradeCollectionImplementation(uint8 collectionType, address newImplementation)
         external
         onlyOwner
@@ -207,11 +185,9 @@ contract EmblemVaultCollectionFacet {
         emit CollectionImplementationUpgraded(collectionType, newImplementation);
     }
 
-    /**
-     * @notice Get the current implementation for a collection type
-     * @param collectionType The type of collection
-     * @return The current implementation address
-     */
+    /// @notice Get the current implementation for a collection type
+    /// @param collectionType The type of collection
+    /// @return The current implementation address
     function getCollectionImplementation(uint8 collectionType) external view returns (address) {
         if (!collectionType.isValidCollectionType()) {
             revert LibErrors.InvalidCollectionType(collectionType);
@@ -223,11 +199,9 @@ contract EmblemVaultCollectionFacet {
         return IVaultCollectionFactory(vs.vaultFactory).getImplementation(collectionType);
     }
 
-    /**
-     * @notice Get the beacon address for a collection type
-     * @param collectionType The type of collection
-     * @return The beacon address
-     */
+    /// @notice Get the beacon address for a collection type
+    /// @param collectionType The type of collection
+    /// @return The beacon address
     function getCollectionBeacon(uint8 collectionType) external view returns (address) {
         if (!collectionType.isValidCollectionType()) {
             revert LibErrors.InvalidCollectionType(collectionType);
@@ -239,11 +213,9 @@ contract EmblemVaultCollectionFacet {
         return IVaultCollectionFactory(vs.vaultFactory).getBeacon(collectionType);
     }
 
-    /**
-     * @notice Check if an address is a vault collection created by this system
-     * @param collection The address to check
-     * @return bool True if the address is a vault collection
-     */
+    /// @notice Check if an address is a vault collection created by this system
+    /// @param collection The address to check
+    /// @return bool True if the address is a vault collection
     function isCollection(address collection) public view returns (bool) {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         if (vs.vaultFactory == address(0)) return false;
@@ -251,11 +223,9 @@ contract EmblemVaultCollectionFacet {
         return IVaultCollectionFactory(vs.vaultFactory).isCollection(collection);
     }
 
-    /**
-     * @notice Get the type of a collection
-     * @param collection The collection address
-     * @return The collection type (1 for ERC721, 2 for ERC1155)
-     */
+    /// @notice Get the type of a collection
+    /// @param collection The collection address
+    /// @return The collection type (1 for ERC721, 2 for ERC1155)
     function getCollectionType(address collection) external view returns (uint8) {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         LibErrors.revertIfFactoryNotSet(vs.vaultFactory);
@@ -263,11 +233,15 @@ contract EmblemVaultCollectionFacet {
         return IVaultCollectionFactory(vs.vaultFactory).getCollectionType(collection);
     }
 
-    /**
-     * @notice Get the collection factory address
-     * @return The current collection factory address
-     */
+    /// @notice Get the collection factory address
+    /// @return The current collection factory address
     function getCollectionFactory() external view returns (address) {
         return LibEmblemVaultStorage.vaultStorage().vaultFactory;
+    }
+
+    /// @notice Get the collection facet version
+    /// @return The version string
+    function getCollectionVersion() external pure returns (string memory) {
+        return "0.1.0";
     }
 }

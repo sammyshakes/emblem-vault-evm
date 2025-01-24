@@ -73,16 +73,48 @@ contract EmblemVaultMintFacet {
 
     /// @notice Parameters required for minting operations
     /// @dev This struct encapsulates all necessary data for minting operations
+    /// @param nftAddress Address of the NFT contract
+    /// @param payment Payment token address (address(0) for ETH)
+    /// @param price Price per token
+    /// @param to Recipient address
+    /// @param tokenId Token ID
+    /// @param nonce Unique nonce for the transaction
+    /// @param signature Signature for verification
+    /// @param serialNumber Serial number for ERC1155 tokens
+    /// @param amount Number of tokens to mint
     struct MintParams {
-        address nftAddress; // Address of the NFT contract
-        address payment; // Payment token address (address(0) for ETH)
-        uint256 price; // Price per token
-        address to; // Recipient address
-        uint256 tokenId; // Token ID
-        uint256 nonce; // Unique nonce for the transaction
-        bytes signature; // Signature for verification
-        bytes serialNumber; // Serial number for ERC1155 tokens
-        uint256 amount; // Number of tokens to mint
+        address nftAddress;
+        address payment;
+        uint256 price;
+        address to;
+        uint256 tokenId;
+        uint256 nonce;
+        bytes signature;
+        bytes serialNumber;
+        uint256 amount;
+    }
+
+    /// @notice Batch buy NFTs using signed prices
+    /// @dev Allows users to mint multiple NFTs in a batch using signed prices
+    /// @param _nftAddress Address of the NFT contract
+    /// @param _payment Payment token address (address(0) for ETH)
+    /// @param _prices Array of prices per token
+    /// @param _to Recipient address
+    /// @param _tokenIds Array of token IDs to mint
+    /// @param _nonces Array of unique nonces for the transactions
+    /// @param _signatures Array of signatures for verification
+    /// @param _serialNumbers Array of serial numbers for ERC1155 tokens
+    /// @param _amounts Array of amounts to mint for each token
+    struct BatchBuyParams {
+        address nftAddress;
+        address payment;
+        uint256[] prices;
+        address to;
+        uint256[] tokenIds;
+        uint256[] nonces;
+        bytes[] signatures;
+        bytes[] serialNumbers;
+        uint256[] amounts;
     }
 
     /// @notice Modifier to ensure the collection is valid
@@ -143,27 +175,7 @@ contract EmblemVaultMintFacet {
 
     /// @notice Batch buy NFTs using signed prices
     /// @dev Allows users to mint multiple NFTs in a batch using signed prices
-    /// @param _nftAddress Address of the NFT contract
-    /// @param _payment Payment token address (address(0) for ETH)
-    /// @param _prices Array of prices per token
-    /// @param _to Recipient address
-    /// @param _tokenIds Array of token IDs to mint
-    /// @param _nonces Array of unique nonces for the transactions
-    /// @param _signatures Array of signatures for verification
-    /// @param _serialNumbers Array of serial numbers for ERC1155 tokens
-    /// @param _amounts Array of amounts to mint for each token
-    struct BatchBuyParams {
-        address nftAddress;
-        address payment;
-        uint256[] prices;
-        address to;
-        uint256[] tokenIds;
-        uint256[] nonces;
-        bytes[] signatures;
-        bytes[] serialNumbers;
-        uint256[] amounts;
-    }
-
+    /// @param params Batch buy parameters struct
     function batchBuyWithSignedPrice(BatchBuyParams calldata params)
         external
         payable
@@ -239,6 +251,8 @@ contract EmblemVaultMintFacet {
         LibEmblemVaultStorage.nonReentrantAfter();
     }
 
+    /// @notice Process minting operation
+    /// @param params Mint parameters struct
     function _processMint(MintParams memory params) private {
         LibEmblemVaultStorage.enforceNotUsedNonce(params.nonce);
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
@@ -283,6 +297,9 @@ contract EmblemVaultMintFacet {
         );
     }
 
+    /// @notice Route minting operation to the appropriate NFT contract
+    /// @param params Mint parameters struct
+    /// @return True if the mint operation was successful
     function _mintRouter(MintParams memory params) private returns (bool) {
         bool isERC1155 = LibInterfaceIds.isERC1155(params.nftAddress);
         bool isERC721A = !isERC1155 && LibInterfaceIds.isERC721A(params.nftAddress);
@@ -297,6 +314,14 @@ contract EmblemVaultMintFacet {
         return true;
     }
 
+    /// @notice Route batch minting operation to the appropriate NFT contract
+    /// @param nftAddress Address of the NFT contract
+    /// @param to Recipient address
+    /// @param tokenIds Array of token IDs to mint
+    /// @param amounts Array of amounts to mint for each token
+    /// @param serialNumbers Array of serial numbers for ERC1155 tokens
+    /// @param data Additional data associated with the mint
+    /// @return True if the batch mint operation was successful
     function _batchMintRouter(
         address nftAddress,
         address to,
