@@ -135,6 +135,9 @@ library LibErrors {
     /// @notice Batch size exceeds limit
     error BatchSizeExceeded(uint256 size, uint256 limit);
 
+    /// @notice Recipient address does not match sender
+    error InvalidRecipient();
+
     // ============ Initialization Errors ============
 
     /// @notice Already initialized
@@ -243,5 +246,10 @@ library LibErrors {
     /// @notice Check for batch size limit
     function revertIfBatchSizeExceeded(uint256 size, uint256 limit) internal pure {
         if (size > limit) revert BatchSizeExceeded(size, limit);
+    }
+
+    /// @notice Check if recipient matches sender
+    function revertIfInvalidRecipient(address recipient, address sender) internal pure {
+        if (recipient != sender) revert InvalidRecipient();
     }
 }
