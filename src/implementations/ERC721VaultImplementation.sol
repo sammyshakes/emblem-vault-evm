@@ -457,19 +457,18 @@ contract ERC721VaultImplementation is
     /**
      * @notice Checks if this contract implements a given interface ID.
      * @dev    Combines ERC721A, ERC165, and custom interfaces (IVaultProxy, IERC721AVault).
-     * @param id The interface ID to check.
+     * @param _interfaceId The interface ID to check.
      * @return True if the contract implements the given interface ID, false otherwise.
      */
-    function supportsInterface(bytes4 id)
+    function supportsInterface(bytes4 _interfaceId)
         public
         view
         virtual
         override(ERC721AUpgradeable, IERC165, IERC721AUpgradeable)
         returns (bool)
     {
-        return id == type(IVaultProxy).interfaceId || id == type(IERC721AVault).interfaceId
-            || id == 0x01ffc9a7 // ERC165
-            || id == 0xf4a95f26; // ERC721A
+        return _interfaceId == type(IVaultProxy).interfaceId
+            || _interfaceId == type(IERC721AVault).interfaceId || super.supportsInterface(_interfaceId);
     }
 
     /**
