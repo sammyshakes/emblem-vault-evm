@@ -121,6 +121,9 @@ contract EmblemVaultMintFacet {
     ) external payable onlyValidCollection(_nftAddress) {
         LibEmblemVaultStorage.nonReentrantBefore();
 
+        // Ensure the recipient is the transaction sender
+        LibErrors.revertIfInvalidRecipient(_to, msg.sender);
+
         MintParams memory params = MintParams({
             nftAddress: _nftAddress,
             payment: _payment,
@@ -167,6 +170,9 @@ contract EmblemVaultMintFacet {
         onlyValidCollection(params.nftAddress)
     {
         LibEmblemVaultStorage.nonReentrantBefore();
+
+        // Ensure the recipient is the transaction sender
+        LibErrors.revertIfInvalidRecipient(params.to, msg.sender);
 
         // Check batch size limit
         LibErrors.revertIfBatchSizeExceeded(params.tokenIds.length, MAX_BATCH_SIZE);
