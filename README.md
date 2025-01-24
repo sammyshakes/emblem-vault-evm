@@ -27,12 +27,11 @@ A modular and upgradeable vault system built on the EIP-2535 Diamond Standard, a
 #### Functional Facets
 
 - **CoreFacet:** `0xEE483847aa8E52887A1C5477b8F5b0af28922681`
-- **MintFacet:** `0xC59c4B6EA71a610BC7eDF05CBc66bfc2a86A3005` (Upgraded Jan 23, 2025)
-- **UnvaultFacet:** `0xF04a4B0CE209aF4017648Fa93D2bB348eCb116d6` (Upgraded Jan 23, 2025 - Added batch unvaulting)
+- **MintFacet:** `0xC59c4B6EA71a610BC7eDF05CBc66bfc2a86A3005` 
+- **UnvaultFacet:** `0xF04a4B0CE209aF4017648Fa93D2bB348eCb116d6` 
 - **InitFacet:** `0x5657a10c1AAe46Ae383342d7516290B4FecD9295`
-- **CollectionFacet:** `0x9dDCc1340D0ed0D359e6C4bD1408Ee3542f257B2` (Upgraded Jan 23, 2025)
+- **CollectionFacet:** `0x9dDCc1340D0ed0D359e6C4bD1408Ee3542f257B2` 
 
-See [Facet Upgrade Report - January 23, 2025](docs/FACET_UPGRADE_REPORT_2025_01_23.md) for details on the latest upgrades.
 
 ### Vault Implementations
 
@@ -48,13 +47,6 @@ See [Facet Upgrade Report - January 23, 2025](docs/FACET_UPGRADE_REPORT_2025_01_
 ### Collections
 
 - **Diamond Hands Collection (ERC721A):** `0xAfE0130Bad95763A66871e1F2fd73B8e7ee18037`
-
-## Documentation
-
-- [System Architecture](docs/SystemArchitecture.md) - Complete system design and components
-- [Deployment Guide](docs/DeploymentGuide.md) - Step-by-step deployment instructions
-- [Minting Guide](docs/MintingGuide.md) - How to create and manage vaults
-- [Upgrade Guide](docs/UpgradeGuide.md) - System upgrade procedures
 
 ## Quick Start
 
@@ -106,14 +98,6 @@ forge script script/CreateTestCollections.s.sol:CreateTestCollections --rpc-url 
 - `UpgradeBeaconImplementations.s.sol` - Upgrade vault implementations
 - `DeployUpdatedFactory.s.sol` - Deploy new factory
 
-## Testing
-
-Run the test suite:
-
-```bash
-forge test
-```
-
 Key test files:
 
 - `DiamondBeaconIntegration.t.sol` - Integration tests
@@ -144,10 +128,15 @@ contracts/
 
 MIT
 
----
+## Testing
+
+Run the test suite:
 
 ```bash
- forge test
+forge test
+```
+
+```bash
 [⠊] Compiling...
 [⠰] Compiling 117 files with Solc 0.8.28
 [⠒] Solc 0.8.28 finished in 66.51s
