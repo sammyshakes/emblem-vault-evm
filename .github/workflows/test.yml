@@ -2,6 +2,12 @@ on: [push]
 
 name: test
 
+env:
+  PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+  RPC_URL: ${{ secrets.RPC_URL }}
+  DIAMOND_ADDRESS: ${{ vars.DIAMOND_ADDRESS }}
+  ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+
 jobs:
   check:
     name: Foundry project
