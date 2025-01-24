@@ -468,7 +468,8 @@ contract ERC721VaultImplementation is
         returns (bool)
     {
         return _interfaceId == type(IVaultProxy).interfaceId
-            || _interfaceId == type(IERC721AVault).interfaceId || super.supportsInterface(_interfaceId);
+            || _interfaceId == type(IERC721AVault).interfaceId || _interfaceId == 0xf4a95f26 // ERC721A
+            || super.supportsInterface(_interfaceId);
     }
 
     /**
