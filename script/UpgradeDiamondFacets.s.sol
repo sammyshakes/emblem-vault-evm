@@ -48,8 +48,12 @@ contract UpgradeDiamondFacets is Script {
                 totalCuts += 2; // Replace existing + Add new
             } else if (_strEquals(facetName, "CollectionFacet")) {
                 totalCuts += 2; // Replace existing + Add new
-            } else {
+            } else if (_strEquals(facetName, "UnvaultFacet")) {
+                totalCuts += 2; // Replace existing + Add new
+            } else if (_strEquals(facetName, "MintFacet")) {
                 totalCuts += 1; // Replace
+            } else {
+                totalCuts += 1; // Default to Replace
             }
         }
 
@@ -83,8 +87,15 @@ contract UpgradeDiamondFacets is Script {
                 emit FacetUpgraded("CoreFacet", address(newFacet));
             } else if (_strEquals(facetName, "UnvaultFacet")) {
                 EmblemVaultUnvaultFacet newFacet = new EmblemVaultUnvaultFacet();
-                bytes4[] memory selectors = _getUnvaultSelectors();
-                cut[cutIndex++] = _createReplaceCut(address(newFacet), selectors);
+
+                // Replace existing functions
+                bytes4[] memory existingSelectors = _getExistingUnvaultSelectors();
+                cut[cutIndex++] = _createReplaceCut(address(newFacet), existingSelectors);
+
+                // Add new batch function
+                bytes4[] memory newSelectors = _getNewUnvaultSelectors();
+                cut[cutIndex++] = _createAddCut(address(newFacet), newSelectors);
+
                 emit FacetUpgraded("UnvaultFacet", address(newFacet));
             } else if (_strEquals(facetName, "MintFacet")) {
                 EmblemVaultMintFacet newFacet = new EmblemVaultMintFacet();
@@ -177,8 +188,8 @@ contract UpgradeDiamondFacets is Script {
         return selectors;
     }
 
-    function _getUnvaultSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](9);
+    function _getExistingUnvaultSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory selectors = new bytes4[](8);
         selectors[0] = EmblemVaultUnvaultFacet.unvault.selector;
         selectors[1] = EmblemVaultUnvaultFacet.unvaultWithSignedPrice.selector;
         selectors[2] = EmblemVaultUnvaultFacet.setUnvaultingEnabled.selector;
@@ -187,7 +198,12 @@ contract UpgradeDiamondFacets is Script {
         selectors[5] = EmblemVaultUnvaultFacet.getTokenUnvaulter.selector;
         selectors[6] = EmblemVaultUnvaultFacet.getCollectionUnvaultCount.selector;
         selectors[7] = EmblemVaultUnvaultFacet.getUnvaultVersion.selector;
-        selectors[8] = EmblemVaultUnvaultFacet.batchUnvaultWithSignedPrice.selector;
+        return selectors;
+    }
+
+    function _getNewUnvaultSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = EmblemVaultUnvaultFacet.batchUnvaultWithSignedPrice.selector;
         return selectors;
     }
 
@@ -200,7 +216,7 @@ contract UpgradeDiamondFacets is Script {
     }
 
     function _getExistingCollectionSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](9);
+        bytes4[] memory selectors = new bytes4[](13);
         selectors[0] = EmblemVaultCollectionFacet.setCollectionFactory.selector;
         selectors[1] = EmblemVaultCollectionFacet.createVaultCollection.selector;
         selectors[2] = EmblemVaultCollectionFacet.upgradeCollectionImplementation.selector;
@@ -210,16 +226,16 @@ contract UpgradeDiamondFacets is Script {
         selectors[6] = EmblemVaultCollectionFacet.getCollectionFactory.selector;
         selectors[7] = EmblemVaultCollectionFacet.setCollectionBaseURI.selector;
         selectors[8] = EmblemVaultCollectionFacet.setCollectionURI.selector;
+        selectors[9] = EmblemVaultCollectionFacet.setCollectionOwner.selector;
+        selectors[10] = EmblemVaultCollectionFacet.getCollectionOwner.selector;
+        selectors[11] = EmblemVaultCollectionFacet.getCollectionVersion.selector;
+        selectors[12] = EmblemVaultCollectionFacet.getCollectionType.selector;
         return selectors;
     }
 
     function _getNewCollectionSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](4);
-        selectors[0] = EmblemVaultCollectionFacet.setCollectionOwner.selector;
-        selectors[1] = EmblemVaultCollectionFacet.getCollectionOwner.selector;
-        selectors[2] = EmblemVaultCollectionFacet.getCollectionVersion.selector;
-        selectors[3] = EmblemVaultCollectionFacet.getCollectionType.selector;
-        return selectors;
+        // No new functions to add
+        return new bytes4[](0);
     }
 
     function _getExistingInitSelectors() internal pure returns (bytes4[] memory) {
