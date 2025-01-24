@@ -195,30 +195,14 @@ contract EmblemVaultMintFacet {
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.amounts.length);
         // Calculate total tokens being minted
         uint256 totalTokens;
-        for (uint256 i = 0; i < params.amounts.length; i++) {
-            totalTokens += params.amounts[i];
-        }
-        // Verify serial numbers match total tokens
-        LibErrors.revertIfLengthMismatch(totalTokens, params.serialNumbers.length);
-
         uint256 totalPrice;
-        for (uint256 i = 0; i < params.prices.length; i++) {
-            totalPrice += params.prices[i] * params.amounts[i];
-        }
-
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
 
-        if (params.payment == address(0)) {
-            LibErrors.revertIfInsufficientETH(msg.value, totalPrice);
-            (bool success,) = vs.recipientAddress.call{value: msg.value}("");
-            if (!success) {
-                revert LibErrors.ETHTransferFailed();
-            }
-        } else {
-            IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, totalPrice);
-        }
-
         for (uint256 i = 0; i < params.tokenIds.length; i++) {
+            totalTokens += params.amounts[i];
+            totalPrice += params.prices[i];
+
+            // Verify signature and nonce
             LibEmblemVaultStorage.enforceNotUsedNonce(params.nonces[i]);
 
             address signer = LibSignature.verifyStandardSignature(
@@ -235,18 +219,31 @@ contract EmblemVaultMintFacet {
             LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
             LibEmblemVaultStorage.setUsedNonce(params.nonces[i]);
         }
+        // Verify serial numbers match total tokens
+        LibErrors.revertIfLengthMismatch(totalTokens, params.serialNumbers.length);
 
-        require(
-            _batchMintRouter(
+        if (params.payment == address(0)) {
+            LibErrors.revertIfInsufficientETH(msg.value, totalPrice);
+            (bool success,) = vs.recipientAddress.call{value: msg.value}("");
+            if (!success) {
+                revert LibErrors.ETHTransferFailed();
+            }
+        } else {
+            IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, totalPrice);
+        }
+
+        if (
+            !_batchMintRouter(
                 params.nftAddress,
                 params.to,
                 params.tokenIds,
                 params.amounts,
                 params.serialNumbers,
                 ""
-            ),
-            "Batch mint failed"
-        );
+            )
+        ) {
+            revert LibErrors.MintFailed(params.nftAddress, params.tokenIds[0]);
+        }
 
         LibEmblemVaultStorage.nonReentrantAfter();
     }
