@@ -73,16 +73,25 @@ contract EmblemVaultMintFacet {
 
     /// @notice Parameters required for minting operations
     /// @dev This struct encapsulates all necessary data for minting operations
+    /// @param nftAddress Address of the NFT contract
+    /// @param payment Payment token address (address(0) for ETH)
+    /// @param price Price per token
+    /// @param to Recipient address
+    /// @param tokenId Token ID
+    /// @param nonce Unique nonce for the transaction
+    /// @param signature Signature for verification
+    /// @param serialNumber Serial number for ERC1155 tokens
+    /// @param amount Number of tokens to mint
     struct MintParams {
-        address nftAddress; // Address of the NFT contract
-        address payment; // Payment token address (address(0) for ETH)
-        uint256 price; // Price per token
-        address to; // Recipient address
-        uint256 tokenId; // Token ID
-        uint256 nonce; // Unique nonce for the transaction
-        bytes signature; // Signature for verification
-        bytes serialNumber; // Serial number for ERC1155 tokens
-        uint256 amount; // Number of tokens to mint
+        address nftAddress;
+        address payment;
+        uint256 price;
+        address to;
+        uint256 tokenId;
+        uint256 nonce;
+        bytes signature;
+        bytes serialNumber;
+        uint256 amount;
     }
 
     /// @notice Batch buy NFTs using signed prices
@@ -144,6 +153,9 @@ contract EmblemVaultMintFacet {
     ) external payable onlyValidCollection(_nftAddress) {
         LibEmblemVaultStorage.nonReentrantBefore();
 
+        // Ensure the recipient is the transaction sender
+        LibErrors.revertIfInvalidRecipient(_to, msg.sender);
+
         MintParams memory params = MintParams({
             nftAddress: _nftAddress,
             payment: _payment,
@@ -167,6 +179,9 @@ contract EmblemVaultMintFacet {
         onlyValidCollection(params.nftAddress)
     {
         LibEmblemVaultStorage.nonReentrantBefore();
+
+        // Ensure the recipient is the transaction sender
+        LibErrors.revertIfInvalidRecipient(params.to, msg.sender);
 
         // Check batch size limit
         LibErrors.revertIfBatchSizeExceeded(params.tokenIds.length, MAX_BATCH_SIZE);
