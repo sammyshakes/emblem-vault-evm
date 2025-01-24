@@ -27,15 +27,14 @@ A modular and upgradeable vault system built on the EIP-2535 Diamond Standard, a
 #### Functional Facets
 
 - **CoreFacet:** `0xEE483847aa8E52887A1C5477b8F5b0af28922681`
-- **MintFacet:** `0xC59c4B6EA71a610BC7eDF05CBc66bfc2a86A3005` 
-- **UnvaultFacet:** `0xF04a4B0CE209aF4017648Fa93D2bB348eCb116d6` 
+- **MintFacet:** `0xC59c4B6EA71a610BC7eDF05CBc66bfc2a86A3005`
+- **UnvaultFacet:** `0xF04a4B0CE209aF4017648Fa93D2bB348eCb116d6`
 - **InitFacet:** `0x5657a10c1AAe46Ae383342d7516290B4FecD9295`
-- **CollectionFacet:** `0x9dDCc1340D0ed0D359e6C4bD1408Ee3542f257B2` 
-
+- **CollectionFacet:** `0x9dDCc1340D0ed0D359e6C4bD1408Ee3542f257B2`
 
 ### Vault Implementations
 
-- **ERC721VaultImplementation:** `0x15086dd99D696AA6b0A036424Fb6Ad4923508a94`
+- **ERC721VaultImplementation:** `0xb4EcC165e3588DC33082fb658Bd166DB9889a848`
 - **ERC1155VaultImplementation:** `0xD35A23C5CFf0fe663F4357218c2B9b104399B659`
 
 ### Beacon System
@@ -106,7 +105,7 @@ Key test files:
 
 ## Architecture
 
-```
+```bash
 contracts/
 ├── facets/           # Diamond facets
 ├── implementations/  # Vault implementations
