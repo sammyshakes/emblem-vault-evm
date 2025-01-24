@@ -42,7 +42,9 @@ interface IVaultBeacon is IERC165 {
     /**
      * @notice Emitted when implementation is upgraded
      */
-    event ImplementationUpgraded(address indexed oldImplementation, address indexed newImplementation);
+    event ImplementationUpgraded(
+        address indexed oldImplementation, address indexed newImplementation
+    );
 
     /**
      * @notice Emitted when ownership is transferred

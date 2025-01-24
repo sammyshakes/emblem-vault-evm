@@ -10,7 +10,11 @@ contract MockClaimer is IERC165 {
         return interfaceId == type(IERC165).interfaceId;
     }
 
-    function isClaimed(address _nftAddress, uint256 tokenId, bytes32[] memory) external view returns (bool) {
+    function isClaimed(address _nftAddress, uint256 tokenId, bytes32[] memory)
+        external
+        view
+        returns (bool)
+    {
         return _claimed[_nftAddress][tokenId];
     }
 
