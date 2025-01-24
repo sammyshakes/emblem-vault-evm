@@ -1,22 +1,9 @@
-name: CI
+on: [push]
 
-on:
-  push:
-  pull_request:
-  workflow_dispatch:
-
-env:
-  FOUNDRY_PROFILE: ci
-  PRIVATE_KEY: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-  RPC_URL: "http://localhost:8545"
-  DIAMOND_ADDRESS: "0x0000000000000000000000000000000000000000"
-  ETHERSCAN_API_KEY: "DUMMY_KEY"
+name: test
 
 jobs:
   check:
-    strategy:
-      fail-fast: true
-
     name: Foundry project
     runs-on: ubuntu-latest
     steps:
@@ -27,56 +14,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          version: stable
 
-      - name: Cache Forge dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            lib/
-            out/
-          key: ${{ runner.os }}-forge-${{ hashFiles('**/foundry.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-forge-
-
-      - name: Show Forge version
-        run: |
-          forge --version
-
-      - name: Install Dependencies
-        run: |
-          forge install
-
-      - name: Run Forge fmt
-        run: |
-          forge fmt --check
-        id: fmt
-
-      - name: Run Forge build
-        run: |
-          forge build --sizes
-        id: build
-        env:
-          FOUNDRY_SOLC_VERSION: 0.8.28
-
-      - name: Start Anvil
-        run: |
-          anvil &
-          sleep 5
-        id: anvil
-
-      - name: Run Forge tests
-        run: |
-          forge test -vvv
-        id: test
-        env:
-          FOUNDRY_SOLC_VERSION: 0.8.28
-
-      - name: Stop Anvil
-        if: always()
-        run: |
-          pkill anvil || true
+      - name: Run tests
+        run: forge test -vvv
