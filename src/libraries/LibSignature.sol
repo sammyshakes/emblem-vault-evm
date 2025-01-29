@@ -45,9 +45,12 @@ library LibSignature {
         address to,
         uint256 tokenId,
         uint256 nonce,
-        uint256 amount
+        uint256 amount,
+        uint256 chainId
     ) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(nftAddress, payment, price, to, tokenId, nonce, amount));
+        return keccak256(
+            abi.encodePacked(nftAddress, payment, price, to, tokenId, nonce, amount, chainId)
+        );
     }
 
     /// @notice Create hash for locked vault signature
@@ -59,10 +62,11 @@ library LibSignature {
         address to,
         uint256 tokenId,
         uint256 nonce,
-        uint256 amount
+        uint256 amount,
+        uint256 chainId
     ) internal pure returns (bytes32) {
         return keccak256(
-            abi.encodePacked(nftAddress, payment, price, to, tokenId, nonce, amount, true)
+            abi.encodePacked(nftAddress, payment, price, to, tokenId, nonce, amount, true, chainId)
         );
     }
 
@@ -76,10 +80,12 @@ library LibSignature {
         uint256 tokenId,
         uint256 nonce,
         uint256 amount,
-        bytes memory signature
+        bytes memory signature,
+        uint256 chainId
     ) internal pure returns (address) {
-        bytes32 hash =
-            getStandardSignatureHash(nftAddress, payment, price, to, tokenId, nonce, amount);
+        bytes32 hash = getStandardSignatureHash(
+            nftAddress, payment, price, to, tokenId, nonce, amount, chainId
+        );
         return recoverSigner(hash, signature);
     }
 
@@ -93,10 +99,11 @@ library LibSignature {
         uint256 tokenId,
         uint256 nonce,
         uint256 amount,
-        bytes memory signature
+        bytes memory signature,
+        uint256 chainId
     ) internal pure returns (address) {
         bytes32 hash =
-            getLockedSignatureHash(nftAddress, payment, price, to, tokenId, nonce, amount);
+            getLockedSignatureHash(nftAddress, payment, price, to, tokenId, nonce, amount, chainId);
         return recoverSigner(hash, signature);
     }
 }

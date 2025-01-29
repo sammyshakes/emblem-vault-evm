@@ -174,7 +174,8 @@ contract EmblemVaultUnvaultFacet {
                     params.tokenIds[i],
                     params.nonces[i],
                     1,
-                    params.signatures[i]
+                    params.signatures[i],
+                    block.chainid
                 );
             } else {
                 signer = LibSignature.verifyStandardSignature(
@@ -185,7 +186,8 @@ contract EmblemVaultUnvaultFacet {
                     params.tokenIds[i],
                     params.nonces[i],
                     1,
-                    params.signatures[i]
+                    params.signatures[i],
+                    block.chainid
                 );
             }
 
@@ -261,11 +263,27 @@ contract EmblemVaultUnvaultFacet {
         address signer;
         if (LibEmblemVaultStorage.isVaultLocked(_nftAddress, _tokenId)) {
             signer = LibSignature.verifyLockedSignature(
-                _nftAddress, _payment, _price, msg.sender, _tokenId, _nonce, 1, _signature
+                _nftAddress,
+                _payment,
+                _price,
+                msg.sender,
+                _tokenId,
+                _nonce,
+                1,
+                _signature,
+                block.chainid
             );
         } else {
             signer = LibSignature.verifyStandardSignature(
-                _nftAddress, _payment, _price, msg.sender, _tokenId, _nonce, 1, _signature
+                _nftAddress,
+                _payment,
+                _price,
+                msg.sender,
+                _tokenId,
+                _nonce,
+                1,
+                _signature,
+                block.chainid
             );
         }
 

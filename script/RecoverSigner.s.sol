@@ -18,8 +18,16 @@ contract RecoverSigner is Script {
             hex"2876fe7a97343fb557d934fe9701866ea7db3bfca69cc0594fe4ac2db0b5de002d2ccf71adc115ae3e06ca33a25f08688e6a7f035e3a369bb4aa1b7ea0792ba41b";
 
         // Get hash that was actually used in mint
+        // Use mainnet chainId since this was a mainnet transaction
         bytes32 hash = LibSignature.getStandardSignatureHash(
-            nftAddress, payment, price, to, tokenId, nonce, amount
+            nftAddress,
+            payment,
+            price,
+            to,
+            tokenId,
+            nonce,
+            amount,
+            1 // mainnet chainId
         );
         address signer = LibSignature.recoverSigner(hash, signature);
 
@@ -33,7 +41,14 @@ contract RecoverSigner is Script {
         address originalNftAddress = vm.parseAddress("0x184ddb67E2EF517f6754F055b56905f2A9b29b6A");
         address originalPayment = vm.parseAddress("0x3d658390460295fb963f54dc0899cfb1c30776df");
         bytes32 originalHash = LibSignature.getStandardSignatureHash(
-            originalNftAddress, originalPayment, price, to, tokenId, nonce, amount
+            originalNftAddress,
+            originalPayment,
+            price,
+            to,
+            tokenId,
+            nonce,
+            amount,
+            1 // mainnet chainId
         );
         address originalSigner = LibSignature.recoverSigner(originalHash, signature);
 

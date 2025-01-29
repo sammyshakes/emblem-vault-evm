@@ -20,8 +20,11 @@ contract GenerateSignature is Script {
         uint256 amount = 1;
 
         // Generate signature hash
-        bytes32 hash =
-            keccak256(abi.encodePacked(nftAddress, payment, price, to, tokenId, nonce, amount));
+        // Include chainId in signature hash for cross-chain replay protection
+        uint256 chainId = block.chainid;
+        bytes32 hash = keccak256(
+            abi.encodePacked(nftAddress, payment, price, to, tokenId, nonce, amount, chainId)
+        );
 
         // Add Ethereum signed message prefix
         bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
@@ -68,7 +71,8 @@ contract GenerateSignature is Script {
         console.log("  tokenId: ", tokenId, ",");
         console.log("  nonce: ", nonce, ",");
         console.log("  signature: '", vm.toString(signature), "',");
-        console.log("  amount: ", amount);
+        console.log("  amount: ", amount, ",");
+        console.log("  chainId: ", chainId);
         console.log("}");
     }
 }

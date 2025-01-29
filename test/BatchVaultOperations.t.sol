@@ -309,9 +309,11 @@ contract BatchVaultOperationsTest is Test {
         uint256 _nonce,
         uint256 _amount,
         uint256 _privateKey
-    ) internal pure returns (bytes memory) {
+    ) internal view returns (bytes memory) {
         bytes32 hash = keccak256(
-            abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount)
+            abi.encodePacked(
+                _nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount, block.chainid
+            )
         );
         bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, prefixedHash);

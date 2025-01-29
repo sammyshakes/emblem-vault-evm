@@ -176,6 +176,11 @@ contract MainnetForkTest is Test {
         uint256 witnessKey = vm.envUint("PRIVATE_KEY");
         address witness = vm.addr(witnessKey);
 
+        // Log witness details
+        console.log("Witness address:", witness);
+        console.log("Is witness authorized:", EmblemVaultCoreFacet(DIAMOND).isWitness(witness));
+        console.log("Total witness count:", EmblemVaultCoreFacet(DIAMOND).getWitnessCount());
+
         // Verify witness is authorized
         assertTrue(EmblemVaultCoreFacet(DIAMOND).isWitness(witness), "Not a valid witness");
 
@@ -191,28 +196,21 @@ contract MainnetForkTest is Test {
         uint256 externalTokenId = uint256(keccak256(abi.encodePacked(block.timestamp, user1))); // Random large number
         bytes32 salt = bytes32(uint256(200)); // Example salt
 
-        // Create signature using LibSignature format
-        bytes32 messageHash = keccak256(
-            abi.encodePacked(
-                DIAMOND_HANDS_COLLECTION, // nftAddress
-                address(0), // payment token
-                price, // price
-                user1, // recipient
-                externalTokenId, // tokenId (external ID that maps to internal ID)
-                uint256(salt), // nonce
-                uint256(1) // amount
-            )
+        // Get current chainId
+        uint256 currentChainId = block.chainid;
+        console.log("Current chainId:", currentChainId);
+
+        // Create signature using helper function
+        bytes memory signature = createSignature(
+            DIAMOND_HANDS_COLLECTION,
+            address(0),
+            price,
+            user1,
+            externalTokenId,
+            uint256(salt),
+            1,
+            witnessKey
         );
-
-        // Add Ethereum signed message prefix
-        bytes32 prefixedHash =
-            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
-
-        // Sign the message
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(witnessKey, prefixedHash);
-
-        // Pack signature in format expected by contract (r,s,v)
-        bytes memory signature = abi.encodePacked(r, s, v);
 
         // Mint with signature
         vm.prank(user1);
@@ -247,5 +245,24 @@ contract MainnetForkTest is Test {
         assertEq(
             IERC721(DIAMOND_HANDS_COLLECTION).ownerOf(internalTokenId), user1, "Wrong token owner"
         );
+    }
+
+    // Helper function to create signature for standard purchases
+    function createSignature(
+        address _nftAddress,
+        address _payment,
+        uint256 _price,
+        address _to,
+        uint256 _tokenId,
+        uint256 _nonce,
+        uint256 _amount,
+        uint256 _privateKey
+    ) internal view returns (bytes memory) {
+        bytes32 hash = keccak256(
+            abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount)
+        );
+        bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, prefixedHash);
+        return abi.encodePacked(r, s, v);
     }
 }

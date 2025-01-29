@@ -721,6 +721,140 @@ contract DiamondVaultTest is Test {
         assertEq(EmblemVaultInitFacet(address(diamond)).getInitVersion(), "0.1.0");
     }
 
+    function testRevertBuyWithSignedPriceWrongChainId() public {
+        uint256 tokenId = 2000;
+        uint256 price = 1 ether;
+        uint256 nonce = 3;
+        bytes memory serialNumber = new bytes(0);
+
+        // Create signature with chainId 1
+        vm.chainId(1); // Set chainId to mainnet
+        bytes memory signature = createSignature(
+            nftCollection, address(0), price, user1, tokenId, nonce, 1, witnessPrivateKey
+        );
+
+        // Switch back to original chainId and attempt to mint
+        vm.chainId(31_337); // Back to default Forge chainId
+        vm.startPrank(user1);
+
+        // Extract r, s, v from signature
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly {
+            r := mload(add(signature, 32))
+            s := mload(add(signature, 64))
+            v := byte(0, mload(add(signature, 96)))
+        }
+
+        // Calculate the hash that will be used to recover the signer (using chainId 31337)
+        bytes32 hash = keccak256(
+            abi.encodePacked(
+                nftCollection, address(0), price, user1, tokenId, nonce, uint256(1), uint256(31_337)
+            )
+        );
+        bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
+        address recoveredSigner = ecrecover(prefixedHash, v, r, s);
+
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.NotWitness.selector, recoveredSigner));
+        EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: price}(
+            nftCollection, address(0), price, user1, tokenId, nonce, signature, serialNumber, 1
+        );
+        vm.stopPrank();
+    }
+
+    function testRevertBatchBuyWithSignedPriceWrongChainId() public {
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = 3000;
+        tokenIds[1] = 3001;
+
+        uint256[] memory prices = new uint256[](2);
+        prices[0] = 1 ether;
+        prices[1] = 1 ether;
+
+        uint256[] memory nonces = new uint256[](2);
+        nonces[0] = 4;
+        nonces[1] = 5;
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1;
+        amounts[1] = 1;
+
+        bytes[] memory serialNumbers = new bytes[](2);
+        serialNumbers[0] = new bytes(0);
+        serialNumbers[1] = new bytes(0);
+
+        // Create signatures with chainId 1
+        vm.chainId(1); // Set chainId to mainnet
+        bytes[] memory signatures = new bytes[](2);
+        signatures[0] = createSignature(
+            nftCollection,
+            address(0),
+            prices[0],
+            user1,
+            tokenIds[0],
+            nonces[0],
+            amounts[0],
+            witnessPrivateKey
+        );
+        signatures[1] = createSignature(
+            nftCollection,
+            address(0),
+            prices[1],
+            user1,
+            tokenIds[1],
+            nonces[1],
+            amounts[1],
+            witnessPrivateKey
+        );
+
+        // Switch back to original chainId and attempt to batch mint
+        vm.chainId(31_337); // Back to default Forge chainId
+        vm.startPrank(user1);
+
+        EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
+            nftAddress: nftCollection,
+            payment: address(0),
+            prices: prices,
+            to: user1,
+            tokenIds: tokenIds,
+            nonces: nonces,
+            signatures: signatures,
+            serialNumbers: serialNumbers,
+            amounts: amounts
+        });
+
+        // Extract r, s, v from first signature
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly {
+            r := mload(add(mload(add(signatures, 32)), 32)) // signatures[0]
+            s := mload(add(mload(add(signatures, 32)), 64))
+            v := byte(0, mload(add(mload(add(signatures, 32)), 96)))
+        }
+
+        // Calculate the hash that will be used to recover the signer (using chainId 31337)
+        bytes32 hash = keccak256(
+            abi.encodePacked(
+                nftCollection,
+                address(0),
+                prices[0],
+                user1,
+                tokenIds[0],
+                nonces[0],
+                amounts[0],
+                uint256(31_337)
+            )
+        );
+        bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
+        address recoveredSigner = ecrecover(prefixedHash, v, r, s);
+
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.NotWitness.selector, recoveredSigner));
+        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: 2 ether}(params);
+        vm.stopPrank();
+    }
+
     function testVaultLocking() public {
         // Lock vault
         vm.startPrank(owner);
@@ -747,9 +881,12 @@ contract DiamondVaultTest is Test {
         uint256 _nonce,
         uint256 _amount,
         uint256 _privateKey
-    ) internal pure returns (bytes memory) {
+    ) internal view returns (bytes memory) {
+        console.log("chainid: ", block.chainid);
         bytes32 hash = keccak256(
-            abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount)
+            abi.encodePacked(
+                _nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount, block.chainid
+            )
         );
         bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, prefixedHash);
@@ -766,9 +903,11 @@ contract DiamondVaultTest is Test {
         uint256 _nonce,
         uint256 _amount,
         uint256 _privateKey
-    ) internal pure returns (bytes memory) {
+    ) internal view returns (bytes memory) {
         bytes32 hash = keccak256(
-            abi.encodePacked(_nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount, true)
+            abi.encodePacked(
+                _nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount, true, block.chainid
+            )
         );
         bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, prefixedHash);
