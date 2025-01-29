@@ -49,7 +49,7 @@ contract UpgradeDiamondFacets is Script {
             } else if (_strEquals(facetName, "CollectionFacet")) {
                 totalCuts += 2; // Replace existing + Add new
             } else if (_strEquals(facetName, "UnvaultFacet")) {
-                totalCuts += 2; // Replace existing + Add new
+                totalCuts += 1; // Replace all functions in one cut
             } else if (_strEquals(facetName, "MintFacet")) {
                 totalCuts += 1; // Replace
             } else {
@@ -88,13 +88,9 @@ contract UpgradeDiamondFacets is Script {
             } else if (_strEquals(facetName, "UnvaultFacet")) {
                 EmblemVaultUnvaultFacet newFacet = new EmblemVaultUnvaultFacet();
 
-                // Replace existing functions
-                bytes4[] memory existingSelectors = _getExistingUnvaultSelectors();
-                cut[cutIndex++] = _createReplaceCut(address(newFacet), existingSelectors);
-
-                // Add new batch function
-                bytes4[] memory newSelectors = _getNewUnvaultSelectors();
-                cut[cutIndex++] = _createAddCut(address(newFacet), newSelectors);
+                // Replace all functions including batch
+                bytes4[] memory allSelectors = _getAllUnvaultSelectors();
+                cut[cutIndex++] = _createReplaceCut(address(newFacet), allSelectors);
 
                 emit FacetUpgraded("UnvaultFacet", address(newFacet));
             } else if (_strEquals(facetName, "MintFacet")) {
@@ -201,9 +197,17 @@ contract UpgradeDiamondFacets is Script {
         return selectors;
     }
 
-    function _getNewUnvaultSelectors() internal pure returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](1);
-        selectors[0] = EmblemVaultUnvaultFacet.batchUnvaultWithSignedPrice.selector;
+    function _getAllUnvaultSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory selectors = new bytes4[](9);
+        selectors[0] = EmblemVaultUnvaultFacet.unvault.selector;
+        selectors[1] = EmblemVaultUnvaultFacet.unvaultWithSignedPrice.selector;
+        selectors[2] = EmblemVaultUnvaultFacet.setUnvaultingEnabled.selector;
+        selectors[3] = EmblemVaultUnvaultFacet.setBurnAddress.selector;
+        selectors[4] = EmblemVaultUnvaultFacet.isTokenUnvaulted.selector;
+        selectors[5] = EmblemVaultUnvaultFacet.getTokenUnvaulter.selector;
+        selectors[6] = EmblemVaultUnvaultFacet.getCollectionUnvaultCount.selector;
+        selectors[7] = EmblemVaultUnvaultFacet.getUnvaultVersion.selector;
+        selectors[8] = EmblemVaultUnvaultFacet.batchUnvaultWithSignedPrice.selector;
         return selectors;
     }
 
