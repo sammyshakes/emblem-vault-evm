@@ -211,7 +211,8 @@ contract EmblemVaultMintFacet {
                 params.tokenIds[i],
                 params.nonces[i],
                 params.amounts[i],
-                params.signatures[i]
+                params.signatures[i],
+                block.chainid
             );
 
             LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
@@ -270,7 +271,8 @@ contract EmblemVaultMintFacet {
             params.tokenId,
             params.nonce,
             params.amount,
-            params.signature
+            params.signature,
+            block.chainid
         );
 
         LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);

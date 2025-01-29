@@ -27,10 +27,19 @@ A modular and upgradeable vault system built on the EIP-2535 Diamond Standard, a
 #### Functional Facets
 
 - **CoreFacet:** `0xEE483847aa8E52887A1C5477b8F5b0af28922681`
-- **MintFacet:** `0xC59c4B6EA71a610BC7eDF05CBc66bfc2a86A3005`
-- **UnvaultFacet:** `0xF04a4B0CE209aF4017648Fa93D2bB348eCb116d6`
+- **MintFacet:** `0x61D2816C20D7EF9D9fCb3878f3542029c5CFbEBB`
+- **UnvaultFacet:** `0x4d6be1A63157cC49a85a64a6F20BDb501B71A468`
+
 - **InitFacet:** `0x5657a10c1AAe46Ae383342d7516290B4FecD9295`
 - **CollectionFacet:** `0x9dDCc1340D0ed0D359e6C4bD1408Ee3542f257B2`
+
+### Latest Upgrades
+
+#### January 29, 2025 - Chain ID Verification
+
+- Added chainId verification to prevent cross-chain replay attacks
+- Upgraded MintFacet and UnvaultFacet with new signature verification
+- Transaction: `0xbcc0487a3f44bbe98f6f36a0d4e135aee7b4834fd7506f5d691b9d649ef8fc0c`
 
 ### Vault Implementations
 
