@@ -26,18 +26,18 @@ arbitrum_testnet = "${ARBITRUM_TESTNET_RPC_URL}"
 apechain_mainnet = "${APECHAIN_MAINNET_RPC_URL}"
 apechain_testnet = "${APECHAIN_TESTNET_RPC_URL}"
 
-[etherscan]
-etherscan = {key = "${ETHERSCAN_API_KEY}"}
-abstractscan_mainnet = {key = "${ABSTRACTSCAN_API_KEY}", url = "https://api.abscan.org/api"}
-abstractscan_testnet = {key = "${ABSTRACTSCAN_API_KEY}", url = "https://api-sepolia.abscan.org/api"}
-basescan_mainnet = {key = "${BASESCAN_API_KEY}", url = "https://api.basescan.org/api"}
-basescan_testnet = {key = "${BASESCAN_API_KEY}", url = "https://api-sepolia.basescan.org/api"}
-merlinscan_mainnet = {key = "${MERLINSCAN_API_KEY}", url = "https://scan.merlinchain.io/api"}
-merlinscan_testnet = {key = "${MERLINSCAN_API_KEY}", url = "https://testnet-scan.merlinchain.io/api"}
-arbiscan_one = {key = "${ARBISCAN_API_KEY}", url = "https://api.arbiscan.io/api"}
-arbiscan_testnet = {key = "${ARBISCAN_API_KEY}", url = "https://api-sepolia.arbiscan.io/api"}
-apescan_mainnet = {key = "${APESCAN_API_KEY}", url = "https://apechain.calderaexplorer.xyz/api"}
-apescan_testnet = {key = "${APESCAN_API_KEY}", url = "https://curtis.explorer.caldera.xyz/api"}
+[profile.etherscan_endpoints]
+etherscan = "${ETHERSCAN_API_KEY}"
+abstractscan_mainnet = "${ABSTRACTSCAN_API_KEY}"
+abstractscan_testnet = "${ABSTRACTSCAN_API_KEY}"
+basescan_mainnet = "${BASESCAN_API_KEY}"
+basescan_testnet = "${BASESCAN_API_KEY}"
+merlinscan_mainnet = "${MERLINSCAN_API_KEY}"
+merlinscan_testnet = "${MERLINSCAN_API_KEY}"
+arbiscan_one = "${ARBISCAN_API_KEY}"
+arbiscan_testnet = "${ARBISCAN_API_KEY}"
+apescan_mainnet = "${APESCAN_API_KEY}"
+apescan_testnet = "${APESCAN_API_KEY}"
 
 [fmt]
 line_length = 100

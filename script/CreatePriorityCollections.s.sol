@@ -59,11 +59,8 @@ contract CreatePriorityCollections is Script {
     uint8 constant ERC721_TYPE = 1;
     uint8 constant ERC1155_TYPE = 2;
 
-    // Base URIs
-    string constant EMBLEM_BASE_URI = "https://v2.emblemvault.io/meta/";
-    string constant PEPE_URI = "https://api.emblem.finance/pepe/metadata/{id}.json";
-    string constant SOG_URI = "https://api.emblem.finance/sog/metadata/{id}.json";
-    string constant FAKE_RARES_URI = "https://api.emblem.finance/fakerares/metadata/{id}.json";
+    // Base URI prefix
+    string constant BASE_URI_PREFIX = "https://v2.emblemvault.io/v3/meta/";
 
     // Helper function to get chain name
     function getChainName(uint256 chainId) internal pure returns (string memory) {
@@ -128,14 +125,21 @@ contract CreatePriorityCollections is Script {
         address openCollection = diamond.createVaultCollection("Emblem Open", "OPEN", ERC721_TYPE);
         console.log("\nEmblem Open Collection created at:", openCollection);
 
-        // Set URIs for ERC1155 collections
-        diamond.setCollectionURI(rarepepeCollection, PEPE_URI);
-        diamond.setCollectionURI(sogCollection, SOG_URI);
-        diamond.setCollectionURI(fakeraresCollection, FAKE_RARES_URI);
+        // Set URIs for all collections with their contract addresses
+        string memory rarepepeURI =
+            string.concat(BASE_URI_PREFIX, vm.toString(rarepepeCollection), "/");
+        string memory sogURI = string.concat(BASE_URI_PREFIX, vm.toString(sogCollection), "/");
+        string memory fakeraresURI =
+            string.concat(BASE_URI_PREFIX, vm.toString(fakeraresCollection), "/");
+        string memory embellsURI =
+            string.concat(BASE_URI_PREFIX, vm.toString(embellsCollection), "/");
+        string memory openURI = string.concat(BASE_URI_PREFIX, vm.toString(openCollection), "/");
 
-        // Set Base URIs for ERC721A collections
-        diamond.setCollectionBaseURI(embellsCollection, EMBLEM_BASE_URI);
-        diamond.setCollectionBaseURI(openCollection, EMBLEM_BASE_URI);
+        diamond.setCollectionURI(rarepepeCollection, rarepepeURI);
+        diamond.setCollectionURI(sogCollection, sogURI);
+        diamond.setCollectionURI(fakeraresCollection, fakeraresURI);
+        diamond.setCollectionBaseURI(embellsCollection, embellsURI);
+        diamond.setCollectionBaseURI(openCollection, openURI);
 
         vm.stopBroadcast();
 
@@ -150,15 +154,15 @@ contract CreatePriorityCollections is Script {
         console.log("--------------------------------");
         console.log("ERC1155 Collections:");
         console.log("1. Rare Pepe:", rarepepeCollection);
-        console.log("   URI:", PEPE_URI);
+        console.log("   URI:", rarepepeURI);
         console.log("2. Spells of Genesis:", sogCollection);
-        console.log("   URI:", SOG_URI);
+        console.log("   URI:", sogURI);
         console.log("3. Fake Rares:", fakeraresCollection);
-        console.log("   URI:", FAKE_RARES_URI);
+        console.log("   URI:", fakeraresURI);
         console.log("\nERC721A Collections:");
         console.log("4. EmBells:", embellsCollection);
-        console.log("   Base URI:", EMBLEM_BASE_URI);
+        console.log("   Base URI:", embellsURI);
         console.log("5. Emblem Open:", openCollection);
-        console.log("   Base URI:", EMBLEM_BASE_URI);
+        console.log("   Base URI:", openURI);
     }
 }
