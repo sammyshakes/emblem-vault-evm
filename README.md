@@ -12,26 +12,19 @@ A modular and upgradeable vault system built on the EIP-2535 Diamond Standard, a
 - **Witness System**: Secure minting through verified signatures
 - **Gas Optimized**: Efficient proxy patterns and storage
 
-## Deployed Contracts (Mainnet)
+## Deployed Addresses
 
-### Diamond System
+### Ethereum Mainnet
 
-**Diamond Address:** `0x12F084DE536F41bcd29Dfc7632Db0261CEC72C60`
+- **Diamond:** `0x12F084DE536F41bcd29Dfc7632Db0261CEC72C60`
+- **ERC721 Implementation:** `0xb4EcC165e3588DC33082fb658Bd166DB9889a848`
+- **ERC1155 Implementation:** `0xD35A23C5CFf0fe663F4357218c2B9b104399B659`
 
-#### Core Facets
+### Base Mainnet
 
-- **DiamondCutFacet:** `0x4774d3b39993a6Bf414DF7bA3AF12d229d73fe39`
-- **DiamondLoupeFacet:** `0x50197F900Fed0E25Ccfc7Cc0c38354B2193572aB`
-- **OwnershipFacet:** `0x9f8c10D32B4db3BEceEA1Fe0B3b91F43ab26d733`
-
-#### Functional Facets
-
-- **CoreFacet:** `0xEE483847aa8E52887A1C5477b8F5b0af28922681`
-- **MintFacet:** `0x61D2816C20D7EF9D9fCb3878f3542029c5CFbEBB`
-- **UnvaultFacet:** `0x4d6be1A63157cC49a85a64a6F20BDb501B71A468`
-
-- **InitFacet:** `0x5657a10c1AAe46Ae383342d7516290B4FecD9295`
-- **CollectionFacet:** `0x9dDCc1340D0ed0D359e6C4bD1408Ee3542f257B2`
+- **Diamond:** `0x12F084DE536F41bcd29Dfc7632Db0261CEC72C60`
+- **ERC721 Implementation:** `0x15086dd99D696AA6b0A036424Fb6Ad4923508a94`
+- **ERC1155 Implementation:** `0xD35A23C5CFf0fe663F4357218c2B9b104399B659`
 
 ### Latest Upgrades
 
@@ -40,21 +33,6 @@ A modular and upgradeable vault system built on the EIP-2535 Diamond Standard, a
 - Added chainId verification to prevent cross-chain replay attacks
 - Upgraded MintFacet and UnvaultFacet with new signature verification
 - Transaction: `0xbcc0487a3f44bbe98f6f36a0d4e135aee7b4834fd7506f5d691b9d649ef8fc0c`
-
-### Vault Implementations
-
-- **ERC721VaultImplementation:** `0xb4EcC165e3588DC33082fb658Bd166DB9889a848`
-- **ERC1155VaultImplementation:** `0xD35A23C5CFf0fe663F4357218c2B9b104399B659`
-
-### Beacon System
-
-- **ERC721VaultBeacon:** `0x8977704a454fE2063336324027440d7bc56689AA`
-- **ERC1155VaultBeacon:** `0x2B05d2Ec965E10DB70EEeE8a62FFc39e399601A6`
-- **VaultCollectionFactory:** `0x109De29e0FB4de58A66ce077253E0604D81AD14C`
-
-### Collections
-
-- **Diamond Hands Collection (ERC721A):** `0xAfE0130Bad95763A66871e1F2fd73B8e7ee18037`
 
 ## Quick Start
 
