@@ -26,6 +26,12 @@ A modular and upgradeable vault system built on the EIP-2535 Diamond Standard, a
 - **ERC721 Implementation:** `0x15086dd99D696AA6b0A036424Fb6Ad4923508a94`
 - **ERC1155 Implementation:** `0xD35A23C5CFf0fe663F4357218c2B9b104399B659`
 
+### MerlinChain Mainnet
+
+- **Diamond:** `0x12F084DE536F41bcd29Dfc7632Db0261CEC72C60`
+- **ERC721 Implementation:** `0x15086dd99d696aa6b0a036424fb6ad4923508a94`
+- **ERC1155 Implementation:** `0xD35A23C5CFf0fe663F4357218c2B9b104399B659`
+
 ### Latest Upgrades
 
 #### January 29, 2025 - Chain ID Verification

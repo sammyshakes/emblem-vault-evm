@@ -5,6 +5,7 @@ libs = ["lib"]
 via_ir = true
 optimizer = true
 optimizer_runs = 200
+evm_version = "shanghai"
 
 [rpc_endpoints]
 fuji = "${FUJI_RPC_URL}"
