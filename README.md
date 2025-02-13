@@ -32,7 +32,7 @@ A modular and upgradeable vault system built on the EIP-2535 Diamond Standard, a
 - **ERC721 Implementation:** `0x15086dd99d696aa6b0a036424fb6ad4923508a94`
 - **ERC1155 Implementation:** `0xD35A23C5CFf0fe663F4357218c2B9b104399B659`
 
-- ### Arbitrum One Mainnet
+### Arbitrum One Mainnet
 
 - **Diamond:** `0x5657a10c1AAe46Ae383342d7516290B4FecD9295`
 - **ERC721 Implementation:** `0xb1E84323091755162bAe7142B4126A3334B140db`
