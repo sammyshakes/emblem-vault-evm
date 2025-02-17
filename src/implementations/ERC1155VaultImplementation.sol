@@ -42,6 +42,10 @@ contract ERC1155VaultImplementation is
     error InvalidSerialArraysLength();
     /// @notice Thrown if the number of serial numbers provided does not match the intended mint amount.
     error InvalidSerialNumbersCount();
+    /// @notice Thrown when attempting to mint zero tokens.
+    error InvalidAmount();
+    /// @notice Thrown when serial data has invalid format/length.
+    error InvalidSerialNumberData();
     /// @notice Thrown if the user attempts to burn or transfer more tokens than they have serials for.
     error InsufficientSerialNumbers();
     /// @notice Thrown if no serials are found when at least one is expected.
@@ -176,14 +180,29 @@ contract ERC1155VaultImplementation is
         external
         onlyDiamond
     {
+        if (amount == 0) revert InvalidAmount();
+
         if (amount > 1) {
             // Decode an array of serials
             uint256[] memory serialNumbers = abi.decode(serialNumberData, (uint256[]));
             if (serialNumbers.length != amount) revert InvalidSerialNumbersCount();
             _mintWithSerials(to, id, amount, serialNumbers);
         } else {
-            // Decode a single serial
-            uint256 serialNumber = abi.decode(serialNumberData, (uint256));
+            uint256 serialNumber;
+
+            // Check data format for single serial
+            if (serialNumberData.length == 32) {
+                // Single uint256 encoded directly
+                serialNumber = abi.decode(serialNumberData, (uint256));
+            } else if (serialNumberData.length == 64) {
+                // Single-element array encoded
+                uint256[] memory serialNumbers = abi.decode(serialNumberData, (uint256[]));
+                if (serialNumbers.length != 1) revert InvalidSerialNumbersCount();
+                serialNumber = serialNumbers[0];
+            } else {
+                revert InvalidSerialNumberData();
+            }
+
             if (serialNumber == 0) revert InvalidSerialNumber();
 
             uint256[] memory singleton = new uint256[](1);
