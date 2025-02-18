@@ -17,6 +17,9 @@ contract RecoverSigner is Script {
         bytes memory signature =
             hex"2876fe7a97343fb557d934fe9701866ea7db3bfca69cc0594fe4ac2db0b5de002d2ccf71adc115ae3e06ca33a25f08688e6a7f035e3a369bb4aa1b7ea0792ba41b";
 
+        // Create empty array for serialNumbers since this was a non-ERC1155 mint
+        uint256[] memory serialNumbers = new uint256[](0);
+
         // Get hash that was actually used in mint
         // Use mainnet chainId since this was a mainnet transaction
         bytes32 hash = LibSignature.getStandardSignatureHash(
@@ -27,6 +30,7 @@ contract RecoverSigner is Script {
             tokenId,
             nonce,
             amount,
+            serialNumbers,
             1 // mainnet chainId
         );
         address signer = LibSignature.recoverSigner(hash, signature);
@@ -48,6 +52,7 @@ contract RecoverSigner is Script {
             tokenId,
             nonce,
             amount,
+            serialNumbers,
             1 // mainnet chainId
         );
         address originalSigner = LibSignature.recoverSigner(originalHash, signature);

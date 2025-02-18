@@ -190,10 +190,20 @@ contract EmblemVaultMintFacet {
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.nonces.length);
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.signatures.length);
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.amounts.length);
-        // Verify serial numbers match total tokens
+        LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.serialNumbers.length);
+
         uint256 totalTokens;
         uint256 totalPrice;
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
+
+        // Verify serial numbers length matches amount for ERC1155
+        if (LibInterfaceIds.isERC1155(params.nftAddress)) {
+            for (uint256 i = 0; i < params.tokenIds.length; i++) {
+                if (params.serialNumbers[i].length != params.amounts[i]) {
+                    revert LibErrors.InvalidSerialNumbersCount();
+                }
+            }
+        }
 
         for (uint256 i = 0; i < params.tokenIds.length; i++) {
             // Calculate totals
@@ -211,6 +221,7 @@ contract EmblemVaultMintFacet {
                 params.tokenIds[i],
                 params.nonces[i],
                 params.amounts[i],
+                params.serialNumbers[i],
                 params.signatures[i],
                 block.chainid
             );
@@ -218,8 +229,6 @@ contract EmblemVaultMintFacet {
             LibErrors.revertIfNotWitness(signer, vs.witnesses[signer]);
             LibEmblemVaultStorage.setUsedNonce(params.nonces[i]);
         }
-
-        LibErrors.revertIfLengthMismatch(totalTokens, params.serialNumbers.length);
 
         if (params.payment == address(0)) {
             LibErrors.revertIfInsufficientETH(msg.value, totalPrice);
@@ -263,6 +272,13 @@ contract EmblemVaultMintFacet {
             IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, params.price);
         }
 
+        // Verify serial numbers length matches amount for ERC1155
+        if (LibInterfaceIds.isERC1155(params.nftAddress)) {
+            if (params.serialNumbers.length != params.amount) {
+                revert LibErrors.LengthMismatch(params.serialNumbers.length, params.amount);
+            }
+        }
+
         address signer = LibSignature.verifyStandardSignature(
             params.nftAddress,
             params.payment,
@@ -271,6 +287,7 @@ contract EmblemVaultMintFacet {
             params.tokenId,
             params.nonce,
             params.amount,
+            params.serialNumbers,
             params.signature,
             block.chainid
         );

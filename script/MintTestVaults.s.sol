@@ -142,6 +142,7 @@ contract MintTestVaults is Script {
         uint256 price = 0; // Free for testing
         address to = deployer; // Mint to deployer
         uint256 amount = 1; // One vault
+        uint256[] memory serialNumbers = new uint256[](0); // Empty array for non-ERC1155
 
         // Create mock signature
         bytes memory signature = _createMockSignature(
@@ -152,6 +153,7 @@ contract MintTestVaults is Script {
             tokenId,
             nonce,
             amount,
+            serialNumbers,
             deployerPrivateKey
         );
 
@@ -164,7 +166,7 @@ contract MintTestVaults is Script {
             tokenId, // Token ID
             nonce, // Nonce
             signature, // Signature
-            new uint256[](0), // Empty serial numbers array
+            serialNumbers, // Empty serial numbers array
             amount // Amount (1 for ERC721)
         );
 
@@ -186,14 +188,12 @@ contract MintTestVaults is Script {
         uint256 tokenId,
         uint256 nonce,
         uint256 amount,
+        uint256[] memory serialNumbers,
         uint256 signerKey
-    ) internal pure returns (bytes memory) {
-        // Create message hash
-        bytes32 messageHash = keccak256(
-            abi.encodePacked(
-                "\x19Ethereum Signed Message:\n32",
-                keccak256(abi.encodePacked(nftAddress, payment, price, to, tokenId, nonce, amount))
-            )
+    ) internal view returns (bytes memory) {
+        // Create message hash using LibSignature
+        bytes32 messageHash = LibSignature.getStandardSignatureHash(
+            nftAddress, payment, price, to, tokenId, nonce, amount, serialNumbers, block.chainid
         );
 
         // Sign message hash

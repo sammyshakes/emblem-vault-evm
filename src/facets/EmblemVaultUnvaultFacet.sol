@@ -174,6 +174,7 @@ contract EmblemVaultUnvaultFacet {
                     params.tokenIds[i],
                     params.nonces[i],
                     1,
+                    new uint256[](0),
                     params.signatures[i],
                     block.chainid
                 );
@@ -186,6 +187,7 @@ contract EmblemVaultUnvaultFacet {
                     params.tokenIds[i],
                     params.nonces[i],
                     1,
+                    new uint256[](0),
                     params.signatures[i],
                     block.chainid
                 );
@@ -270,6 +272,7 @@ contract EmblemVaultUnvaultFacet {
                 _tokenId,
                 _nonce,
                 1,
+                new uint256[](0),
                 _signature,
                 block.chainid
             );
@@ -282,6 +285,7 @@ contract EmblemVaultUnvaultFacet {
                 _tokenId,
                 _nonce,
                 1,
+                new uint256[](0),
                 _signature,
                 block.chainid
             );

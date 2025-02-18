@@ -46,10 +46,21 @@ library LibSignature {
         uint256 tokenId,
         uint256 nonce,
         uint256 amount,
+        uint256[] memory serialNumbers,
         uint256 chainId
     ) internal pure returns (bytes32) {
         return keccak256(
-            abi.encodePacked(nftAddress, payment, price, to, tokenId, nonce, amount, chainId)
+            abi.encodePacked(
+                nftAddress,
+                payment,
+                price,
+                to,
+                tokenId,
+                nonce,
+                amount,
+                keccak256(abi.encodePacked(serialNumbers)),
+                chainId
+            )
         );
     }
 
@@ -63,10 +74,22 @@ library LibSignature {
         uint256 tokenId,
         uint256 nonce,
         uint256 amount,
+        uint256[] memory serialNumbers,
         uint256 chainId
     ) internal pure returns (bytes32) {
         return keccak256(
-            abi.encodePacked(nftAddress, payment, price, to, tokenId, nonce, amount, true, chainId)
+            abi.encodePacked(
+                nftAddress,
+                payment,
+                price,
+                to,
+                tokenId,
+                nonce,
+                amount,
+                keccak256(abi.encodePacked(serialNumbers)),
+                true,
+                chainId
+            )
         );
     }
 
@@ -80,11 +103,12 @@ library LibSignature {
         uint256 tokenId,
         uint256 nonce,
         uint256 amount,
+        uint256[] memory serialNumbers,
         bytes memory signature,
         uint256 chainId
     ) internal pure returns (address) {
         bytes32 hash = getStandardSignatureHash(
-            nftAddress, payment, price, to, tokenId, nonce, amount, chainId
+            nftAddress, payment, price, to, tokenId, nonce, amount, serialNumbers, chainId
         );
         return recoverSigner(hash, signature);
     }
@@ -99,11 +123,13 @@ library LibSignature {
         uint256 tokenId,
         uint256 nonce,
         uint256 amount,
+        uint256[] memory serialNumbers,
         bytes memory signature,
         uint256 chainId
     ) internal pure returns (address) {
-        bytes32 hash =
-            getLockedSignatureHash(nftAddress, payment, price, to, tokenId, nonce, amount, chainId);
+        bytes32 hash = getLockedSignatureHash(
+            nftAddress, payment, price, to, tokenId, nonce, amount, serialNumbers, chainId
+        );
         return recoverSigner(hash, signature);
     }
 }

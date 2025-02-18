@@ -138,6 +138,9 @@ library LibErrors {
     /// @notice Recipient address does not match sender
     error InvalidRecipient();
 
+    /// @notice Number of serial numbers does not match amount
+    error InvalidSerialNumbersCount();
+
     // ============ Initialization Errors ============
 
     /// @notice Already initialized
