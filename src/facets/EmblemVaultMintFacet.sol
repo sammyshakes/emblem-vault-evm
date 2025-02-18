@@ -264,7 +264,7 @@ contract EmblemVaultMintFacet {
             LibErrors.revertIfInsufficientETH(msg.value, params.price);
             (bool success,) = vs.recipientAddress.call{value: msg.value}("");
             if (!success) {
-                revert("Failed to send Ether");
+                revert LibErrors.ETHTransferFailed();
             }
         } else {
             IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, params.price);
@@ -348,7 +348,8 @@ contract EmblemVaultMintFacet {
         bool isERC721A = !isERC1155 && LibInterfaceIds.isERC721A(nftAddress);
 
         if (isERC1155) {
-            for (uint256 i = 0; i < tokenIds.length; i++) {
+            uint256 len = tokenIds.length;
+            for (uint256 i = 0; i < len; i++) {
                 IERC1155(nftAddress).mintWithSerial(to, tokenIds[i], amounts[i], serialNumbers[i]);
             }
         } else if (isERC721A) {
@@ -369,15 +370,19 @@ contract EmblemVaultMintFacet {
         uint256 temp = value;
         uint256 digits;
         while (temp != 0) {
-            digits++;
-            temp /= 10;
+            unchecked {
+                digits++;
+                temp /= 10;
+            }
         }
 
         bytes memory buffer = new bytes(digits);
         while (value != 0) {
-            digits -= 1;
-            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
-            value /= 10;
+            unchecked {
+                digits -= 1;
+                buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+                value /= 10;
+            }
         }
 
         return string(buffer);
