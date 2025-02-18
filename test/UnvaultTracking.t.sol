@@ -368,6 +368,41 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         );
     }
 
+    function testPreventDirectBurn() public {
+        // Create signature for minting
+        bytes memory signature = createSignature(
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            2,
+            1,
+            witnessPrivateKey,
+            new uint256[](0)
+        );
+
+        // Mint token through diamond
+        vm.deal(tokenHolder, 1 ether);
+        vm.startPrank(tokenHolder);
+        EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
+            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
+        );
+
+        // Try to burn directly - should fail
+        vm.expectRevert(abi.encodeWithSignature("NotDiamond()"));
+        ERC721VaultImplementation(nftCollection).burn(2);
+
+        // Try to burn through diamond but not unvault process - should fail
+        vm.stopPrank();
+        vm.prank(address(diamond));
+        vm.expectRevert(); // Will fail since burn should only happen through unvault
+        ERC721VaultImplementation(nftCollection).burn(2);
+
+        // Verify token still exists
+        assertEq(ERC721VaultImplementation(nftCollection).ownerOf(2), tokenHolder);
+    }
+
     function testBurnAddressWithUnvault() public {
         address burnAddr = address(0x123);
 
