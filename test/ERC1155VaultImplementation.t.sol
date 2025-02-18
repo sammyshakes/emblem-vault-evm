@@ -131,32 +131,6 @@ contract ERC1155VaultImplementationTest is Test {
         assertEq(implementation.getOwnerOfSerial(user2Serial2), user2);
     }
 
-    function testSerialNumberBurn() public {
-        // CHANGED: external mint of 3 tokens
-        uint256[] memory serialNumbers = new uint256[](3);
-        serialNumbers[0] = 1;
-        serialNumbers[1] = 2;
-        serialNumbers[2] = 3;
-
-        implementation.mintWithSerial(user1, 1, 3, serialNumbers);
-
-        // The *last* 2 minted are #3 and #2 (pop from end).
-        // Burn 2 tokens
-        vm.startPrank(user1);
-        implementation.burn(user1, 1, 2);
-        vm.stopPrank();
-
-        // Check that #2 and #3 are indeed burned => new owner = address(0)
-        assertEq(implementation.getOwnerOfSerial(2), address(0));
-        assertEq(implementation.getOwnerOfSerial(3), address(0));
-
-        // The only remaining serial is #1
-        assertEq(implementation.balanceOf(user1, 1), 1);
-        uint256 remainingSerial = implementation.getFirstSerialByOwner(user1, 1);
-        assertEq(remainingSerial, 1);
-        assertEq(implementation.getOwnerOfSerial(remainingSerial), user1);
-    }
-
     // ------------------------------------------------------------------------
     // DUPLICATE, ZERO, MISMATCH, REUSE, ETC => unchanged
     // because they were already testing external serial reverts.

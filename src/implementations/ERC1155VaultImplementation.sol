@@ -541,4 +541,24 @@ contract ERC1155VaultImplementation is
     function implementation() external view returns (address) {
         return address(this);
     }
+
+    /**
+     * @notice Override of ERC1155Burnable burn function to restrict access to diamond only
+     * @dev Only the diamond contract can burn tokens to ensure proper unvault process
+     * @param account The address whose tokens will be burned
+     * @param id The token ID to burn
+     * @param value The amount to burn
+     */
+    function burn(address account, uint256 id, uint256 value) public virtual override onlyDiamond {
+        super.burn(account, id, value);
+    }
+
+    function burnBatch(address account, uint256[] memory ids, uint256[] memory values)
+        public
+        virtual
+        override
+        onlyDiamond
+    {
+        super.burnBatch(account, ids, values);
+    }
 }
