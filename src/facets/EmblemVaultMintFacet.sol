@@ -183,9 +183,8 @@ contract EmblemVaultMintFacet {
         // Ensure the recipient is the transaction sender
         LibErrors.revertIfInvalidRecipient(params.to, msg.sender);
 
-        // Check batch size limit
+        // Check batch size limit and array lengths
         LibErrors.revertIfBatchSizeExceeded(params.tokenIds.length, MAX_BATCH_SIZE);
-
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.prices.length);
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.nonces.length);
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.signatures.length);
@@ -196,16 +195,15 @@ contract EmblemVaultMintFacet {
         uint256 totalPrice;
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
 
-        // Verify serial numbers length matches amount for ERC1155
-        if (LibInterfaceIds.isERC1155(params.nftAddress)) {
-            for (uint256 i = 0; i < params.tokenIds.length; i++) {
-                if (params.serialNumbers[i].length != params.amounts[i]) {
-                    revert LibErrors.InvalidSerialNumbersCount();
-                }
-            }
-        }
+        // Determine if the NFT is ERC1155 (do this once to save gas)
+        bool isERC1155 = LibInterfaceIds.isERC1155(params.nftAddress);
 
         for (uint256 i = 0; i < params.tokenIds.length; i++) {
+            // If ERC1155, check that the serial numbers count matches the amount
+            if (isERC1155 && params.serialNumbers[i].length != params.amounts[i]) {
+                revert LibErrors.InvalidSerialNumbersCount();
+            }
+
             // Calculate totals
             totalTokens += params.amounts[i];
             totalPrice += params.prices[i];
