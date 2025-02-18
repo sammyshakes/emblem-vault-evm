@@ -43,13 +43,17 @@ interface IERC1155 is IERC165 {
         bytes calldata data
     ) external;
     function mint(address to, uint256 id, uint256 amount) external;
-    function mintWithSerial(address to, uint256 id, uint256 amount, bytes calldata serialNumber)
-        external;
+    function mintWithSerial(
+        address to,
+        uint256 id,
+        uint256 amount,
+        uint256[] calldata serialNumbers
+    ) external;
     function mintBatch(
         address to,
         uint256[] memory ids,
         uint256[] memory amounts,
-        bytes[] calldata serialNumbers
+        uint256[][] calldata serialNumbers
     ) external;
     function burn(address account, uint256 id, uint256 value) external;
     function burnBatch(address account, uint256[] calldata ids, uint256[] calldata values)

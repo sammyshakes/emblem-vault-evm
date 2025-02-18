@@ -175,7 +175,7 @@ contract UnvaultBatchOperationsTest is Test {
         uint256[] memory tokenIds = new uint256[](batchSize);
         uint256[] memory nonces = new uint256[](batchSize);
         bytes[] memory signatures = new bytes[](batchSize);
-        bytes[] memory serialNumbers = new bytes[](batchSize);
+        uint256[][] memory serialNumbers = new uint256[][](batchSize);
         uint256[] memory amounts = new uint256[](batchSize);
 
         // Fill arrays with test data
@@ -195,7 +195,7 @@ contract UnvaultBatchOperationsTest is Test {
                 amounts[j],
                 witnessPrivateKey
             );
-            serialNumbers[j] = "";
+            serialNumbers[j] = new uint256[](0);
             totalPrice += basePrice;
         }
 

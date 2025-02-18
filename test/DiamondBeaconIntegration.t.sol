@@ -289,15 +289,14 @@ contract DiamondBeaconIntegrationTest is Test {
         address vault = factory.createERC1155Collection(uri);
 
         // Supply 5 distinct serial numbers
-        uint256[] memory serials = new uint256[](5);
+        uint256[] memory serialNumbers = new uint256[](5);
         for (uint256 i = 0; i < 5; i++) {
-            serials[i] = 100 + i;
+            serialNumbers[i] = 100 + i;
         }
-        bytes memory serialData = abi.encode(serials);
 
         // Now call mintWithSerial
         vm.prank(address(diamond));
-        ERC1155VaultImplementation(vault).mintWithSerial(user1, 1, 5, serialData);
+        ERC1155VaultImplementation(vault).mintWithSerial(user1, 1, 5, serialNumbers);
 
         // 3. Verify minting
         assertEq(ERC1155VaultImplementation(vault).balanceOf(user1, 1), 5);

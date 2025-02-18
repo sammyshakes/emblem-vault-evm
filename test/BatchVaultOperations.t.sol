@@ -65,7 +65,7 @@ contract BatchVaultOperationsTest is Test {
         uint256[] memory tokenIds = new uint256[](oversizedBatch);
         uint256[] memory nonces = new uint256[](oversizedBatch);
         bytes[] memory signatures = new bytes[](oversizedBatch);
-        bytes[] memory serialNumbers = new bytes[](oversizedBatch);
+        uint256[][] memory serialNumbers = new uint256[][](oversizedBatch);
         uint256[] memory amounts = new uint256[](oversizedBatch);
 
         // Fill arrays with test data
@@ -85,7 +85,7 @@ contract BatchVaultOperationsTest is Test {
                 amounts[j],
                 witnessPrivateKey
             );
-            serialNumbers[j] = "";
+            serialNumbers[j] = new uint256[](0);
             totalPrice += basePrice;
         }
 
@@ -235,7 +235,7 @@ contract BatchVaultOperationsTest is Test {
             uint256[] memory tokenIds = new uint256[](batchSize);
             uint256[] memory nonces = new uint256[](batchSize);
             bytes[] memory signatures = new bytes[](batchSize);
-            bytes[] memory serialNumbers = new bytes[](batchSize);
+            uint256[][] memory serialNumbers = new uint256[][](batchSize);
             uint256[] memory amounts = new uint256[](batchSize);
 
             // Fill arrays with test data
@@ -255,7 +255,7 @@ contract BatchVaultOperationsTest is Test {
                     amounts[j],
                     witnessPrivateKey
                 );
-                serialNumbers[j] = "";
+                serialNumbers[j] = new uint256[](0);
                 totalPrice += basePrice;
             }
 

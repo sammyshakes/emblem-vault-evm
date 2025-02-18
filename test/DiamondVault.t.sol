@@ -2,7 +2,6 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-// import "forge-std/console.sol";
 import {EmblemVaultDiamond} from "../src/EmblemVaultDiamond.sol";
 import {ERC721AUpgradeable} from "ERC721A-Upgradeable/ERC721AUpgradeable.sol";
 import {IDiamondCut} from "../src/interfaces/IDiamondCut.sol";
@@ -299,7 +298,7 @@ contract DiamondVaultTest is Test {
             1,
             1, // nonce
             signature,
-            "", // no serial number
+            new uint256[](0), // no serial number
             1 // amount
         );
         vm.stopPrank();
@@ -509,7 +508,7 @@ contract DiamondVaultTest is Test {
         uint256 tokenId = 1000; // Use a much larger token ID
         uint256 price = 1 ether;
         uint256 nonce = 2; // Use new nonce since 1 was used in setup
-        bytes memory serialNumber = new bytes(0);
+        uint256[] memory serialNumber = new uint256[](0);
 
         // Create signature from witness
         bytes memory signature = createSignature(
@@ -557,7 +556,7 @@ contract DiamondVaultTest is Test {
         uint256 tokenId = 999_999; // Use an even larger token ID
         uint256 price = 100 ether;
         uint256 nonce = 2; // Use new nonce since 1 was used in setup
-        bytes memory serialNumber = new bytes(0);
+        uint256[] memory serialNumber = new uint256[](0);
 
         // Create signature from witness
         bytes memory signature = createSignature(
@@ -725,7 +724,7 @@ contract DiamondVaultTest is Test {
         uint256 tokenId = 2000;
         uint256 price = 1 ether;
         uint256 nonce = 3;
-        bytes memory serialNumber = new bytes(0);
+        uint256[] memory serialNumber = new uint256[](0);
 
         // Create signature with chainId 1
         vm.chainId(1); // Set chainId to mainnet
@@ -780,9 +779,9 @@ contract DiamondVaultTest is Test {
         amounts[0] = 1;
         amounts[1] = 1;
 
-        bytes[] memory serialNumbers = new bytes[](2);
-        serialNumbers[0] = new bytes(0);
-        serialNumbers[1] = new bytes(0);
+        uint256[][] memory serialNumbers = new uint256[][](2);
+        serialNumbers[0] = new uint256[](0);
+        serialNumbers[1] = new uint256[](0);
 
         // Create signatures with chainId 1
         vm.chainId(1); // Set chainId to mainnet

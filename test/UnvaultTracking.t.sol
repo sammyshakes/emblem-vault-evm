@@ -35,7 +35,7 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         vm.deal(tokenHolder, 1 ether);
         vm.startPrank(tokenHolder);
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, "", 1
+            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
         );
 
         // Approve diamond
@@ -66,7 +66,7 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         vm.deal(tokenHolder, 1 ether);
         vm.startPrank(tokenHolder);
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, "", 1
+            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
         );
 
         // Approve diamond to manage tokens
@@ -87,7 +87,7 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         vm.deal(tokenHolder, 1 ether);
         vm.startPrank(tokenHolder);
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, "", 1
+            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
         );
 
         // Approve for all to diamond
@@ -141,7 +141,7 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         vm.deal(tokenHolder, 1 ether);
         vm.startPrank(tokenHolder);
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, "", 1
+            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
         );
 
         // Approve diamond
@@ -172,8 +172,8 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         address erc1155Collection = factory.createERC1155Collection("testuri.com/");
 
         // Create signature for minting with serial number
-        uint256 serialNumber = 12_345;
-        bytes memory serialData = abi.encode(serialNumber);
+        uint256[] memory serialNumbers = new uint256[](1);
+        serialNumbers[0] = 12_345;
         bytes memory signature = createSignature(
             erc1155Collection, address(0), 1 ether, tokenHolder, 1, 100, 1, witnessPrivateKey
         );
@@ -182,7 +182,7 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         vm.deal(tokenHolder, 1 ether);
         vm.startPrank(tokenHolder);
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            erc1155Collection, address(0), 1 ether, tokenHolder, 1, 100, signature, serialData, 1
+            erc1155Collection, address(0), 1 ether, tokenHolder, 1, 100, signature, serialNumbers, 1
         );
 
         // Approve diamond to burn tokens
@@ -191,7 +191,7 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         // Check initial unvault status
         assertFalse(
             EmblemVaultUnvaultFacet(address(diamond)).isTokenUnvaulted(
-                erc1155Collection, serialNumber
+                erc1155Collection, serialNumbers[0]
             )
         );
 
@@ -202,12 +202,12 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         // Verify unvault status and unvaulter
         assertTrue(
             EmblemVaultUnvaultFacet(address(diamond)).isTokenUnvaulted(
-                erc1155Collection, serialNumber
+                erc1155Collection, serialNumbers[0]
             )
         );
         assertEq(
             EmblemVaultUnvaultFacet(address(diamond)).getTokenUnvaulter(
-                erc1155Collection, serialNumber
+                erc1155Collection, serialNumbers[0]
             ),
             tokenHolder
         );
@@ -228,7 +228,7 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         vm.deal(tokenHolder, 1 ether);
         vm.startPrank(tokenHolder);
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, "", 1
+            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
         );
 
         // Approve and transfer to diamond
@@ -259,7 +259,7 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         vm.deal(tokenHolder, 2 ether); // Add extra ETH
         vm.startPrank(tokenHolder);
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, "", 1
+            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
         );
 
         // Approve diamond
@@ -320,7 +320,7 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         vm.deal(tokenHolder, 1 ether);
         vm.startPrank(tokenHolder);
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, "", 1
+            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
         );
 
         // Approve diamond
@@ -350,7 +350,15 @@ contract UnvaultTrackingTest is DiamondVaultTest {
             vm.deal(tokenHolder, 1 ether);
             vm.startPrank(tokenHolder);
             EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-                nftCollection, address(0), 1 ether, tokenHolder, i, i, signature, "", 1
+                nftCollection,
+                address(0),
+                1 ether,
+                tokenHolder,
+                i,
+                i,
+                signature,
+                new uint256[](0),
+                1
             );
 
             // Approve diamond

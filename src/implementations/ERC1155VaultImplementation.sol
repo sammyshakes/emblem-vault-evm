@@ -166,62 +166,42 @@ contract ERC1155VaultImplementation is
     // ------------------------------------------------------------------------
     /**
      * @notice Mints a specified amount of `id` tokens to address `to`, with externally supplied serial numbers.
-     * @dev    If `amount` > 1, `serialNumberData` should be an encoded array of serials. If `amount` == 1, `serialNumberData`
-     *         should be a single serial number.
+     * @dev    The length of serialNumbers array must match the amount parameter.
      *         - Reverts with `InvalidSerialNumbersCount()` if the provided serials array length doesn't match `amount`.
      *         - Reverts with `InvalidSerialNumber()` if a serial is 0.
      *         - Reverts with `SerialNumberAlreadyUsed()` if any serial is already owned.
      * @param to The address receiving the minted tokens.
      * @param id The token ID to mint.
      * @param amount The quantity of tokens to mint.
-     * @param serialNumberData Encoded serial number(s) matching the `amount`.
+     * @param serialNumbers Array of serial numbers, length must match amount.
      */
-    function mintWithSerial(address to, uint256 id, uint256 amount, bytes calldata serialNumberData)
-        external
-        onlyDiamond
-    {
+    function mintWithSerial(
+        address to,
+        uint256 id,
+        uint256 amount,
+        uint256[] calldata serialNumbers
+    ) external onlyDiamond {
         if (amount == 0) revert InvalidAmount();
+        if (serialNumbers.length != amount) revert InvalidSerialNumbersCount();
 
-        if (amount > 1) {
-            // Decode an array of serials
-            uint256[] memory serialNumbers = abi.decode(serialNumberData, (uint256[]));
-            if (serialNumbers.length != amount) revert InvalidSerialNumbersCount();
-            _mintWithSerials(to, id, amount, serialNumbers);
-        } else {
-            uint256 serialNumber;
+        // First mint the tokens
+        _mint(to, id, amount, "");
 
-            // Check data format for single serial
-            if (serialNumberData.length == 32) {
-                // Single uint256 encoded directly
-                serialNumber = abi.decode(serialNumberData, (uint256));
-            } else if (serialNumberData.length == 64) {
-                // Single-element array encoded
-                uint256[] memory serialNumbers = abi.decode(serialNumberData, (uint256[]));
-                if (serialNumbers.length != 1) revert InvalidSerialNumbersCount();
-                serialNumber = serialNumbers[0];
-            } else {
-                revert InvalidSerialNumberData();
-            }
-
-            if (serialNumber == 0) revert InvalidSerialNumber();
-
-            uint256[] memory singleton = new uint256[](1);
-            singleton[0] = serialNumber;
-            _mintWithSerials(to, id, 1, singleton);
-        }
+        // Then assign serial numbers
+        _assignSerialNumbers(to, id, amount, serialNumbers);
     }
 
     /**
-     * @notice Internal function that assigns a set of serial numbers to a given address + tokenId, then mints the tokens.
+     * @notice Internal function that assigns serial numbers to a given address + tokenId.
      * @dev    Iterates over the provided `serialNumbers` and links each to `to`.
      *         - Reverts with `InvalidSerialNumber()` if any serial is 0.
      *         - Reverts with `SerialNumberAlreadyUsed()` if any serial is already owned.
-     * @param to The address receiving the minted tokens.
-     * @param id The token ID being minted.
-     * @param amount The quantity to mint.
+     * @param to The address receiving the serial numbers.
+     * @param id The token ID being assigned.
+     * @param amount The quantity of serials to assign.
      * @param serialNumbers The array of serial numbers to assign.
      */
-    function _mintWithSerials(
+    function _assignSerialNumbers(
         address to,
         uint256 id,
         uint256 amount,
@@ -247,19 +227,16 @@ contract ERC1155VaultImplementation is
                 ++i;
             }
         }
-
-        // Actually mint the tokens
-        _mint(to, id, amount, "");
     }
 
     /**
      * @notice Batch-mints multiple token IDs in one transaction, each with a set of serial numbers.
      * @dev    For each token ID in `ids`, there is a corresponding `amount` and a corresponding set
-     *         of serials in `data`. Each set of serials must match its respective amount.
+     *         of serials in `serialNumbers`. Each set of serials must match its respective amount.
      * @param to The address receiving the minted tokens.
      * @param ids An array of token IDs to mint.
      * @param amounts An array of amounts corresponding to each token ID.
-     * @param data Encoded data (bytes[]) where each entry in the array is itself an encoded array of serials.
+     * @param serialNumbers Array of arrays containing serial numbers for each token ID.
      *
      * Reverts:
      * - `InvalidSerialArraysLength()` if `serialArrays.length != ids.length`.
@@ -271,43 +248,20 @@ contract ERC1155VaultImplementation is
         address to,
         uint256[] calldata ids,
         uint256[] calldata amounts,
-        bytes calldata data
+        uint256[][] calldata serialNumbers
     ) external onlyDiamond {
-        bytes[] memory serialArrays = abi.decode(data, (bytes[]));
-        if (serialArrays.length != ids.length) revert InvalidSerialArraysLength();
+        if (serialNumbers.length != ids.length) revert InvalidSerialArraysLength();
 
+        // First validate all serial numbers
         for (uint256 i = 0; i < ids.length;) {
-            uint256 id = ids[i];
-            uint256 amt = amounts[i];
-            uint256[] memory batchSerials = abi.decode(serialArrays[i], (uint256[]));
-
-            if (batchSerials.length != amt) revert InvalidSerialNumbersCount();
-
-            uint256[] storage ownerSerials = _ownerTokenSerials[to][id];
-            uint256 startIdx = ownerSerials.length;
-
-            for (uint256 j = 0; j < amt;) {
-                uint256 serialNumber = batchSerials[j];
-                if (serialNumber == 0) revert InvalidSerialNumber();
-                if (_serialOwners[serialNumber] != address(0)) revert SerialNumberAlreadyUsed();
-
-                // Mark ownership
-                _serialOwners[serialNumber] = to;
-                _serialToTokenId[serialNumber] = id;
-                _tokenSerials[id][startIdx + j] = serialNumber;
-                ownerSerials.push(serialNumber);
-
-                emit SerialNumberAssigned(id, serialNumber);
-                unchecked {
-                    ++j;
-                }
-            }
+            if (serialNumbers[i].length != amounts[i]) revert InvalidSerialNumbersCount();
+            _assignSerialNumbers(to, ids[i], amounts[i], serialNumbers[i]);
             unchecked {
                 ++i;
             }
         }
 
-        // Perform actual mint
+        // Mint all tokens in one batch
         _mintBatch(to, ids, amounts, "");
     }
 
@@ -379,9 +333,9 @@ contract ERC1155VaultImplementation is
     }
 
     /**
-     * @notice Handles updating serial ownership on a transfer operation.
-     * @dev    Pops serials from `from`’s array and pushes them to `to`’s array.
-     *         - Reverts with `InsufficientSerialNumbers()` if the user doesn’t have enough serials.
+     * @notice Handles the transfer of serials when a transfer operation is detected.
+     * @dev    It transfers the last serial numbers from the sender to the receiver.
+     *         - Reverts with `InsufficientSerialNumbers()` if the sender doesn’t have enough serials.
      * @param from The address sending the tokens.
      * @param to The address receiving the tokens.
      * @param ids The token IDs being transferred.
@@ -419,6 +373,20 @@ contract ERC1155VaultImplementation is
                 ++i;
             }
         }
+    }
+
+    /**
+     * @dev Helper function to decode an array of uint256 values from bytes
+     */
+    function decodeUintArray(bytes memory encoded) internal pure returns (uint256[] memory ids) {
+        ids = abi.decode(encoded, (uint256[]));
+    }
+
+    /**
+     * @dev Helper function to decode a single uint256 value from bytes
+     */
+    function decodeSingle(bytes memory encoded) internal pure returns (uint256 id) {
+        id = abi.decode(encoded, (uint256));
     }
 
     // ------------------------------------------------------------------------

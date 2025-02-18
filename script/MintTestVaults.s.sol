@@ -164,7 +164,7 @@ contract MintTestVaults is Script {
             tokenId, // Token ID
             nonce, // Nonce
             signature, // Signature
-            vaultData, // Vault data/serial number
+            new uint256[](0), // Empty serial numbers array
             amount // Amount (1 for ERC721)
         );
 

@@ -162,12 +162,11 @@ contract BeaconSystemTest is Test {
         for (uint256 i = 0; i < 5; i++) {
             serialNumbers[i] = i + 1;
         }
-        bytes memory serialData = abi.encode(serialNumbers);
 
         vm.prank(mockDiamond);
         vm.expectEmit(true, true, true, true);
         emit TransferSingle(mockDiamond, address(0), user1, 1, 5);
-        ERC1155VaultImplementation(collection).mintWithSerial(user1, 1, 5, serialData);
+        ERC1155VaultImplementation(collection).mintWithSerial(user1, 1, 5, serialNumbers);
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user1, 1), 5);
 
         // Test transfers
@@ -193,26 +192,28 @@ contract BeaconSystemTest is Test {
         amounts[1] = 3;
 
         // Prepare serial numbers for batch mint
-        bytes[] memory serialArrays = new bytes[](2);
-
         uint256[] memory serials1 = new uint256[](5);
         for (uint256 i = 0; i < 5; i++) {
             serials1[i] = 100 + i;
         }
-        serialArrays[0] = abi.encode(serials1);
 
         uint256[] memory serials2 = new uint256[](3);
         for (uint256 i = 0; i < 3; i++) {
             serials2[i] = 200 + i;
         }
-        serialArrays[1] = abi.encode(serials2);
 
-        bytes memory batchData = abi.encode(serialArrays);
+        uint256[][] memory serialNumbers = new uint256[][](2);
+        serialNumbers[0] = serials1;
+        serialNumbers[1] = serials2;
+
         vm.prank(mockDiamond);
-        ERC1155VaultImplementation(collection).mintBatch(user1, ids, amounts, batchData);
+        ERC1155VaultImplementation(collection).mintBatch(user1, ids, amounts, serialNumbers);
 
-        assertEq(ERC1155VaultImplementation(collection).balanceOf(user1, 1), 5);
-        assertEq(ERC1155VaultImplementation(collection).balanceOf(user1, 2), 3);
+        // Verify initial balances
+        uint256 balance1 = ERC1155VaultImplementation(collection).balanceOf(user1, 1);
+        uint256 balance2 = ERC1155VaultImplementation(collection).balanceOf(user1, 2);
+        assertEq(balance1, 5, "Initial balance for token 1 should be 5");
+        assertEq(balance2, 3, "Initial balance for token 2 should be 3");
 
         // Test batch transfers
         vm.startPrank(user1);
@@ -256,9 +257,9 @@ contract BeaconSystemTest is Test {
         for (uint256 i = 0; i < 5; i++) {
             serialNumbers[i] = i + 1;
         }
-        bytes memory serialData = abi.encode(serialNumbers);
+
         vm.prank(mockDiamond);
-        ERC1155VaultImplementation(collection1155).mintWithSerial(user1, 1, 5, serialData);
+        ERC1155VaultImplementation(collection1155).mintWithSerial(user1, 1, 5, serialNumbers);
 
         vm.prank(user1);
         vm.expectEmit(true, true, true, true);
@@ -311,9 +312,9 @@ contract BeaconSystemTest is Test {
         for (uint256 i = 0; i < 5; i++) {
             serialNumbers[i] = 300 + i;
         }
-        bytes memory serialData = abi.encode(serialNumbers);
+
         vm.prank(mockDiamond);
-        ERC1155VaultImplementation(collection).mintWithSerial(user1, 1, 5, serialData);
+        ERC1155VaultImplementation(collection).mintWithSerial(user1, 1, 5, serialNumbers);
 
         // Upgrade implementation through factory (this contract is Diamond)
         vm.expectEmit(true, true, true, true);
@@ -332,9 +333,9 @@ contract BeaconSystemTest is Test {
         for (uint256 i = 0; i < 3; i++) {
             newSerials[i] = 400 + i;
         }
-        bytes memory newSerialData = abi.encode(newSerials);
+
         vm.prank(mockDiamond);
-        ERC1155VaultImplementation(collection).mintWithSerial(user2, 2, 3, newSerialData);
+        ERC1155VaultImplementation(collection).mintWithSerial(user2, 2, 3, newSerials);
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user2, 2), 3);
     }
 
@@ -355,13 +356,12 @@ contract BeaconSystemTest is Test {
         for (uint256 i = 0; i < 5; i++) {
             serialNumbers[i] = 500 + i;
         }
-        bytes memory serialData = abi.encode(serialNumbers);
 
         // Attempt to mint from a non-diamond address
         address nonDiamond = address(0x999);
         vm.expectRevert(abi.encodeWithSignature("NotDiamond()"));
         vm.prank(nonDiamond);
-        ERC1155VaultImplementation(collection).mintWithSerial(user1, 1, 5, serialData);
+        ERC1155VaultImplementation(collection).mintWithSerial(user1, 1, 5, serialNumbers);
     }
 
     function testRevertUnauthorizedBeaconUpdate() public {

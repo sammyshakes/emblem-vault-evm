@@ -73,9 +73,12 @@ contract TestMintPriorityCollections is Script {
         );
 
         // Generate serial numbers for each token
-        uint256 pepeSerial = 1_000_001;
-        uint256 sogSerial = 2_000_001;
-        uint256 fakeRaresSerial = 3_000_001;
+        uint256[] memory pepeSerials = new uint256[](1);
+        pepeSerials[0] = 1_000_001;
+        uint256[] memory sogSerials = new uint256[](1);
+        sogSerials[0] = 2_000_001;
+        uint256[] memory fakeRaresSerials = new uint256[](1);
+        fakeRaresSerials[0] = 3_000_001;
 
         console.log("\n1. Minting Rare Pepe token");
         diamond.buyWithSignedPrice{value: 0}(
@@ -86,14 +89,14 @@ contract TestMintPriorityCollections is Script {
             1000, // tokenId
             1, // nonce
             pepeSignature,
-            abi.encode(pepeSerial), // Encode single serial number
+            pepeSerials, // Array of serial numbers
             1 // amount
         );
         console.log("Minted token 1 to:", deployer);
 
         console.log("\n2. Minting Spells of Genesis token");
         diamond.buyWithSignedPrice{value: 0}(
-            sogCollection, address(0), 0, deployer, 1000, 2, sogSignature, abi.encode(sogSerial), 1
+            sogCollection, address(0), 0, deployer, 1000, 2, sogSignature, sogSerials, 1
         );
         console.log("Minted token 1 to:", deployer);
 
@@ -106,7 +109,7 @@ contract TestMintPriorityCollections is Script {
             1000,
             3,
             fakeRaresSignature,
-            abi.encode(fakeRaresSerial),
+            fakeRaresSerials,
             1
         );
         console.log("Minted token 1 to:", deployer);
@@ -116,13 +119,21 @@ contract TestMintPriorityCollections is Script {
 
         console.log("\n4. Minting EmBells token");
         diamond.buyWithSignedPrice{value: 0}(
-            embellsCollection, address(0), 0, deployer, 1000, 4, embellsSignature, "", 1
+            embellsCollection,
+            address(0),
+            0,
+            deployer,
+            1000,
+            4,
+            embellsSignature,
+            new uint256[](0),
+            1
         );
         console.log("Minted token to:", deployer);
 
         console.log("\n5. Minting Emblem Open token");
         diamond.buyWithSignedPrice{value: 0}(
-            openCollection, address(0), 0, deployer, 1000, 5, openSignature, "", 1
+            openCollection, address(0), 0, deployer, 1000, 5, openSignature, new uint256[](0), 1
         );
         console.log("Minted token to:", deployer);
 
