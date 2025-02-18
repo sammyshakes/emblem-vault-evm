@@ -173,6 +173,16 @@ contract EmblemVaultMintFacet {
         LibEmblemVaultStorage.nonReentrantAfter();
     }
 
+    /// @notice Batch purchase NFTs using signed prices
+    /// @dev Allows users to mint multiple NFTs in a batch using signed prices
+    /// @param params BatchBuyParams struct containing all minting parameters
+    /// @dev Reverts if any of the following conditions are not met:
+    /// - The collection is invalid
+    /// - The batch size exceeds the maximum allowed
+    /// - The array lengths do not match
+    /// - The serial numbers count does not match the amount for ERC1155 tokens
+    /// - The payment transfer fails
+    /// - The mint operation fails
     function batchBuyWithSignedPrice(BatchBuyParams calldata params)
         external
         payable
