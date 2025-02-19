@@ -239,8 +239,8 @@ contract EmblemVaultMintFacet {
         }
 
         if (params.payment == address(0)) {
-            LibErrors.revertIfInsufficientETH(msg.value, totalPrice);
-            (bool success,) = vs.recipientAddress.call{value: msg.value}("");
+            LibErrors.revertIfIncorrectPayment(msg.value, totalPrice);
+            (bool success,) = vs.recipientAddress.call{value: totalPrice}("");
             if (!success) {
                 revert LibErrors.ETHTransferFailed();
             }
@@ -271,8 +271,8 @@ contract EmblemVaultMintFacet {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
 
         if (params.payment == address(0)) {
-            LibErrors.revertIfInsufficientETH(msg.value, params.price);
-            (bool success,) = vs.recipientAddress.call{value: msg.value}("");
+            LibErrors.revertIfIncorrectPayment(msg.value, params.price);
+            (bool success,) = vs.recipientAddress.call{value: params.price}("");
             if (!success) {
                 revert LibErrors.ETHTransferFailed();
             }
