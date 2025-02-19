@@ -54,8 +54,6 @@ contract ERC1155VaultImplementation is
     error InvalidIndex();
     /// @notice Thrown when a function that must be called by the diamond is called by a non-diamond address.
     error NotDiamond();
-    /// @notice Thrown when a serial number has been burned or does not exist.
-    error SerialNumberBurned();
 
     // ------------------------------------------------------------------------
     // Storage
