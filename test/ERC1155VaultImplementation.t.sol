@@ -70,12 +70,11 @@ contract ERC1155VaultImplementationTest is Test {
         implementation.mintWithSerial(user1, 1, 3, serialNumbers);
 
         // Verify
-        vm.prank(user1);
-        assertEq(implementation.getSerial(1, 0), 100);
-        vm.prank(user1);
-        assertEq(implementation.getSerial(1, 1), 200);
-        vm.prank(user1);
-        assertEq(implementation.getSerial(1, 2), 300);
+        uint256[] memory serials = implementation.getSerials(user1, 1);
+        assertEq(serials.length, 3);
+        assertEq(serials[0], 100);
+        assertEq(serials[1], 200);
+        assertEq(serials[2], 300);
 
         assertEq(implementation.getOwnerOfSerial(100), user1);
         assertEq(implementation.getOwnerOfSerial(200), user1);
@@ -475,14 +474,9 @@ contract ERC1155VaultImplementationTest is Test {
         vm.prank(mockDiamond);
         implementation.mintWithSerial(user1, 1, 1, serialNumbers);
 
-        // Try to get non-existent index
-        vm.prank(user1);
-        vm.expectRevert(abi.encodeWithSignature("InvalidSerialNumber()"));
-        implementation.getSerial(1, 1); // we only minted index=0
-
-        // Try to get tokenId=2
-        vm.expectRevert(abi.encodeWithSignature("InvalidSerialNumber()"));
-        implementation.getSerial(2, 0);
+        // Try to get non-existent token's serials
+        uint256[] memory noSerials = implementation.getSerials(user1, 2);
+        assertEq(noSerials.length, 0);
 
         // Try to get first serial for tokenId=2
         vm.expectRevert(abi.encodeWithSignature("NoSerialsFound()"));

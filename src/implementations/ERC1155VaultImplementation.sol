@@ -393,21 +393,13 @@ contract ERC1155VaultImplementation is
     }
 
     /**
-     * @notice Retrieves a specific serial number from the owner's array.
-     * @dev    Reverts if the serial number is zero.
-     * @param tokenId The token ID that owns the serial.
-     * @param index The index of the serial within that token ID's serial mapping.
-     * @return The serial number found at the given index.
-     *
-     * Reverts:
-     * - `InvalidSerialNumber()` if the serial at that index is zero.
+     * @notice Retrieves all serial numbers owned by an address for a given token ID.
+     * @param owner The address whose serials to retrieve.
+     * @param tokenId The token ID to get serials for.
+     * @return An array of serial numbers owned by the address for the token ID.
      */
-    function getSerial(uint256 tokenId, uint256 index) external view returns (uint256) {
-        uint256[] storage serials = _ownerTokenSerials[msg.sender][tokenId];
-        if (index >= serials.length) revert InvalidSerialNumber();
-        uint256 serial = serials[index];
-        if (serial == 0) revert InvalidSerialNumber();
-        return serial;
+    function getSerials(address owner, uint256 tokenId) external view returns (uint256[] memory) {
+        return _ownerTokenSerials[owner][tokenId];
     }
 
     /**
