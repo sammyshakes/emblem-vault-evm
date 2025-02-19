@@ -428,9 +428,7 @@ contract ERC1155VaultImplementation is
      * @return The address that currently owns the given serial number.
      */
     function getOwnerOfSerial(uint256 serialNumber) external view returns (address) {
-        address owner = _serialOwners[serialNumber];
-        if (owner == address(0)) revert SerialNumberBurned();
-        return owner;
+        return _serialOwners[serialNumber];
     }
 
     /**
