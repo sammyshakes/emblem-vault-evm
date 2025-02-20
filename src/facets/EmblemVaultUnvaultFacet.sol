@@ -333,8 +333,12 @@ contract EmblemVaultUnvaultFacet {
         returns (bool success, uint256 serialNumber, bytes memory data)
     {
         if (LibInterfaceIds.isERC1155(_nftAddress)) {
-            IIsSerialized serialized = IIsSerialized(_nftAddress);
+            // Verify serialization support before casting
+            LibErrors.revertIfInterfaceNotSupported(
+                _nftAddress, LibInterfaceIds.isSerialized(_nftAddress), "IIsSerialized"
+            );
 
+            IIsSerialized serialized = IIsSerialized(_nftAddress);
             // Get the last serial number (LIFO)
             uint256 balance = IERC1155(_nftAddress).balanceOf(msg.sender, tokenId);
             if (balance == 0) revert LibErrors.InvalidAmount(0);
