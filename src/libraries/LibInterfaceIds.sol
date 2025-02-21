@@ -12,7 +12,7 @@ library LibInterfaceIds {
     bytes4 constant INTERFACE_ID_ERC165 = 0x01ffc9a7;
     bytes4 constant INTERFACE_ID_ERC721A = 0xf4a95f26;
     bytes4 constant INTERFACE_ID_ERC1155 = 0xd9b67a26;
-    bytes4 constant INTERFACE_ID_SERIALIZED = 0x6979ab46;
+    bytes4 constant INTERFACE_ID_SERIALIZED = 0x5d837754; // type(IIsSerialized).interfaceId
 
     // Diamond Interface IDs
     bytes4 constant INTERFACE_ID_DIAMOND_CUT = 0x1f931c1c;

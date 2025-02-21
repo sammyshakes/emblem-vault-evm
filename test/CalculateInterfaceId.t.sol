@@ -10,7 +10,7 @@ contract CalculateInterfaceIdTest is Test {
     function testCalculateInterfaceId() public pure {
         // Calculate individual function selectors
         bytes4 isSerialized = bytes4(keccak256("isSerialized()"));
-        bytes4 getSerial = bytes4(keccak256("getSerial(uint256,uint256)"));
+        bytes4 getSerials = bytes4(keccak256("getSerials(address,uint256)"));
         bytes4 getFirstSerialByOwner = bytes4(keccak256("getFirstSerialByOwner(address,uint256)"));
         bytes4 getOwnerOfSerial = bytes4(keccak256("getOwnerOfSerial(uint256)"));
         bytes4 getSerialByOwnerAtIndex =
@@ -18,7 +18,7 @@ contract CalculateInterfaceIdTest is Test {
         bytes4 getTokenIdForSerialNumber = bytes4(keccak256("getTokenIdForSerialNumber(uint256)"));
 
         // XOR all selectors together
-        bytes4 manualInterfaceId = isSerialized ^ getSerial ^ getFirstSerialByOwner
+        bytes4 manualInterfaceId = isSerialized ^ getSerials ^ getFirstSerialByOwner
             ^ getOwnerOfSerial ^ getSerialByOwnerAtIndex ^ getTokenIdForSerialNumber;
 
         // Get interface ID using type()
