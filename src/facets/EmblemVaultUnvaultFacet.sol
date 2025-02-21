@@ -359,39 +359,25 @@ contract EmblemVaultUnvaultFacet {
                 LibEmblemVaultStorage.setUnvaulted(_nftAddress, serialNumber, msg.sender);
             }
             data = "";
-        } else {
-            if (LibInterfaceIds.isERC721A(_nftAddress)) {
-                IERC721AVault token = IERC721AVault(_nftAddress);
-                uint256 internalTokenId = token.getInternalTokenId(tokenId);
+        } else if (LibInterfaceIds.isERC721A(_nftAddress)) {
+            IERC721AVault token = IERC721AVault(_nftAddress);
+            uint256 internalTokenId = token.getInternalTokenId(tokenId);
 
-                if (LibEmblemVaultStorage.isUnvaulted(_nftAddress, internalTokenId)) {
-                    revert LibErrors.AlreadyUnvaulted(_nftAddress, internalTokenId);
-                }
-                if (token.ownerOf(internalTokenId) != msg.sender) {
-                    revert LibErrors.NotVaultOwner(_nftAddress, internalTokenId, msg.sender);
-                }
-
-                token.burn(internalTokenId);
-                if (shouldUnvault) {
-                    LibEmblemVaultStorage.setUnvaulted(_nftAddress, internalTokenId, msg.sender);
-                }
-                data = "";
-                serialNumber = internalTokenId;
-            } else {
-                if (LibEmblemVaultStorage.isUnvaulted(_nftAddress, tokenId)) {
-                    revert LibErrors.AlreadyUnvaulted(_nftAddress, tokenId);
-                }
-                IERC721 token = IERC721(_nftAddress);
-                if (token.ownerOf(tokenId) != msg.sender) {
-                    revert LibErrors.NotVaultOwner(_nftAddress, tokenId, msg.sender);
-                }
-                token.burn(tokenId);
-                if (shouldUnvault) {
-                    LibEmblemVaultStorage.setUnvaulted(_nftAddress, tokenId, msg.sender);
-                }
-                serialNumber = tokenId;
-                data = "";
+            if (LibEmblemVaultStorage.isUnvaulted(_nftAddress, internalTokenId)) {
+                revert LibErrors.AlreadyUnvaulted(_nftAddress, internalTokenId);
             }
+            if (token.ownerOf(internalTokenId) != msg.sender) {
+                revert LibErrors.NotVaultOwner(_nftAddress, internalTokenId, msg.sender);
+            }
+
+            token.burn(internalTokenId);
+            if (shouldUnvault) {
+                LibEmblemVaultStorage.setUnvaulted(_nftAddress, internalTokenId, msg.sender);
+            }
+            data = "";
+            serialNumber = internalTokenId;
+        } else {
+            return (false, 0, "");
         }
         return (true, serialNumber, data);
     }
