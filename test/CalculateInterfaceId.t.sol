@@ -7,7 +7,7 @@ import {IIsSerialized} from "../src/interfaces/IIsSerialized.sol";
 contract CalculateInterfaceIdTest is Test {
     function setUp() public {}
 
-    function testCalculateInterfaceId() public {
+    function testCalculateInterfaceId() public pure {
         // Calculate individual function selectors
         bytes4 isSerialized = bytes4(keccak256("isSerialized()"));
         bytes4 getSerial = bytes4(keccak256("getSerial(uint256,uint256)"));
