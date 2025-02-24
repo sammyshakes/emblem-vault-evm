@@ -173,6 +173,16 @@ contract EmblemVaultMintFacet {
         LibEmblemVaultStorage.nonReentrantAfter();
     }
 
+    /// @notice Batch purchase NFTs using signed prices
+    /// @dev Allows users to mint multiple NFTs in a batch using signed prices
+    /// @param params BatchBuyParams struct containing all minting parameters
+    /// @dev Reverts if any of the following conditions are not met:
+    /// - The collection is invalid
+    /// - The batch size exceeds the maximum allowed
+    /// - The array lengths do not match
+    /// - The serial numbers count does not match the amount for ERC1155 tokens
+    /// - The payment transfer fails
+    /// - The mint operation fails
     function batchBuyWithSignedPrice(BatchBuyParams calldata params)
         external
         payable
@@ -183,19 +193,27 @@ contract EmblemVaultMintFacet {
         // Ensure the recipient is the transaction sender
         LibErrors.revertIfInvalidRecipient(params.to, msg.sender);
 
-        // Check batch size limit
+        // Check batch size limit and array lengths
         LibErrors.revertIfBatchSizeExceeded(params.tokenIds.length, MAX_BATCH_SIZE);
-
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.prices.length);
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.nonces.length);
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.signatures.length);
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.amounts.length);
-        // Verify serial numbers match total tokens
+        LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.serialNumbers.length);
+
         uint256 totalTokens;
         uint256 totalPrice;
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
 
+        // Determine if the NFT is ERC1155 (do this once to save gas)
+        bool isERC1155 = LibInterfaceIds.isERC1155(params.nftAddress);
+
         for (uint256 i = 0; i < params.tokenIds.length; i++) {
+            // If ERC1155, check that the serial numbers count matches the amount
+            if (isERC1155 && params.serialNumbers[i].length != params.amounts[i]) {
+                revert LibErrors.InvalidSerialNumbersCount();
+            }
+
             // Calculate totals
             totalTokens += params.amounts[i];
             totalPrice += params.prices[i];
@@ -211,6 +229,7 @@ contract EmblemVaultMintFacet {
                 params.tokenIds[i],
                 params.nonces[i],
                 params.amounts[i],
+                params.serialNumbers[i],
                 params.signatures[i],
                 block.chainid
             );
@@ -219,11 +238,9 @@ contract EmblemVaultMintFacet {
             LibEmblemVaultStorage.setUsedNonce(params.nonces[i]);
         }
 
-        LibErrors.revertIfLengthMismatch(totalTokens, params.serialNumbers.length);
-
         if (params.payment == address(0)) {
-            LibErrors.revertIfInsufficientETH(msg.value, totalPrice);
-            (bool success,) = vs.recipientAddress.call{value: msg.value}("");
+            LibErrors.revertIfIncorrectPayment(msg.value, totalPrice);
+            (bool success,) = vs.recipientAddress.call{value: totalPrice}("");
             if (!success) {
                 revert LibErrors.ETHTransferFailed();
             }
@@ -254,13 +271,20 @@ contract EmblemVaultMintFacet {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
 
         if (params.payment == address(0)) {
-            LibErrors.revertIfInsufficientETH(msg.value, params.price);
-            (bool success,) = vs.recipientAddress.call{value: msg.value}("");
+            LibErrors.revertIfIncorrectPayment(msg.value, params.price);
+            (bool success,) = vs.recipientAddress.call{value: params.price}("");
             if (!success) {
-                revert("Failed to send Ether");
+                revert LibErrors.ETHTransferFailed();
             }
         } else {
             IERC20(params.payment).safeTransferFrom(msg.sender, vs.recipientAddress, params.price);
+        }
+
+        // Verify serial numbers length matches amount for ERC1155
+        if (LibInterfaceIds.isERC1155(params.nftAddress)) {
+            if (params.serialNumbers.length != params.amount) {
+                revert LibErrors.LengthMismatch(params.serialNumbers.length, params.amount);
+            }
         }
 
         address signer = LibSignature.verifyStandardSignature(
@@ -271,6 +295,7 @@ contract EmblemVaultMintFacet {
             params.tokenId,
             params.nonce,
             params.amount,
+            params.serialNumbers,
             params.signature,
             block.chainid
         );
@@ -299,17 +324,16 @@ contract EmblemVaultMintFacet {
     /// @param params MintParams struct containing minting parameters
     /// @return bool True if mint was successful
     function _mintRouter(MintParams memory params) private returns (bool) {
-        bool isERC1155 = LibInterfaceIds.isERC1155(params.nftAddress);
-        bool isERC721A = !isERC1155 && LibInterfaceIds.isERC721A(params.nftAddress);
-
-        if (isERC1155) {
+        if (LibInterfaceIds.isERC1155(params.nftAddress)) {
             IERC1155(params.nftAddress).mintWithSerial(
                 params.to, params.tokenId, params.amount, params.serialNumbers
             );
-        } else if (isERC721A) {
+            return true;
+        } else if (LibInterfaceIds.isERC721A(params.nftAddress)) {
             IERC721AVault(params.nftAddress).mint(params.to, params.tokenId);
+            return true;
         }
-        return true;
+        return false;
     }
 
     /// @notice Internal router function to handle batch minting based on token type
@@ -329,42 +353,16 @@ contract EmblemVaultMintFacet {
         uint256[][] memory serialNumbers,
         bytes memory data
     ) private returns (bool) {
-        bool isERC1155 = LibInterfaceIds.isERC1155(nftAddress);
-        bool isERC721A = !isERC1155 && LibInterfaceIds.isERC721A(nftAddress);
-
-        if (isERC1155) {
-            for (uint256 i = 0; i < tokenIds.length; i++) {
+        if (LibInterfaceIds.isERC1155(nftAddress)) {
+            uint256 len = tokenIds.length;
+            for (uint256 i = 0; i < len; i++) {
                 IERC1155(nftAddress).mintWithSerial(to, tokenIds[i], amounts[i], serialNumbers[i]);
             }
-        } else if (isERC721A) {
+            return true;
+        } else if (LibInterfaceIds.isERC721A(nftAddress)) {
             IERC721AVault(nftAddress).batchMintWithData(to, tokenIds, data);
+            return true;
         }
-        return true;
-    }
-
-    /// @notice Converts a uint256 to its string representation
-    /// @dev Optimized version that avoids expensive string operations
-    /// @param value The uint256 value to convert
-    /// @return string memory The string representation of the value
-    function _uintToStrOptimized(uint256 value) internal pure returns (string memory) {
-        if (value == 0) {
-            return "0";
-        }
-
-        uint256 temp = value;
-        uint256 digits;
-        while (temp != 0) {
-            digits++;
-            temp /= 10;
-        }
-
-        bytes memory buffer = new bytes(digits);
-        while (value != 0) {
-            digits -= 1;
-            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
-            value /= 10;
-        }
-
-        return string(buffer);
+        return false;
     }
 }

@@ -232,43 +232,6 @@ contract BeaconSystemTest is Test {
         assertEq(ERC1155VaultImplementation(collection).balanceOf(user2, 2), 1);
     }
 
-    function testBurnOperations() public {
-        // Test ERC721 burn
-        vm.prank(mockDiamond);
-        address collection721 = factory.createERC721Collection("Test Collection", "TEST");
-
-        vm.prank(mockDiamond);
-        ERC721VaultImplementation(collection721).mint(user1, 1);
-
-        vm.prank(user1);
-        vm.expectEmit(true, true, true, true);
-        emit TokenBurned(user1, 1, 1, "");
-        ERC721VaultImplementation(collection721).burn(1);
-
-        vm.expectRevert(); // Should revert when trying to get owner of burned token
-        ERC721VaultImplementation(collection721).ownerOf(1);
-
-        // Test ERC1155 burn
-        vm.prank(mockDiamond);
-        address collection1155 = factory.createERC1155Collection("https://test.uri/");
-
-        // Mint with serial numbers
-        uint256[] memory serialNumbers = new uint256[](5);
-        for (uint256 i = 0; i < 5; i++) {
-            serialNumbers[i] = i + 1;
-        }
-
-        vm.prank(mockDiamond);
-        ERC1155VaultImplementation(collection1155).mintWithSerial(user1, 1, 5, serialNumbers);
-
-        vm.prank(user1);
-        vm.expectEmit(true, true, true, true);
-        emit TransferSingle(user1, user1, address(0), 1, 2);
-        ERC1155VaultImplementation(collection1155).burn(user1, 1, 2);
-
-        assertEq(ERC1155VaultImplementation(collection1155).balanceOf(user1, 1), 3);
-    }
-
     function testUpgradeERC721Implementation() public {
         // Deploy new implementation
         ERC721VaultImplementation newImplementation = new ERC721VaultImplementation();

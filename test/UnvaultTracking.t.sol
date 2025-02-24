@@ -28,7 +28,8 @@ contract UnvaultTrackingTest is DiamondVaultTest {
             2, // new token ID
             2, // new nonce
             1,
-            witnessPrivateKey
+            witnessPrivateKey,
+            new uint256[](0)
         );
 
         // Mint token through diamond
@@ -59,7 +60,15 @@ contract UnvaultTrackingTest is DiamondVaultTest {
 
         // Create signature for minting
         bytes memory signature = createSignature(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, 1, witnessPrivateKey
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            2,
+            1,
+            witnessPrivateKey,
+            new uint256[](0)
         );
 
         // Mint token through diamond
@@ -80,7 +89,15 @@ contract UnvaultTrackingTest is DiamondVaultTest {
     function testPreventDoubleUnvault() public {
         // Create signature for minting
         bytes memory signature = createSignature(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, 1, witnessPrivateKey
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            2,
+            1,
+            witnessPrivateKey,
+            new uint256[](0)
         );
 
         // Mint token through diamond
@@ -134,7 +151,15 @@ contract UnvaultTrackingTest is DiamondVaultTest {
     function testUnvaultStatusTracking() public {
         // Create signature for minting
         bytes memory signature = createSignature(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, 1, witnessPrivateKey
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            2,
+            1,
+            witnessPrivateKey,
+            new uint256[](0)
         );
 
         // Mint token through diamond
@@ -174,9 +199,24 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         // Create signature for minting with serial number
         uint256[] memory serialNumbers = new uint256[](1);
         serialNumbers[0] = 12_345;
-        bytes memory signature = createSignature(
-            erc1155Collection, address(0), 1 ether, tokenHolder, 1, 100, 1, witnessPrivateKey
+
+        // Create signature from witness
+        bytes32 hash = LibSignature.getStandardSignatureHash(
+            erc1155Collection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            1,
+            100,
+            1,
+            serialNumbers,
+            block.chainid
         );
+
+        // Sign with witness private key
+        bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(witnessPrivateKey, prefixedHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
 
         // Mint token through diamond
         vm.deal(tokenHolder, 1 ether);
@@ -221,7 +261,15 @@ contract UnvaultTrackingTest is DiamondVaultTest {
 
         // Create signature for minting
         bytes memory signature = createSignature(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, 1, witnessPrivateKey
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            2,
+            1,
+            witnessPrivateKey,
+            new uint256[](0)
         );
 
         // Mint token through diamond
@@ -237,8 +285,9 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         vm.stopPrank();
 
         // Create unvault signature
-        bytes memory unvaultSignature =
-            createSignature(nftCollection, address(0), 1 ether, user1, 2, 3, 1, witnessPrivateKey);
+        bytes memory unvaultSignature = createSignature(
+            nftCollection, address(0), 1 ether, user1, 2, 3, 1, witnessPrivateKey, new uint256[](0)
+        );
 
         // Should revert when trying to unvault with signed price
         vm.startPrank(user1);
@@ -252,7 +301,15 @@ contract UnvaultTrackingTest is DiamondVaultTest {
     function testUnvaultWithLockedVault() public {
         // Create signature for minting
         bytes memory signature = createSignature(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, 1, witnessPrivateKey
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            2,
+            1,
+            witnessPrivateKey,
+            new uint256[](0)
         );
 
         // Mint token through diamond
@@ -276,7 +333,15 @@ contract UnvaultTrackingTest is DiamondVaultTest {
 
         // Create unvault signature with lock acknowledgement
         bytes memory unvaultSignature = createSignatureWithLock(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 3, 1, witnessPrivateKey
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            3,
+            1,
+            witnessPrivateKey,
+            new uint256[](0)
         );
 
         // Verify balances before unvault
@@ -303,6 +368,41 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         );
     }
 
+    function testPreventDirectBurn() public {
+        // Create signature for minting
+        bytes memory signature = createSignature(
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            2,
+            1,
+            witnessPrivateKey,
+            new uint256[](0)
+        );
+
+        // Mint token through diamond
+        vm.deal(tokenHolder, 1 ether);
+        vm.startPrank(tokenHolder);
+        EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
+            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
+        );
+
+        // Try to burn directly - should fail
+        vm.expectRevert(abi.encodeWithSignature("NotDiamond()"));
+        ERC721VaultImplementation(nftCollection).burn(2);
+
+        // Try to burn through diamond but not unvault process - should fail
+        vm.stopPrank();
+        vm.prank(address(diamond));
+        vm.expectRevert(); // Will fail since burn should only happen through unvault
+        ERC721VaultImplementation(nftCollection).burn(2);
+
+        // Verify token still exists
+        assertEq(ERC721VaultImplementation(nftCollection).ownerOf(2), tokenHolder);
+    }
+
     function testBurnAddressWithUnvault() public {
         address burnAddr = address(0x123);
 
@@ -312,9 +412,22 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         vm.stopPrank();
 
         // Create signature for minting
-        bytes memory signature = createSignature(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, 1, witnessPrivateKey
+        bytes32 hash = LibSignature.getStandardSignatureHash(
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            2,
+            1,
+            new uint256[](0),
+            block.chainid
         );
+
+        // Sign with witness private key
+        bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(witnessPrivateKey, prefixedHash);
+        bytes memory signature = abi.encodePacked(r, s, v);
 
         // Mint token through diamond
         vm.deal(tokenHolder, 1 ether);
@@ -343,7 +456,15 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         for (uint256 i = 2; i <= 4; i++) {
             // Create signature for minting
             bytes memory signature = createSignature(
-                nftCollection, address(0), 1 ether, tokenHolder, i, i, 1, witnessPrivateKey
+                nftCollection,
+                address(0),
+                1 ether,
+                tokenHolder,
+                i,
+                i,
+                1,
+                witnessPrivateKey,
+                new uint256[](0)
             );
 
             // Mint token through diamond

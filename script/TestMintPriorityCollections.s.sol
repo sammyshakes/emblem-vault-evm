@@ -6,6 +6,7 @@ import {console} from "forge-std/console.sol";
 import {EmblemVaultMintFacet} from "../src/facets/EmblemVaultMintFacet.sol";
 import {ERC721VaultImplementation} from "../src/implementations/ERC721VaultImplementation.sol";
 import {ERC1155VaultImplementation} from "../src/implementations/ERC1155VaultImplementation.sol";
+import {LibSignature} from "../src/libraries/LibSignature.sol";
 
 /**
  * @title TestMintPriorityCollections
@@ -44,6 +45,14 @@ contract TestMintPriorityCollections is Script {
         // Mint ERC1155 tokens (id 1 for testing)
         console.log("\nMinting ERC1155 Collections:");
 
+        // Generate serial numbers for each token
+        uint256[] memory pepeSerials = new uint256[](1);
+        pepeSerials[0] = 1_000_001;
+        uint256[] memory sogSerials = new uint256[](1);
+        sogSerials[0] = 2_000_001;
+        uint256[] memory fakeRaresSerials = new uint256[](1);
+        fakeRaresSerials[0] = 3_000_001;
+
         // Generate signatures for each mint
         bytes memory pepeSignature = _generateSignature(
             witnessPrivateKey,
@@ -53,32 +62,36 @@ contract TestMintPriorityCollections is Script {
             deployer,
             1000, // tokenId
             1, // nonce
-            1 // amount
+            1, // amount
+            pepeSerials
         );
 
         bytes memory sogSignature = _generateSignature(
-            witnessPrivateKey, sogCollection, address(0), 0, deployer, 1000, 2, 1
+            witnessPrivateKey, sogCollection, address(0), 0, deployer, 1000, 2, 1, sogSerials
         );
 
         bytes memory fakeRaresSignature = _generateSignature(
-            witnessPrivateKey, fakeRaresCollection, address(0), 0, deployer, 1000, 3, 1
+            witnessPrivateKey,
+            fakeRaresCollection,
+            address(0),
+            0,
+            deployer,
+            1000,
+            3,
+            1,
+            fakeRaresSerials
         );
 
+        // Empty array for ERC721 mints
+        uint256[] memory emptySerials = new uint256[](0);
+
         bytes memory embellsSignature = _generateSignature(
-            witnessPrivateKey, embellsCollection, address(0), 0, deployer, 1000, 4, 1
+            witnessPrivateKey, embellsCollection, address(0), 0, deployer, 1000, 4, 1, emptySerials
         );
 
         bytes memory openSignature = _generateSignature(
-            witnessPrivateKey, openCollection, address(0), 0, deployer, 1000, 5, 1
+            witnessPrivateKey, openCollection, address(0), 0, deployer, 1000, 5, 1, emptySerials
         );
-
-        // Generate serial numbers for each token
-        uint256[] memory pepeSerials = new uint256[](1);
-        pepeSerials[0] = 1_000_001;
-        uint256[] memory sogSerials = new uint256[](1);
-        sogSerials[0] = 2_000_001;
-        uint256[] memory fakeRaresSerials = new uint256[](1);
-        fakeRaresSerials[0] = 3_000_001;
 
         console.log("\n1. Minting Rare Pepe token");
         diamond.buyWithSignedPrice{value: 0}(
@@ -119,21 +132,13 @@ contract TestMintPriorityCollections is Script {
 
         console.log("\n4. Minting EmBells token");
         diamond.buyWithSignedPrice{value: 0}(
-            embellsCollection,
-            address(0),
-            0,
-            deployer,
-            1000,
-            4,
-            embellsSignature,
-            new uint256[](0),
-            1
+            embellsCollection, address(0), 0, deployer, 1000, 4, embellsSignature, emptySerials, 1
         );
         console.log("Minted token to:", deployer);
 
         console.log("\n5. Minting Emblem Open token");
         diamond.buyWithSignedPrice{value: 0}(
-            openCollection, address(0), 0, deployer, 1000, 5, openSignature, new uint256[](0), 1
+            openCollection, address(0), 0, deployer, 1000, 5, openSignature, emptySerials, 1
         );
         console.log("Minted token to:", deployer);
 
@@ -173,18 +178,16 @@ contract TestMintPriorityCollections is Script {
         address to,
         uint256 tokenId,
         uint256 nonce,
-        uint256 amount
+        uint256 amount,
+        uint256[] memory serialNumbers
     ) internal view returns (bytes memory) {
-        // Generate hash exactly as in LibSignature.getStandardSignatureHash
-        bytes32 hash = keccak256(
-            abi.encodePacked(nftAddress, payment, price, to, tokenId, nonce, amount, block.chainid)
+        // Generate hash using LibSignature
+        bytes32 hash = LibSignature.getStandardSignatureHash(
+            nftAddress, payment, price, to, tokenId, nonce, amount, serialNumbers, block.chainid
         );
 
-        // Add Ethereum signed message prefix
-        bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
-
         // Sign the hash
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(witnessPrivateKey, prefixedHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(witnessPrivateKey, hash);
 
         console.log("\nSignature Debug for %s:", nftAddress);
         console.log("Parameters:");
@@ -195,10 +198,10 @@ contract TestMintPriorityCollections is Script {
         console.log("- Token ID:", tokenId);
         console.log("- Nonce:", nonce);
         console.log("- Amount:", amount);
+        console.log("- Serial Numbers Length:", serialNumbers.length);
         console.log("- Chain ID:", block.chainid);
         console.log("\nHashes:");
-        console.log("- Raw Hash:", uint256(hash));
-        console.log("- Prefixed Hash:", uint256(prefixedHash));
+        console.log("- Hash:", uint256(hash));
         console.log("\nSignature:");
         console.log("- v:", v);
         console.log("- r:", uint256(r));

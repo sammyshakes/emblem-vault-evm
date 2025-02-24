@@ -8,6 +8,10 @@ library LibSignature {
     // Custom errors
     error InvalidSignature();
 
+    // Half of secp256k1n (the curve order) - used for signature malleability check
+    uint256 constant SECP256K1_N_DIV_2 =
+        0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
+
     /// @notice Recover signer from a signature
     /// @param hash The hash that was signed
     /// @param signature The signature bytes
@@ -31,6 +35,9 @@ library LibSignature {
 
         if (v != 27 && v != 28) revert InvalidSignature();
 
+        // Ensure s is in the lower half of secp256k1n to prevent signature malleability
+        if (uint256(s) > SECP256K1_N_DIV_2) revert InvalidSignature();
+
         bytes memory prefix = "\x19Ethereum Signed Message:\n32";
         bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, hash));
         return ecrecover(prefixedHash, v, r, s);
@@ -46,10 +53,21 @@ library LibSignature {
         uint256 tokenId,
         uint256 nonce,
         uint256 amount,
+        uint256[] memory serialNumbers,
         uint256 chainId
     ) internal pure returns (bytes32) {
         return keccak256(
-            abi.encodePacked(nftAddress, payment, price, to, tokenId, nonce, amount, chainId)
+            abi.encodePacked(
+                nftAddress,
+                payment,
+                price,
+                to,
+                tokenId,
+                nonce,
+                amount,
+                keccak256(abi.encodePacked(serialNumbers)),
+                chainId
+            )
         );
     }
 
@@ -63,10 +81,22 @@ library LibSignature {
         uint256 tokenId,
         uint256 nonce,
         uint256 amount,
+        uint256[] memory serialNumbers,
         uint256 chainId
     ) internal pure returns (bytes32) {
         return keccak256(
-            abi.encodePacked(nftAddress, payment, price, to, tokenId, nonce, amount, true, chainId)
+            abi.encodePacked(
+                nftAddress,
+                payment,
+                price,
+                to,
+                tokenId,
+                nonce,
+                amount,
+                keccak256(abi.encodePacked(serialNumbers)),
+                true,
+                chainId
+            )
         );
     }
 
@@ -80,11 +110,12 @@ library LibSignature {
         uint256 tokenId,
         uint256 nonce,
         uint256 amount,
+        uint256[] memory serialNumbers,
         bytes memory signature,
         uint256 chainId
     ) internal pure returns (address) {
         bytes32 hash = getStandardSignatureHash(
-            nftAddress, payment, price, to, tokenId, nonce, amount, chainId
+            nftAddress, payment, price, to, tokenId, nonce, amount, serialNumbers, chainId
         );
         return recoverSigner(hash, signature);
     }
@@ -99,11 +130,13 @@ library LibSignature {
         uint256 tokenId,
         uint256 nonce,
         uint256 amount,
+        uint256[] memory serialNumbers,
         bytes memory signature,
         uint256 chainId
     ) internal pure returns (address) {
-        bytes32 hash =
-            getLockedSignatureHash(nftAddress, payment, price, to, tokenId, nonce, amount, chainId);
+        bytes32 hash = getLockedSignatureHash(
+            nftAddress, payment, price, to, tokenId, nonce, amount, serialNumbers, chainId
+        );
         return recoverSigner(hash, signature);
     }
 }
