@@ -42,6 +42,13 @@ contract EmblemVaultUnvaultFacet {
     }
 
     // Events
+    /// @notice Emitted when a token is unvaulted
+    /// @param nftAddress The address of the NFT contract
+    /// @param tokenId The ID of the token unvaulted
+    /// @param unvaulter The address that performed the unvault
+    /// @param serialNumber For ERC1155: the serial number from serialization interface
+    ///                    For ERC721A: the internal token ID
+    /// @param data Additional data from the unvault operation
     event TokenUnvaulted(
         address indexed nftAddress,
         uint256 indexed tokenId,
@@ -49,6 +56,15 @@ contract EmblemVaultUnvaultFacet {
         uint256 serialNumber,
         bytes data
     );
+
+    /// @notice Emitted when a token is unvaulted with a price
+    /// @param nftAddress The address of the NFT contract
+    /// @param tokenId The ID of the token unvaulted
+    /// @param unvaulter The address that performed the unvault
+    /// @param price The price paid for the unvault
+    /// @param serialNumber For ERC1155: the serial number from serialization interface
+    ///                    For ERC721A: the internal token ID
+    /// @param data Additional data from the unvault operation
     event TokenUnvaultedWithPrice(
         address indexed nftAddress,
         uint256 indexed tokenId,
@@ -100,7 +116,7 @@ contract EmblemVaultUnvaultFacet {
     }
 
     /// @notice Unvaults a token from a vault
-    /// @dev Handles the unvaulting process for both ERC721 and ERC1155 tokens
+    /// @dev Handles the unvaulting process for both ERC721A and ERC1155 tokens
     /// @param _nftAddress The address of the NFT contract
     /// @param tokenId The ID of the token to unvault
     /// @dev Reverts if:
@@ -317,17 +333,22 @@ contract EmblemVaultUnvaultFacet {
     }
 
     /// @notice Internal function to handle the burn and unvault process
-    /// @dev Routes the burn operation based on token standard (ERC721/ERC1155)
+    /// @dev Routes the burn operation based on token standard (ERC721A/ERC1155)
     /// @param _nftAddress The address of the NFT contract
     /// @param tokenId The ID of the token to burn
     /// @param shouldUnvault Whether to trigger the unvault process
     /// @return success Whether the burn was successful
-    /// @return serialNumber The serial number of the burned token
+    /// @return serialNumber For ERC1155: the serial number from serialization interface
+    ///                     For ERC721A: the internal token ID
     /// @return data Additional data from the burn operation
     /// @dev Reverts if:
     /// - The unvaulter contract is not set
     /// - The token is already unvaulted
     /// - The vault doesn't own the token
+    /// @dev Note on serialNumber: The meaning of serialNumber in events differs by token type:
+    ///      - For ERC1155: Uses the serial number from the serialization interface
+    ///      - For ERC721A: Uses the internalTokenId as the serial number
+    ///      This distinction is important for off-chain parsing of TokenUnvaulted events
     function burnRouter(address _nftAddress, uint256 tokenId, bool shouldUnvault)
         internal
         returns (bool success, uint256 serialNumber, bytes memory data)
@@ -359,39 +380,25 @@ contract EmblemVaultUnvaultFacet {
                 LibEmblemVaultStorage.setUnvaulted(_nftAddress, serialNumber, msg.sender);
             }
             data = "";
-        } else {
-            if (LibInterfaceIds.isERC721A(_nftAddress)) {
-                IERC721AVault token = IERC721AVault(_nftAddress);
-                uint256 internalTokenId = token.getInternalTokenId(tokenId);
+        } else if (LibInterfaceIds.isERC721A(_nftAddress)) {
+            IERC721AVault token = IERC721AVault(_nftAddress);
+            uint256 internalTokenId = token.getInternalTokenId(tokenId);
 
-                if (LibEmblemVaultStorage.isUnvaulted(_nftAddress, internalTokenId)) {
-                    revert LibErrors.AlreadyUnvaulted(_nftAddress, internalTokenId);
-                }
-                if (token.ownerOf(internalTokenId) != msg.sender) {
-                    revert LibErrors.NotVaultOwner(_nftAddress, internalTokenId, msg.sender);
-                }
-
-                token.burn(internalTokenId);
-                if (shouldUnvault) {
-                    LibEmblemVaultStorage.setUnvaulted(_nftAddress, internalTokenId, msg.sender);
-                }
-                data = "";
-                serialNumber = internalTokenId;
-            } else {
-                if (LibEmblemVaultStorage.isUnvaulted(_nftAddress, tokenId)) {
-                    revert LibErrors.AlreadyUnvaulted(_nftAddress, tokenId);
-                }
-                IERC721 token = IERC721(_nftAddress);
-                if (token.ownerOf(tokenId) != msg.sender) {
-                    revert LibErrors.NotVaultOwner(_nftAddress, tokenId, msg.sender);
-                }
-                token.burn(tokenId);
-                if (shouldUnvault) {
-                    LibEmblemVaultStorage.setUnvaulted(_nftAddress, tokenId, msg.sender);
-                }
-                serialNumber = tokenId;
-                data = "";
+            if (LibEmblemVaultStorage.isUnvaulted(_nftAddress, internalTokenId)) {
+                revert LibErrors.AlreadyUnvaulted(_nftAddress, internalTokenId);
             }
+            if (token.ownerOf(internalTokenId) != msg.sender) {
+                revert LibErrors.NotVaultOwner(_nftAddress, internalTokenId, msg.sender);
+            }
+
+            token.burn(internalTokenId);
+            if (shouldUnvault) {
+                LibEmblemVaultStorage.setUnvaulted(_nftAddress, internalTokenId, msg.sender);
+            }
+            data = "";
+            serialNumber = internalTokenId;
+        } else {
+            return (false, 0, "");
         }
         return (true, serialNumber, data);
     }

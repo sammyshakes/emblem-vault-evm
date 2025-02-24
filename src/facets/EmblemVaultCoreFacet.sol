@@ -18,6 +18,7 @@ pragma solidity ^0.8.19;
 
 import "../libraries/LibDiamond.sol";
 import "../libraries/LibEmblemVaultStorage.sol";
+import "../libraries/LibErrors.sol";
 import "../interfaces/IERC165.sol";
 import "../interfaces/IERC721.sol";
 import "../interfaces/IERC1155.sol";
@@ -39,17 +40,6 @@ contract EmblemVaultCoreFacet {
     event BypassabilityToggled(bool newState);
     event VaultFactorySet(address indexed oldFactory, address indexed newFactory);
 
-    // Custom errors
-    error InvalidCollection();
-    error ZeroAddress();
-    error VaultAlreadyLocked();
-    error VaultNotLocked();
-    error FactoryNotSet();
-    error WitnessAlreadyExists();
-    error WitnessDoesNotExist();
-    error InvalidBypassRule();
-    error NoWitnessesRemaining();
-
     modifier onlyOwner() {
         LibDiamond.enforceIsContractOwner();
         _;
@@ -57,10 +47,10 @@ contract EmblemVaultCoreFacet {
 
     modifier onlyValidCollection(address collection) {
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        if (vs.vaultFactory == address(0)) revert FactoryNotSet();
-        if (!IVaultCollectionFactory(vs.vaultFactory).isCollection(collection)) {
-            revert InvalidCollection();
-        }
+        LibErrors.revertIfFactoryNotSet(vs.vaultFactory);
+        LibErrors.revertIfInvalidCollection(
+            collection, IVaultCollectionFactory(vs.vaultFactory).isCollection(collection)
+        );
         _;
     }
 
@@ -72,9 +62,9 @@ contract EmblemVaultCoreFacet {
         onlyOwner
         onlyValidCollection(collection)
     {
-        if (LibEmblemVaultStorage.isVaultLocked(collection, tokenId)) {
-            revert VaultAlreadyLocked();
-        }
+        LibErrors.revertIfAlreadyLocked(
+            collection, tokenId, LibEmblemVaultStorage.isVaultLocked(collection, tokenId)
+        );
         LibEmblemVaultStorage.lockVault(collection, tokenId);
         emit VaultLocked(collection, tokenId, msg.sender);
     }
@@ -87,9 +77,9 @@ contract EmblemVaultCoreFacet {
         onlyOwner
         onlyValidCollection(collection)
     {
-        if (!LibEmblemVaultStorage.isVaultLocked(collection, tokenId)) {
-            revert VaultNotLocked();
-        }
+        LibErrors.revertIfNotLocked(
+            collection, tokenId, LibEmblemVaultStorage.isVaultLocked(collection, tokenId)
+        );
         LibEmblemVaultStorage.unlockVault(collection, tokenId);
         emit VaultUnlocked(collection, tokenId, msg.sender);
     }
@@ -107,10 +97,10 @@ contract EmblemVaultCoreFacet {
     /// @notice Add a new witness
     /// @param _witness Address of the witness to add
     function addWitness(address _witness) external onlyOwner {
-        if (_witness == address(0)) revert ZeroAddress();
+        LibErrors.revertIfZeroAddress(_witness);
 
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        if (vs.witnesses[_witness]) revert WitnessAlreadyExists();
+        if (vs.witnesses[_witness]) revert LibErrors.WitnessAlreadyExists(_witness);
 
         LibEmblemVaultStorage.addWitness(_witness);
         emit WitnessAdded(_witness, vs.witnessCount);
@@ -119,11 +109,11 @@ contract EmblemVaultCoreFacet {
     /// @notice Remove a witness
     /// @param _witness Address of the witness to remove
     function removeWitness(address _witness) external onlyOwner {
-        if (_witness == address(0)) revert ZeroAddress();
+        LibErrors.revertIfZeroAddress(_witness);
 
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-        if (!vs.witnesses[_witness]) revert WitnessDoesNotExist();
-        if (vs.witnessCount <= 1) revert NoWitnessesRemaining();
+        if (!vs.witnesses[_witness]) revert LibErrors.WitnessDoesNotExist(_witness);
+        if (vs.witnessCount <= 1) revert LibErrors.NoWitnessesRemaining();
 
         LibEmblemVaultStorage.removeWitness(_witness);
         emit WitnessRemoved(_witness, vs.witnessCount);
@@ -147,7 +137,7 @@ contract EmblemVaultCoreFacet {
     /// @notice Set the vault factory address
     /// @param _factory New factory address
     function setVaultFactory(address _factory) external onlyOwner {
-        if (_factory == address(0)) revert ZeroAddress();
+        LibErrors.revertIfZeroAddress(_factory);
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         address oldFactory = vs.vaultFactory;
         LibEmblemVaultStorage.setVaultFactory(_factory);
@@ -157,7 +147,7 @@ contract EmblemVaultCoreFacet {
     /// @notice Set the recipient address for payments
     /// @param _recipient New recipient address
     function setRecipientAddress(address _recipient) external onlyOwner {
-        if (_recipient == address(0)) revert ZeroAddress();
+        LibErrors.revertIfZeroAddress(_recipient);
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
         address oldRecipient = vs.recipientAddress;
         LibEmblemVaultStorage.setRecipientAddress(_recipient);
@@ -187,8 +177,8 @@ contract EmblemVaultCoreFacet {
     /// @param functionSig Function signature to bypass
     /// @param id Token ID for the rule (0 for all tokens)
     function addBypassRule(address who, bytes4 functionSig, uint256 id) external onlyOwner {
-        if (who == address(0)) revert ZeroAddress();
-        if (functionSig == bytes4(0)) revert InvalidBypassRule();
+        LibErrors.revertIfZeroAddress(who);
+        if (functionSig == bytes4(0)) revert LibErrors.InvalidInitialization();
         LibEmblemVaultStorage.addBypassRule(who, functionSig, id);
         emit BypassRuleAdded(who, functionSig, id);
     }
@@ -198,8 +188,8 @@ contract EmblemVaultCoreFacet {
     /// @param functionSig Function signature to remove bypass for
     /// @param id Token ID for the rule
     function removeBypassRule(address who, bytes4 functionSig, uint256 id) external onlyOwner {
-        if (who == address(0)) revert ZeroAddress();
-        if (functionSig == bytes4(0)) revert InvalidBypassRule();
+        LibErrors.revertIfZeroAddress(who);
+        if (functionSig == bytes4(0)) revert LibErrors.InvalidInitialization();
         LibEmblemVaultStorage.removeBypassRule(who, functionSig, id);
         emit BypassRuleRemoved(who, functionSig, id);
     }
