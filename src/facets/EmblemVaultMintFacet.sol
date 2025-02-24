@@ -324,17 +324,16 @@ contract EmblemVaultMintFacet {
     /// @param params MintParams struct containing minting parameters
     /// @return bool True if mint was successful
     function _mintRouter(MintParams memory params) private returns (bool) {
-        bool isERC1155 = LibInterfaceIds.isERC1155(params.nftAddress);
-        bool isERC721A = !isERC1155 && LibInterfaceIds.isERC721A(params.nftAddress);
-
-        if (isERC1155) {
+        if (LibInterfaceIds.isERC1155(params.nftAddress)) {
             IERC1155(params.nftAddress).mintWithSerial(
                 params.to, params.tokenId, params.amount, params.serialNumbers
             );
-        } else if (isERC721A) {
+            return true;
+        } else if (LibInterfaceIds.isERC721A(params.nftAddress)) {
             IERC721AVault(params.nftAddress).mint(params.to, params.tokenId);
+            return true;
         }
-        return true;
+        return false;
     }
 
     /// @notice Internal router function to handle batch minting based on token type
@@ -354,47 +353,16 @@ contract EmblemVaultMintFacet {
         uint256[][] memory serialNumbers,
         bytes memory data
     ) private returns (bool) {
-        bool isERC1155 = LibInterfaceIds.isERC1155(nftAddress);
-        bool isERC721A = !isERC1155 && LibInterfaceIds.isERC721A(nftAddress);
-
-        if (isERC1155) {
+        if (LibInterfaceIds.isERC1155(nftAddress)) {
             uint256 len = tokenIds.length;
             for (uint256 i = 0; i < len; i++) {
                 IERC1155(nftAddress).mintWithSerial(to, tokenIds[i], amounts[i], serialNumbers[i]);
             }
-        } else if (isERC721A) {
+            return true;
+        } else if (LibInterfaceIds.isERC721A(nftAddress)) {
             IERC721AVault(nftAddress).batchMintWithData(to, tokenIds, data);
+            return true;
         }
-        return true;
-    }
-
-    /// @notice Converts a uint256 to its string representation
-    /// @dev Optimized version that avoids expensive string operations
-    /// @param value The uint256 value to convert
-    /// @return string memory The string representation of the value
-    function _uintToStrOptimized(uint256 value) internal pure returns (string memory) {
-        if (value == 0) {
-            return "0";
-        }
-
-        uint256 temp = value;
-        uint256 digits;
-        while (temp != 0) {
-            unchecked {
-                digits++;
-                temp /= 10;
-            }
-        }
-
-        bytes memory buffer = new bytes(digits);
-        while (value != 0) {
-            unchecked {
-                digits -= 1;
-                buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
-                value /= 10;
-            }
-        }
-
-        return string(buffer);
+        return false;
     }
 }

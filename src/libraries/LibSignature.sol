@@ -8,6 +8,10 @@ library LibSignature {
     // Custom errors
     error InvalidSignature();
 
+    // Half of secp256k1n (the curve order) - used for signature malleability check
+    uint256 constant SECP256K1_N_DIV_2 =
+        0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
+
     /// @notice Recover signer from a signature
     /// @param hash The hash that was signed
     /// @param signature The signature bytes
@@ -30,6 +34,9 @@ library LibSignature {
         }
 
         if (v != 27 && v != 28) revert InvalidSignature();
+
+        // Ensure s is in the lower half of secp256k1n to prevent signature malleability
+        if (uint256(s) > SECP256K1_N_DIV_2) revert InvalidSignature();
 
         bytes memory prefix = "\x19Ethereum Signed Message:\n32";
         bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, hash));
