@@ -62,6 +62,10 @@ contract ERC1155VaultImplementation is
     /// @notice The address of the diamond contract (must pass `onlyDiamond` checks).
     address private _diamondAddress;
 
+    /// @notice The EIP-1967 beacon storage slot
+    bytes32 private constant BEACON_SLOT =
+        0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50;
+
     /// @dev Modifier restricting calls to only the diamond address.
     modifier onlyDiamond() {
         if (msg.sender != _diamondAddress) {
@@ -509,11 +513,9 @@ contract ERC1155VaultImplementation is
      * @return beaconAddress The address stored in the beacon slot.
      */
     function beacon() external view returns (address) {
-        // EIP-1967 beacon slot
-        bytes32 slot = 0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50;
         address beaconAddress;
         assembly {
-            beaconAddress := sload(slot)
+            beaconAddress := sload(BEACON_SLOT)
         }
         return beaconAddress;
     }
