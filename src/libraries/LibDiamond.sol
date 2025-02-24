@@ -114,8 +114,8 @@ library LibDiamond {
 
             // Update selector cache
             ds.facetSelectors[_facetAddress].push(selector);
-            ds.totalSelectors++;
         }
+        ds.totalSelectors += uint96(_functionSelectors.length);
     }
 
     function replaceFunctions(address _facetAddress, bytes4[] memory _functionSelectors) internal {
@@ -194,8 +194,8 @@ library LibDiamond {
             }
             facetSelectorCache.pop();
             delete ds.selectorToFacet[selector];
-            ds.totalSelectors--;
         }
+        ds.totalSelectors -= uint96(_functionSelectors.length);
     }
 
     function initializeDiamondCut(address _init, bytes memory _calldata) internal {
