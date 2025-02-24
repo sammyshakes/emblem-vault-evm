@@ -365,34 +365,4 @@ contract EmblemVaultMintFacet {
         }
         return false;
     }
-
-    /// @notice Converts a uint256 to its string representation
-    /// @dev Optimized version that avoids expensive string operations
-    /// @param value The uint256 value to convert
-    /// @return string memory The string representation of the value
-    function _uintToStrOptimized(uint256 value) internal pure returns (string memory) {
-        if (value == 0) {
-            return "0";
-        }
-
-        uint256 temp = value;
-        uint256 digits;
-        while (temp != 0) {
-            unchecked {
-                digits++;
-                temp /= 10;
-            }
-        }
-
-        bytes memory buffer = new bytes(digits);
-        while (value != 0) {
-            unchecked {
-                digits -= 1;
-                buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
-                value /= 10;
-            }
-        }
-
-        return string(buffer);
-    }
 }

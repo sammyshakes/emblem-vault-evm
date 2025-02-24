@@ -20,6 +20,8 @@ import {ERC1155VaultImplementation} from "../src/implementations/ERC1155VaultImp
 import {VaultCollectionFactory} from "../src/factories/VaultCollectionFactory.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
+import {LibErrors} from "../src/libraries/LibErrors.sol";
+
 contract DiamondBeaconIntegrationTest is Test {
     // Diamond components
     EmblemVaultDiamond diamond;
@@ -52,13 +54,6 @@ contract DiamondBeaconIntegrationTest is Test {
     event ImplementationUpgraded(
         address indexed oldImplementation, address indexed newImplementation
     );
-
-    // Custom errors
-    error InvalidCollection();
-    error FactoryNotSet();
-    error VaultAlreadyLocked();
-    error VaultNotLocked();
-    error ZeroAddress();
 
     function setUp() public {
         // Deploy diamond facets
@@ -207,7 +202,7 @@ contract DiamondBeaconIntegrationTest is Test {
     }
 
     function testRevertSetZeroFactory() public {
-        vm.expectRevert(ZeroAddress.selector);
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.ZeroAddress.selector));
         EmblemVaultCoreFacet(address(diamond)).setVaultFactory(address(0));
     }
 
@@ -262,6 +257,10 @@ contract DiamondBeaconIntegrationTest is Test {
         EmblemVaultCoreFacet(address(diamond)).lockVault(vault, 1);
         assertTrue(EmblemVaultCoreFacet(address(diamond)).isVaultLocked(vault, 1));
 
+        // Test revert on already locked vault
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.VaultAlreadyLocked.selector, vault, 1));
+        EmblemVaultCoreFacet(address(diamond)).lockVault(vault, 1);
+
         // 4. Upgrade implementation through Diamond
         ERC721VaultImplementation newImplementation = new ERC721VaultImplementation();
         vm.prank(address(diamond));
@@ -274,6 +273,10 @@ contract DiamondBeaconIntegrationTest is Test {
         // 6. Unlock vault and transfer
         vm.expectEmit(true, true, true, true);
         emit VaultUnlocked(vault, 1, address(this));
+        EmblemVaultCoreFacet(address(diamond)).unlockVault(vault, 1);
+
+        // Test revert on already unlocked vault
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.VaultNotLocked.selector, vault, 1));
         EmblemVaultCoreFacet(address(diamond)).unlockVault(vault, 1);
 
         vm.startPrank(user1);
@@ -317,7 +320,9 @@ contract DiamondBeaconIntegrationTest is Test {
 
     function testRevertLockInvalidCollection() public {
         address invalidCollection = address(0x999);
-        vm.expectRevert(InvalidCollection.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(LibErrors.InvalidCollection.selector, address(0x999))
+        );
         EmblemVaultCoreFacet(address(diamond)).lockVault(invalidCollection, 1);
     }
 
@@ -337,7 +342,7 @@ contract DiamondBeaconIntegrationTest is Test {
         IDiamondCut(address(newDiamond)).diamondCut(cut, address(0), "");
 
         // Try to lock vault without setting factory
-        vm.expectRevert(FactoryNotSet.selector);
+        vm.expectRevert(abi.encodeWithSelector(LibErrors.FactoryNotSet.selector));
         EmblemVaultCoreFacet(address(newDiamond)).lockVault(address(0x1), 1);
     }
 
