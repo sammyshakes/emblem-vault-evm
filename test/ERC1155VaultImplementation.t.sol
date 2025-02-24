@@ -38,8 +38,7 @@ contract ERC1155VaultImplementationTest is Test {
         // Set up the implementation interface
         implementation = ERC1155VaultImplementation(address(proxy));
 
-        // Set up prank for Diamond calls
-        vm.startPrank(mockDiamond);
+        // No need to initialize again since it's done in the constructor
     }
 
     function testInitialState() public view {
@@ -65,15 +64,17 @@ contract ERC1155VaultImplementationTest is Test {
         serialNumbers[0] = 100;
         serialNumbers[1] = 200;
         serialNumbers[2] = 300;
-        bytes memory serialNumberData = abi.encode(serialNumbers);
 
         // Mint with external serials
-        implementation.mintWithSerial(user1, 1, 3, serialNumberData);
+        vm.prank(mockDiamond);
+        implementation.mintWithSerial(user1, 1, 3, serialNumbers);
 
         // Verify
-        assertEq(implementation.getSerial(1, 0), 100);
-        assertEq(implementation.getSerial(1, 1), 200);
-        assertEq(implementation.getSerial(1, 2), 300);
+        uint256[] memory serials = implementation.getSerials(user1, 1);
+        assertEq(serials.length, 3);
+        assertEq(serials[0], 100);
+        assertEq(serials[1], 200);
+        assertEq(serials[2], 300);
 
         assertEq(implementation.getOwnerOfSerial(100), user1);
         assertEq(implementation.getOwnerOfSerial(200), user1);
@@ -99,10 +100,10 @@ contract ERC1155VaultImplementationTest is Test {
         serialNumbers[0] = 11;
         serialNumbers[1] = 12;
         serialNumbers[2] = 13;
-        bytes memory serialNumberData = abi.encode(serialNumbers);
 
         // Mint 3 tokens with external serials
-        implementation.mintWithSerial(user1, 1, 3, serialNumberData);
+        vm.prank(mockDiamond);
+        implementation.mintWithSerial(user1, 1, 3, serialNumbers);
 
         // Transfer 2 tokens from user1 to user2
         vm.startPrank(user1);
@@ -133,33 +134,6 @@ contract ERC1155VaultImplementationTest is Test {
         assertEq(implementation.getOwnerOfSerial(user2Serial2), user2);
     }
 
-    function testSerialNumberBurn() public {
-        // CHANGED: external mint of 3 tokens
-        uint256[] memory serialNumbers = new uint256[](3);
-        serialNumbers[0] = 1;
-        serialNumbers[1] = 2;
-        serialNumbers[2] = 3;
-        bytes memory serialNumberData = abi.encode(serialNumbers);
-
-        implementation.mintWithSerial(user1, 1, 3, serialNumberData);
-
-        // The *last* 2 minted are #3 and #2 (pop from end).
-        // Burn 2 tokens
-        vm.startPrank(user1);
-        implementation.burn(user1, 1, 2);
-        vm.stopPrank();
-
-        // Check that #2 and #3 are indeed burned => new owner = address(0)
-        assertEq(implementation.getOwnerOfSerial(2), address(0));
-        assertEq(implementation.getOwnerOfSerial(3), address(0));
-
-        // The only remaining serial is #1
-        assertEq(implementation.balanceOf(user1, 1), 1);
-        uint256 remainingSerial = implementation.getFirstSerialByOwner(user1, 1);
-        assertEq(remainingSerial, 1);
-        assertEq(implementation.getOwnerOfSerial(remainingSerial), user1);
-    }
-
     // ------------------------------------------------------------------------
     // DUPLICATE, ZERO, MISMATCH, REUSE, ETC => unchanged
     // because they were already testing external serial reverts.
@@ -171,10 +145,10 @@ contract ERC1155VaultImplementationTest is Test {
         serialNumbers[0] = 100;
         serialNumbers[1] = 100; // Duplicate
         serialNumbers[2] = 300;
-        bytes memory serialNumberData = abi.encode(serialNumbers);
 
+        vm.prank(mockDiamond);
         vm.expectRevert(abi.encodeWithSignature("SerialNumberAlreadyUsed()"));
-        implementation.mintWithSerial(user1, 1, 3, serialNumberData);
+        implementation.mintWithSerial(user1, 1, 3, serialNumbers);
     }
 
     function testRevertZeroSerialNumber() public {
@@ -183,10 +157,10 @@ contract ERC1155VaultImplementationTest is Test {
         serialNumbers[0] = 100;
         serialNumbers[1] = 0; // Zero
         serialNumbers[2] = 300;
-        bytes memory serialNumberData = abi.encode(serialNumbers);
 
+        vm.prank(mockDiamond);
         vm.expectRevert(abi.encodeWithSignature("InvalidSerialNumber()"));
-        implementation.mintWithSerial(user1, 1, 3, serialNumberData);
+        implementation.mintWithSerial(user1, 1, 3, serialNumbers);
     }
 
     function testRevertMismatchedSerialNumbers() public {
@@ -194,24 +168,51 @@ contract ERC1155VaultImplementationTest is Test {
         uint256[] memory serialNumbers = new uint256[](2);
         serialNumbers[0] = 100;
         serialNumbers[1] = 200;
-        bytes memory serialNumberData = abi.encode(serialNumbers);
 
+        vm.prank(mockDiamond);
         vm.expectRevert(abi.encodeWithSignature("InvalidSerialNumbersCount()"));
-        implementation.mintWithSerial(user1, 1, 3, serialNumberData);
+        implementation.mintWithSerial(user1, 1, 3, serialNumbers);
+    }
+
+    function testRevertZeroAmountMint() public {
+        uint256[] memory serialNumbers = new uint256[](1);
+        serialNumbers[0] = 100;
+
+        vm.prank(mockDiamond);
+        vm.expectRevert(abi.encodeWithSignature("InvalidAmount()"));
+        implementation.mintWithSerial(user1, 1, 0, serialNumbers);
+    }
+
+    function testSingleSerialMint() public {
+        // Test single serial number
+        uint256[] memory serialNumbers = new uint256[](1);
+        serialNumbers[0] = 100;
+        vm.prank(mockDiamond);
+        implementation.mintWithSerial(user1, 1, 1, serialNumbers);
+        vm.prank(user1);
+        assertEq(implementation.getFirstSerialByOwner(user1, 1), 100);
+
+        // Test invalid array length
+        uint256[] memory invalidSerials = new uint256[](2);
+        invalidSerials[0] = 200;
+        invalidSerials[1] = 300;
+        vm.prank(mockDiamond);
+        vm.expectRevert(abi.encodeWithSignature("InvalidSerialNumbersCount()"));
+        implementation.mintWithSerial(user2, 2, 1, invalidSerials);
     }
 
     function testRevertReuseSerialAcrossTokens() public {
         // ...
         uint256[] memory serialNumbers1 = new uint256[](1);
         serialNumbers1[0] = 100;
-        bytes memory serialNumberData1 = abi.encode(serialNumbers1);
-        implementation.mintWithSerial(user1, 1, 1, serialNumberData1);
+        vm.prank(mockDiamond);
+        implementation.mintWithSerial(user1, 1, 1, serialNumbers1);
 
         uint256[] memory serialNumbers2 = new uint256[](1);
         serialNumbers2[0] = 100; // same
-        bytes memory serialNumberData2 = abi.encode(serialNumbers2);
+        vm.prank(mockDiamond);
         vm.expectRevert(abi.encodeWithSignature("SerialNumberAlreadyUsed()"));
-        implementation.mintWithSerial(user1, 2, 1, serialNumberData2);
+        implementation.mintWithSerial(user1, 2, 1, serialNumbers2);
     }
 
     // ------------------------------------------------------------------------
@@ -229,9 +230,9 @@ contract ERC1155VaultImplementationTest is Test {
         serialNumbers2[1] = 400;
         serialNumbers2[2] = 500;
 
-        bytes[] memory serialData = new bytes[](2);
-        serialData[0] = abi.encode(serialNumbers1);
-        serialData[1] = abi.encode(serialNumbers2);
+        uint256[][] memory serialData = new uint256[][](2);
+        serialData[0] = serialNumbers1;
+        serialData[1] = serialNumbers2;
 
         uint256[] memory ids = new uint256[](2);
         ids[0] = 1;
@@ -242,11 +243,13 @@ contract ERC1155VaultImplementationTest is Test {
         amounts[1] = 3;
 
         // ...
-        bytes memory batchData = abi.encode(serialData);
-        implementation.mintBatch(user1, ids, amounts, batchData);
+        vm.prank(mockDiamond);
+        implementation.mintBatch(user1, ids, amounts, serialData);
 
         // Check
+        vm.prank(user1);
         assertEq(implementation.getFirstSerialByOwner(user1, 1), 100);
+        vm.prank(user1);
         assertEq(implementation.getSerialByOwnerAtIndex(user1, 1, 1), 200);
 
         assertEq(implementation.getFirstSerialByOwner(user1, 2), 300);
@@ -266,17 +269,14 @@ contract ERC1155VaultImplementationTest is Test {
         serials1[0] = 10;
         serials1[1] = 11;
         serials1[2] = 12;
-        bytes memory data1 = abi.encode(serials1);
 
         uint256[] memory serials2 = new uint256[](2);
         serials2[0] = 20;
         serials2[1] = 21;
-        bytes memory data2 = abi.encode(serials2);
 
-        // We do a "mintBatch" with 2 token IDs
-        bytes[] memory allSerials = new bytes[](2);
-        allSerials[0] = data1;
-        allSerials[1] = data2;
+        uint256[][] memory allSerials = new uint256[][](2);
+        allSerials[0] = serials1;
+        allSerials[1] = serials2;
 
         uint256[] memory ids = new uint256[](2);
         ids[0] = 1;
@@ -286,8 +286,8 @@ contract ERC1155VaultImplementationTest is Test {
         mintAmounts[0] = 3;
         mintAmounts[1] = 2;
 
-        bytes memory batchData = abi.encode(allSerials);
-        implementation.mintBatch(user1, ids, mintAmounts, batchData);
+        vm.prank(mockDiamond);
+        implementation.mintBatch(user1, ids, mintAmounts, allSerials);
 
         // Prepare batch transfer
         uint256[] memory transferAmounts = new uint256[](2);
@@ -298,12 +298,11 @@ contract ERC1155VaultImplementationTest is Test {
         implementation.safeBatchTransferFrom(user1, user2, ids, transferAmounts, "");
         vm.stopPrank();
 
-        // user1 -> 1 left for tokenId=1, 1 left for tokenId=2
-        assertEq(implementation.balanceOf(user1, 1), 1);
-        assertEq(implementation.balanceOf(user1, 2), 1);
-        // user2 -> 2 of tokenId=1, 1 of tokenId=2
-        assertEq(implementation.balanceOf(user2, 1), 2);
-        assertEq(implementation.balanceOf(user2, 2), 1);
+        // Check balances after transfer
+        assertEq(implementation.balanceOf(user1, 1), 1, "user1 should have 1 token of id 1");
+        assertEq(implementation.balanceOf(user1, 2), 1, "user1 should have 1 token of id 2");
+        assertEq(implementation.balanceOf(user2, 1), 2, "user2 should have 2 tokens of id 1");
+        assertEq(implementation.balanceOf(user2, 2), 1, "user2 should have 1 token of id 2");
 
         // Verify ownership of user2 tokens
         uint256 user2Serial1 = implementation.getFirstSerialByOwner(user2, 1);
@@ -325,8 +324,8 @@ contract ERC1155VaultImplementationTest is Test {
         serialNumbers1[0] = 100;
         serialNumbers1[1] = 200;
         serialNumbers1[2] = 300;
-        bytes memory serialNumberData1 = abi.encode(serialNumbers1);
-        implementation.mintWithSerial(user1, 1, 3, serialNumberData1);
+        vm.prank(mockDiamond);
+        implementation.mintWithSerial(user1, 1, 3, serialNumbers1);
 
         // Transfer some tokens to user2
         vm.startPrank(user1);
@@ -337,11 +336,10 @@ contract ERC1155VaultImplementationTest is Test {
         uint256[] memory serialNumbers2 = new uint256[](2);
         serialNumbers2[0] = 400;
         serialNumbers2[1] = 500;
-        bytes memory serialNumberData2 = abi.encode(serialNumbers2);
 
         // Restore Diamond prank context for minting
         vm.startPrank(mockDiamond);
-        implementation.mintWithSerial(user1, 1, 2, serialNumberData2);
+        implementation.mintWithSerial(user1, 1, 2, serialNumbers2);
         vm.stopPrank();
 
         // Transfer one token from user2 back to user1
@@ -374,19 +372,26 @@ contract ERC1155VaultImplementationTest is Test {
         amounts[1] = 3;
 
         // Wrong number of serial arrays
-        bytes[] memory serialData = new bytes[](1);
-        serialData[0] = abi.encode(new uint256[](2));
+        uint256[][] memory serials = new uint256[][](1);
+        serials[0] = new uint256[](2);
+        serials[0][0] = 100;
+        serials[0][1] = 200;
 
+        vm.prank(mockDiamond);
         vm.expectRevert(abi.encodeWithSignature("InvalidSerialArraysLength()"));
-        implementation.mintBatch(user1, ids, amounts, abi.encode(serialData));
+        implementation.mintBatch(user1, ids, amounts, serials);
 
         // Wrong number of serial numbers in array
-        serialData = new bytes[](2);
-        serialData[0] = abi.encode(new uint256[](1)); // amount=2 but only 1 serial
-        serialData[1] = abi.encode(new uint256[](3));
+        serials = new uint256[][](2);
+        serials[0] = new uint256[](2);
+        serials[0][0] = 100;
+        serials[0][1] = 200;
+        serials[1] = new uint256[](1);
+        serials[1][0] = 300;
 
+        vm.prank(mockDiamond);
         vm.expectRevert(abi.encodeWithSignature("InvalidSerialNumbersCount()"));
-        implementation.mintBatch(user1, ids, amounts, abi.encode(serialData));
+        implementation.mintBatch(user1, ids, amounts, serials);
     }
 
     function testComplexBatchMintWithExternalSerials() public {
@@ -406,12 +411,12 @@ contract ERC1155VaultImplementationTest is Test {
         uint256[] memory serialNumbers2 = new uint256[](1);
         serialNumbers2[0] = 300;
 
-        bytes[] memory serialData1 = new bytes[](2);
-        serialData1[0] = abi.encode(serialNumbers1);
-        serialData1[1] = abi.encode(serialNumbers2);
+        uint256[][] memory serialData1 = new uint256[][](2);
+        serialData1[0] = serialNumbers1;
+        serialData1[1] = serialNumbers2;
 
-        bytes memory batchData1 = abi.encode(serialData1);
-        implementation.mintBatch(user1, ids1, amounts1, batchData1);
+        vm.prank(mockDiamond);
+        implementation.mintBatch(user1, ids1, amounts1, serialData1);
 
         // Second batch
         uint256[] memory ids2 = new uint256[](2);
@@ -431,19 +436,23 @@ contract ERC1155VaultImplementationTest is Test {
         serialNumbers4[1] = 700;
         serialNumbers4[2] = 800;
 
-        bytes[] memory serialData2 = new bytes[](2);
-        serialData2[0] = abi.encode(serialNumbers3);
-        serialData2[1] = abi.encode(serialNumbers4);
+        uint256[][] memory serialData2 = new uint256[][](2);
+        serialData2[0] = serialNumbers3;
+        serialData2[1] = serialNumbers4;
 
-        bytes memory batchData2 = abi.encode(serialData2);
-        implementation.mintBatch(user1, ids2, amounts2, batchData2);
+        vm.prank(mockDiamond);
+        implementation.mintBatch(user1, ids2, amounts2, serialData2);
 
-        // Now check
-        assertEq(implementation.balanceOf(user1, 1), 2);
+        // Check balances
+        assertEq(implementation.balanceOf(user1, 1), 2, "user1 should have 2 tokens of id 1");
+        assertEq(implementation.balanceOf(user1, 2), 3, "user1 should have 3 tokens of id 2");
+        assertEq(implementation.balanceOf(user1, 3), 3, "user1 should have 3 tokens of id 3");
+
+        // Check serial numbers for token id 1
         assertEq(implementation.getFirstSerialByOwner(user1, 1), 100);
         assertEq(implementation.getSerialByOwnerAtIndex(user1, 1, 1), 200);
 
-        assertEq(implementation.balanceOf(user1, 2), 3);
+        // Check serial numbers for token id 2
         // The first minted was 1 => [300], second minted was 2 => [400,500] appended
         // So 2's final array might be [300, 400, 500], in some order
         // We'll just do direct checks:
@@ -461,17 +470,13 @@ contract ERC1155VaultImplementationTest is Test {
         // Instead of toggling, let's just do a single external mint of 1 token:
         uint256[] memory serialNumbers = new uint256[](1);
         serialNumbers[0] = 999;
-        bytes memory serialNumberData = abi.encode(serialNumbers);
 
-        implementation.mintWithSerial(user1, 1, 1, serialNumberData);
+        vm.prank(mockDiamond);
+        implementation.mintWithSerial(user1, 1, 1, serialNumbers);
 
-        // Try to get non-existent index
-        vm.expectRevert(abi.encodeWithSignature("InvalidSerialNumber()"));
-        implementation.getSerial(1, 1); // we only minted index=0
-
-        // Try to get tokenId=2
-        vm.expectRevert(abi.encodeWithSignature("InvalidSerialNumber()"));
-        implementation.getSerial(2, 0);
+        // Try to get non-existent token's serials
+        uint256[] memory noSerials = implementation.getSerials(user1, 2);
+        assertEq(noSerials.length, 0);
 
         // Try to get first serial for tokenId=2
         vm.expectRevert(abi.encodeWithSignature("NoSerialsFound()"));

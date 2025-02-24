@@ -18,8 +18,7 @@ contract TestMint is Script {
         uint256 nonce = 464_805; // From API _nonce
         bytes memory signature =
             hex"db56b45ddb22211fb59f3bc3e6e4169ce84b315455f269aa7fda57758a4a1fde79a819314a157f3bf5e58a80d49846957c8c7d8a87be678a3c955b702e8db6331b";
-        bytes memory serialNumber =
-            hex"0000000000000000000000000000000000000000000000000000000000000000";
+        uint256[] memory serialNumbers = new uint256[](0);
         uint256 amount = 1;
 
         vm.startBroadcast(deployerPrivateKey);
@@ -34,7 +33,7 @@ contract TestMint is Script {
             tokenId,
             nonce,
             signature,
-            serialNumber,
+            serialNumbers,
             amount
         );
 

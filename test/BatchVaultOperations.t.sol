@@ -14,6 +14,7 @@ import {EmblemVaultMintFacet} from "../src/facets/EmblemVaultMintFacet.sol";
 import {EmblemVaultCollectionFacet} from "../src/facets/EmblemVaultCollectionFacet.sol";
 import {EmblemVaultInitFacet} from "../src/facets/EmblemVaultInitFacet.sol";
 import {LibErrors} from "../src/libraries/LibErrors.sol";
+import {LibSignature} from "../src/libraries/LibSignature.sol";
 import {VaultBeacon, ERC721VaultBeacon, ERC1155VaultBeacon} from "../src/beacon/VaultBeacon.sol";
 import {ERC721VaultImplementation} from "../src/implementations/ERC721VaultImplementation.sol";
 import {ERC1155VaultImplementation} from "../src/implementations/ERC1155VaultImplementation.sol";
@@ -65,7 +66,7 @@ contract BatchVaultOperationsTest is Test {
         uint256[] memory tokenIds = new uint256[](oversizedBatch);
         uint256[] memory nonces = new uint256[](oversizedBatch);
         bytes[] memory signatures = new bytes[](oversizedBatch);
-        bytes[] memory serialNumbers = new bytes[](oversizedBatch);
+        uint256[][] memory serialNumbers = new uint256[][](oversizedBatch);
         uint256[] memory amounts = new uint256[](oversizedBatch);
 
         // Fill arrays with test data
@@ -85,7 +86,7 @@ contract BatchVaultOperationsTest is Test {
                 amounts[j],
                 witnessPrivateKey
             );
-            serialNumbers[j] = "";
+            serialNumbers[j] = new uint256[](0);
             totalPrice += basePrice;
         }
 
@@ -235,7 +236,7 @@ contract BatchVaultOperationsTest is Test {
             uint256[] memory tokenIds = new uint256[](batchSize);
             uint256[] memory nonces = new uint256[](batchSize);
             bytes[] memory signatures = new bytes[](batchSize);
-            bytes[] memory serialNumbers = new bytes[](batchSize);
+            uint256[][] memory serialNumbers = new uint256[][](batchSize);
             uint256[] memory amounts = new uint256[](batchSize);
 
             // Fill arrays with test data
@@ -255,7 +256,7 @@ contract BatchVaultOperationsTest is Test {
                     amounts[j],
                     witnessPrivateKey
                 );
-                serialNumbers[j] = "";
+                serialNumbers[j] = new uint256[](0);
                 totalPrice += basePrice;
             }
 
@@ -310,11 +311,23 @@ contract BatchVaultOperationsTest is Test {
         uint256 _amount,
         uint256 _privateKey
     ) internal view returns (bytes memory) {
-        bytes32 hash = keccak256(
-            abi.encodePacked(
-                _nftAddress, _payment, _price, _to, _tokenId, _nonce, _amount, block.chainid
-            )
+        // Create empty array for serialNumbers
+        uint256[] memory serialNumbers = new uint256[](0);
+
+        // Use LibSignature to generate hash
+        bytes32 hash = LibSignature.getStandardSignatureHash(
+            _nftAddress,
+            _payment,
+            _price,
+            _to,
+            _tokenId,
+            _nonce,
+            _amount,
+            serialNumbers,
+            block.chainid
         );
+
+        // Sign with Ethereum prefix
         bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, prefixedHash);
         return abi.encodePacked(r, s, v);

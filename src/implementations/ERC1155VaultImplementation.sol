@@ -42,6 +42,10 @@ contract ERC1155VaultImplementation is
     error InvalidSerialArraysLength();
     /// @notice Thrown if the number of serial numbers provided does not match the intended mint amount.
     error InvalidSerialNumbersCount();
+    /// @notice Thrown when attempting to mint zero tokens.
+    error InvalidAmount();
+    /// @notice Thrown when serial data has invalid format/length.
+    error InvalidSerialNumberData();
     /// @notice Thrown if the user attempts to burn or transfer more tokens than they have serials for.
     error InsufficientSerialNumbers();
     /// @notice Thrown if no serials are found when at least one is expected.
@@ -58,6 +62,10 @@ contract ERC1155VaultImplementation is
     /// @notice The address of the diamond contract (must pass `onlyDiamond` checks).
     address private _diamondAddress;
 
+    /// @notice The EIP-1967 beacon storage slot
+    bytes32 private constant BEACON_SLOT =
+        0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50;
+
     /// @dev Modifier restricting calls to only the diamond address.
     modifier onlyDiamond() {
         if (msg.sender != _diamondAddress) {
@@ -65,12 +73,6 @@ contract ERC1155VaultImplementation is
         }
         _;
     }
-
-    /**
-     * @dev Maps a token ID to another mapping of (index => serialNumber).
-     *      This allows retrieval of serials belonging to a specific token ID.
-     */
-    mapping(uint256 => mapping(uint256 => uint256)) private _tokenSerials;
 
     /**
      * @dev Maps a serial number to the token ID that holds it.
@@ -162,54 +164,48 @@ contract ERC1155VaultImplementation is
     // ------------------------------------------------------------------------
     /**
      * @notice Mints a specified amount of `id` tokens to address `to`, with externally supplied serial numbers.
-     * @dev    If `amount` > 1, `serialNumberData` should be an encoded array of serials. If `amount` == 1, `serialNumberData`
-     *         should be a single serial number.
+     * @dev    The length of serialNumbers array must match the amount parameter.
      *         - Reverts with `InvalidSerialNumbersCount()` if the provided serials array length doesn't match `amount`.
      *         - Reverts with `InvalidSerialNumber()` if a serial is 0.
      *         - Reverts with `SerialNumberAlreadyUsed()` if any serial is already owned.
      * @param to The address receiving the minted tokens.
      * @param id The token ID to mint.
      * @param amount The quantity of tokens to mint.
-     * @param serialNumberData Encoded serial number(s) matching the `amount`.
+     * @param serialNumbers Array of serial numbers, length must match amount.
      */
-    function mintWithSerial(address to, uint256 id, uint256 amount, bytes calldata serialNumberData)
-        external
-        onlyDiamond
-    {
-        if (amount > 1) {
-            // Decode an array of serials
-            uint256[] memory serialNumbers = abi.decode(serialNumberData, (uint256[]));
-            if (serialNumbers.length != amount) revert InvalidSerialNumbersCount();
-            _mintWithSerials(to, id, amount, serialNumbers);
-        } else {
-            // Decode a single serial
-            uint256 serialNumber = abi.decode(serialNumberData, (uint256));
-            if (serialNumber == 0) revert InvalidSerialNumber();
+    function mintWithSerial(
+        address to,
+        uint256 id,
+        uint256 amount,
+        uint256[] calldata serialNumbers
+    ) external onlyDiamond {
+        if (amount == 0) revert InvalidAmount();
+        if (serialNumbers.length != amount) revert InvalidSerialNumbersCount();
 
-            uint256[] memory singleton = new uint256[](1);
-            singleton[0] = serialNumber;
-            _mintWithSerials(to, id, 1, singleton);
-        }
+        // First mint the tokens
+        _mint(to, id, amount, "");
+
+        // Then assign serial numbers
+        _assignSerialNumbers(to, id, amount, serialNumbers);
     }
 
     /**
-     * @notice Internal function that assigns a set of serial numbers to a given address + tokenId, then mints the tokens.
+     * @notice Internal function that assigns serial numbers to a given address + tokenId.
      * @dev    Iterates over the provided `serialNumbers` and links each to `to`.
      *         - Reverts with `InvalidSerialNumber()` if any serial is 0.
      *         - Reverts with `SerialNumberAlreadyUsed()` if any serial is already owned.
-     * @param to The address receiving the minted tokens.
-     * @param id The token ID being minted.
-     * @param amount The quantity to mint.
+     * @param to The address receiving the serial numbers.
+     * @param id The token ID being assigned.
+     * @param amount The quantity of serials to assign.
      * @param serialNumbers The array of serial numbers to assign.
      */
-    function _mintWithSerials(
+    function _assignSerialNumbers(
         address to,
         uint256 id,
         uint256 amount,
         uint256[] memory serialNumbers
     ) internal {
         uint256[] storage ownerSerials = _ownerTokenSerials[to][id];
-        uint256 startIndex = ownerSerials.length;
 
         for (uint256 i = 0; i < amount;) {
             uint256 serial = serialNumbers[i];
@@ -219,7 +215,6 @@ contract ERC1155VaultImplementation is
             // Mark ownership
             _serialOwners[serial] = to;
             _serialToTokenId[serial] = id;
-            _tokenSerials[id][startIndex + i] = serial;
             ownerSerials.push(serial);
 
             emit SerialNumberAssigned(id, serial);
@@ -228,67 +223,40 @@ contract ERC1155VaultImplementation is
                 ++i;
             }
         }
-
-        // Actually mint the tokens
-        _mint(to, id, amount, "");
     }
 
     /**
      * @notice Batch-mints multiple token IDs in one transaction, each with a set of serial numbers.
      * @dev    For each token ID in `ids`, there is a corresponding `amount` and a corresponding set
-     *         of serials in `data`. Each set of serials must match its respective amount.
+     *         of serials in `serialNumbers`. Each set of serials must match its respective amount.
      * @param to The address receiving the minted tokens.
      * @param ids An array of token IDs to mint.
      * @param amounts An array of amounts corresponding to each token ID.
-     * @param data Encoded data (bytes[]) where each entry in the array is itself an encoded array of serials.
+     * @param serialNumbers Array of arrays containing serial numbers for each token ID.
      *
      * Reverts:
      * - `InvalidSerialArraysLength()` if `serialArrays.length != ids.length`.
-     * - `InvalidSerialNumbersCount()` if the number of serials doesn’t match the amount for that token ID.
+     * - `InvalidSerialNumbersCount()` if the number of serials doesn't match the amount for that token ID.
      * - `InvalidSerialNumber()` if any serial is 0.
-     * - `SerialNumberAlreadyUsed()` if any serial is already owned.
      */
     function mintBatch(
         address to,
         uint256[] calldata ids,
         uint256[] calldata amounts,
-        bytes calldata data
+        uint256[][] calldata serialNumbers
     ) external onlyDiamond {
-        bytes[] memory serialArrays = abi.decode(data, (bytes[]));
-        if (serialArrays.length != ids.length) revert InvalidSerialArraysLength();
+        if (serialNumbers.length != ids.length) revert InvalidSerialArraysLength();
 
+        // First validate all serial numbers
         for (uint256 i = 0; i < ids.length;) {
-            uint256 id = ids[i];
-            uint256 amt = amounts[i];
-            uint256[] memory batchSerials = abi.decode(serialArrays[i], (uint256[]));
-
-            if (batchSerials.length != amt) revert InvalidSerialNumbersCount();
-
-            uint256[] storage ownerSerials = _ownerTokenSerials[to][id];
-            uint256 startIdx = ownerSerials.length;
-
-            for (uint256 j = 0; j < amt;) {
-                uint256 serialNumber = batchSerials[j];
-                if (serialNumber == 0) revert InvalidSerialNumber();
-                if (_serialOwners[serialNumber] != address(0)) revert SerialNumberAlreadyUsed();
-
-                // Mark ownership
-                _serialOwners[serialNumber] = to;
-                _serialToTokenId[serialNumber] = id;
-                _tokenSerials[id][startIdx + j] = serialNumber;
-                ownerSerials.push(serialNumber);
-
-                emit SerialNumberAssigned(id, serialNumber);
-                unchecked {
-                    ++j;
-                }
-            }
+            if (serialNumbers[i].length != amounts[i]) revert InvalidSerialNumbersCount();
+            _assignSerialNumbers(to, ids[i], amounts[i], serialNumbers[i]);
             unchecked {
                 ++i;
             }
         }
 
-        // Perform actual mint
+        // Mint all tokens in one batch
         _mintBatch(to, ids, amounts, "");
     }
 
@@ -322,8 +290,8 @@ contract ERC1155VaultImplementation is
 
     /**
      * @notice Handles the removal of serials when a burn operation is detected.
-     * @dev    It removes the last serial numbers from the owner’s array.
-     *         - Reverts with `InsufficientSerialNumbers()` if the user doesn’t have enough serials.
+     * @dev    It removes the last serial numbers from the owner's array.
+     *         - Reverts with `InsufficientSerialNumbers()` if the user doesn't have enough serials.
      * @param from The address from which tokens are being burned.
      * @param ids The token IDs being burned.
      * @param values The amounts of each token ID being burned.
@@ -346,9 +314,8 @@ contract ERC1155VaultImplementation is
                 // Delete from storage
                 delete _serialOwners[serialNumber];
                 delete _serialToTokenId[serialNumber];
-                delete _tokenSerials[id][idx];
-
                 serials.pop();
+
                 unchecked {
                     ++j;
                 }
@@ -360,9 +327,9 @@ contract ERC1155VaultImplementation is
     }
 
     /**
-     * @notice Handles updating serial ownership on a transfer operation.
-     * @dev    Pops serials from `from`’s array and pushes them to `to`’s array.
-     *         - Reverts with `InsufficientSerialNumbers()` if the user doesn’t have enough serials.
+     * @notice Handles the transfer of serials when a transfer operation is detected.
+     * @dev    It transfers the last serial numbers from the sender to the receiver.
+     *         - Reverts with `InsufficientSerialNumbers()` if the sender doesn't have enough serials.
      * @param from The address sending the tokens.
      * @param to The address receiving the tokens.
      * @param ids The token IDs being transferred.
@@ -402,6 +369,20 @@ contract ERC1155VaultImplementation is
         }
     }
 
+    /**
+     * @dev Helper function to decode an array of uint256 values from bytes
+     */
+    function decodeUintArray(bytes memory encoded) internal pure returns (uint256[] memory ids) {
+        ids = abi.decode(encoded, (uint256[]));
+    }
+
+    /**
+     * @dev Helper function to decode a single uint256 value from bytes
+     */
+    function decodeSingle(bytes memory encoded) internal pure returns (uint256 id) {
+        id = abi.decode(encoded, (uint256));
+    }
+
     // ------------------------------------------------------------------------
     // IIsSerialized Implementation
     // ------------------------------------------------------------------------
@@ -414,19 +395,13 @@ contract ERC1155VaultImplementation is
     }
 
     /**
-     * @notice Retrieves a specific serial number from `_tokenSerials[tokenId][index]`.
-     * @dev    Reverts if the serial number is zero.
-     * @param tokenId The token ID that owns the serial.
-     * @param index The index of the serial within that token ID’s serial mapping.
-     * @return The serial number found at the given index.
-     *
-     * Reverts:
-     * - `InvalidSerialNumber()` if the serial at that index is zero.
+     * @notice Retrieves all serial numbers owned by an address for a given token ID.
+     * @param owner The address whose serials to retrieve.
+     * @param tokenId The token ID to get serials for.
+     * @return An array of serial numbers owned by the address for the token ID.
      */
-    function getSerial(uint256 tokenId, uint256 index) external view returns (uint256) {
-        uint256 serial = _tokenSerials[tokenId][index];
-        if (serial == 0) revert InvalidSerialNumber();
-        return serial;
+    function getSerials(address owner, uint256 tokenId) external view returns (uint256[] memory) {
+        return _ownerTokenSerials[owner][tokenId];
     }
 
     /**
@@ -538,11 +513,9 @@ contract ERC1155VaultImplementation is
      * @return beaconAddress The address stored in the beacon slot.
      */
     function beacon() external view returns (address) {
-        // EIP-1967 beacon slot
-        bytes32 slot = 0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50;
         address beaconAddress;
         assembly {
-            beaconAddress := sload(slot)
+            beaconAddress := sload(BEACON_SLOT)
         }
         return beaconAddress;
     }
@@ -553,5 +526,25 @@ contract ERC1155VaultImplementation is
      */
     function implementation() external view returns (address) {
         return address(this);
+    }
+
+    /**
+     * @notice Override of ERC1155Burnable burn function to restrict access to diamond only
+     * @dev Only the diamond contract can burn tokens to ensure proper unvault process
+     * @param account The address whose tokens will be burned
+     * @param id The token ID to burn
+     * @param value The amount to burn
+     */
+    function burn(address account, uint256 id, uint256 value) public virtual override onlyDiamond {
+        super.burn(account, id, value);
+    }
+
+    function burnBatch(address account, uint256[] memory ids, uint256[] memory values)
+        public
+        virtual
+        override
+        onlyDiamond
+    {
+        super.burnBatch(account, ids, values);
     }
 }

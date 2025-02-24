@@ -228,19 +228,4 @@ library LibEmblemVaultStorage {
     function isBurnAddress(address addr) internal view returns (bool) {
         return vaultStorage().burnAddresses[addr];
     }
-
-    function initializeVaultStorage() internal {
-        VaultStorage storage vs = vaultStorage();
-        if (vs.initialized) revert AlreadyInitialized();
-
-        vs.metadataBaseUri = "https://v2.emblemvault.io/meta/";
-        vs.unvaultingEnabled = true;
-        vs.INTERFACE_ID_ERC1155 = 0xd9b67a26;
-        vs.INTERFACE_ID_ERC20 = 0x74a1476f;
-        vs.INTERFACE_ID_ERC721A = 0xf4a95f26;
-        vs.recipientAddress = msg.sender;
-        vs.vaultFactory = msg.sender;
-        vs.witnessCount = 0;
-        vs.initialized = true;
-    }
 }

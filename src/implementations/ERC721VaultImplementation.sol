@@ -282,42 +282,39 @@ contract ERC721VaultImplementation is
 
     /**
      * @notice Burns a single token, removing its external ID mapping.
-     * @dev    Overrides both `ERC721ABurnableUpgradeable` and `IERC721AVault`.
+     * @dev Only callable through the diamond proxy during unvault process
      * @param internalTokenId The internal token ID of the token to burn.
      */
     function burn(uint256 internalTokenId)
         public
         override(ERC721ABurnableUpgradeable, IERC721AVault)
+        onlyDiamond
     {
         _burnSingle(internalTokenId, "");
     }
 
     /**
      * @notice Burns a single token, removing its external ID mapping, with extra data.
-     * @dev    Useful for capturing additional info during burning.
+     * @dev Only callable through the diamond proxy during unvault process
      * @param internalTokenId The internal token ID of the token to burn.
      * @param data Arbitrary data to include in the `TokenBurned` event.
      */
-    function burnWithData(uint256 internalTokenId, bytes calldata data) public override {
+    function burnWithData(uint256 internalTokenId, bytes calldata data)
+        public
+        override
+        onlyDiamond
+    {
         _burnSingle(internalTokenId, data);
     }
 
     /**
      * @notice Internal function to handle single-token burning and mapping cleanup.
-     * @dev    Checks that the caller is the token owner or approved operator.
+     * @dev Only called through diamond proxy during unvault process
      * @param internalTokenId The internal token ID to burn.
      * @param data Data to include in the `TokenBurned` event.
-     *
-     * Reverts:
-     * - `NotTokenOwnerOrApproved()` if caller is not the owner or approved operator.
      */
     function _burnSingle(uint256 internalTokenId, bytes memory data) internal {
         address owner = ownerOf(internalTokenId);
-        require(
-            _msgSender() == owner || isApprovedForAll(owner, _msgSender())
-                || getApproved(internalTokenId) == _msgSender(),
-            NotTokenOwnerOrApproved()
-        );
 
         uint256 externalTokenId = _externalTokenIdMap[internalTokenId];
         delete _reverseTokenIdMap[externalTokenId];
@@ -330,33 +327,30 @@ contract ERC721VaultImplementation is
 
     /**
      * @notice Batch-burns multiple tokens, removing their external ID mappings.
+     * @dev Only callable through the diamond proxy during unvault process
      * @param internalTokenIds An array of internal token IDs to burn.
-     *
-     * Reverts:
-     * - `EmptyArrays()` if the array is empty.
      */
-    function batchBurn(uint256[] calldata internalTokenIds) external override {
+    function batchBurn(uint256[] calldata internalTokenIds) external override onlyDiamond {
         _burnBatch(internalTokenIds, "");
     }
 
     /**
      * @notice Batch-burns multiple tokens, removing their external ID mappings, with extra data.
+     * @dev Only callable through the diamond proxy during unvault process
      * @param internalTokenIds An array of internal token IDs to burn.
      * @param data Arbitrary data to include in each `TokenBurned` event.
-     *
-     * Reverts:
-     * - `EmptyArrays()` if the array is empty.
      */
     function batchBurnWithData(uint256[] calldata internalTokenIds, bytes calldata data)
         external
         override
+        onlyDiamond
     {
         _burnBatch(internalTokenIds, data);
     }
 
     /**
      * @notice Internal function to handle batch burning logic.
-     * @dev    Iterates through all provided token IDs and calls `_burnSingle`.
+     * @dev Only called through diamond proxy during unvault process
      * @param internalTokenIds An array of internal token IDs to burn.
      * @param data Data to include in the `TokenBurned` event for each burned token.
      *

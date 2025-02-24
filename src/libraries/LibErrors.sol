@@ -138,6 +138,12 @@ library LibErrors {
     /// @notice Recipient address does not match sender
     error InvalidRecipient();
 
+    /// @notice Number of serial numbers does not match amount
+    error InvalidSerialNumbersCount();
+
+    /// @notice Required interface is not supported
+    error InterfaceNotSupported(address contractAddress, string interfaceName);
+
     // ============ Initialization Errors ============
 
     /// @notice Already initialized
@@ -251,5 +257,14 @@ library LibErrors {
     /// @notice Check if recipient matches sender
     function revertIfInvalidRecipient(address recipient, address sender) internal pure {
         if (recipient != sender) revert InvalidRecipient();
+    }
+
+    /// @notice Check if contract supports required interface
+    function revertIfInterfaceNotSupported(
+        address contractAddress,
+        bool isSupported,
+        string memory interfaceName
+    ) internal pure {
+        if (!isSupported) revert InterfaceNotSupported(contractAddress, interfaceName);
     }
 }
