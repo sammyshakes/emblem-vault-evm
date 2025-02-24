@@ -9,11 +9,11 @@ interface IIsSerialized {
     /// @return True if the contract supports serialization
     function isSerialized() external view returns (bool);
 
-    /// @notice Get the serial number for a token at a specific index
+    /// @notice Get all serial numbers owned by an address for a given token ID
+    /// @param owner The address whose serials to retrieve
     /// @param tokenId The ID of the token
-    /// @param index The index of the serial number to retrieve
-    /// @return The serial number at the specified index
-    function getSerial(uint256 tokenId, uint256 index) external view returns (uint256);
+    /// @return An array of serial numbers owned by the address for the token ID
+    function getSerials(address owner, uint256 tokenId) external view returns (uint256[] memory);
 
     /// @notice Get the first serial number owned by an address for a specific token ID
     /// @param owner The address of the owner

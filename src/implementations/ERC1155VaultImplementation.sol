@@ -62,6 +62,10 @@ contract ERC1155VaultImplementation is
     /// @notice The address of the diamond contract (must pass `onlyDiamond` checks).
     address private _diamondAddress;
 
+    /// @notice The EIP-1967 beacon storage slot
+    bytes32 private constant BEACON_SLOT =
+        0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50;
+
     /// @dev Modifier restricting calls to only the diamond address.
     modifier onlyDiamond() {
         if (msg.sender != _diamondAddress) {
@@ -69,12 +73,6 @@ contract ERC1155VaultImplementation is
         }
         _;
     }
-
-    /**
-     * @dev Maps a token ID to another mapping of (index => serialNumber).
-     *      This allows retrieval of serials belonging to a specific token ID.
-     */
-    mapping(uint256 => mapping(uint256 => uint256)) private _tokenSerials;
 
     /**
      * @dev Maps a serial number to the token ID that holds it.
@@ -208,7 +206,6 @@ contract ERC1155VaultImplementation is
         uint256[] memory serialNumbers
     ) internal {
         uint256[] storage ownerSerials = _ownerTokenSerials[to][id];
-        uint256 startIndex = ownerSerials.length;
 
         for (uint256 i = 0; i < amount;) {
             uint256 serial = serialNumbers[i];
@@ -218,7 +215,6 @@ contract ERC1155VaultImplementation is
             // Mark ownership
             _serialOwners[serial] = to;
             _serialToTokenId[serial] = id;
-            _tokenSerials[id][startIndex + i] = serial;
             ownerSerials.push(serial);
 
             emit SerialNumberAssigned(id, serial);
@@ -240,9 +236,8 @@ contract ERC1155VaultImplementation is
      *
      * Reverts:
      * - `InvalidSerialArraysLength()` if `serialArrays.length != ids.length`.
-     * - `InvalidSerialNumbersCount()` if the number of serials doesn’t match the amount for that token ID.
+     * - `InvalidSerialNumbersCount()` if the number of serials doesn't match the amount for that token ID.
      * - `InvalidSerialNumber()` if any serial is 0.
-     * - `SerialNumberAlreadyUsed()` if any serial is already owned.
      */
     function mintBatch(
         address to,
@@ -295,8 +290,8 @@ contract ERC1155VaultImplementation is
 
     /**
      * @notice Handles the removal of serials when a burn operation is detected.
-     * @dev    It removes the last serial numbers from the owner’s array.
-     *         - Reverts with `InsufficientSerialNumbers()` if the user doesn’t have enough serials.
+     * @dev    It removes the last serial numbers from the owner's array.
+     *         - Reverts with `InsufficientSerialNumbers()` if the user doesn't have enough serials.
      * @param from The address from which tokens are being burned.
      * @param ids The token IDs being burned.
      * @param values The amounts of each token ID being burned.
@@ -319,9 +314,8 @@ contract ERC1155VaultImplementation is
                 // Delete from storage
                 delete _serialOwners[serialNumber];
                 delete _serialToTokenId[serialNumber];
-                delete _tokenSerials[id][idx];
-
                 serials.pop();
+
                 unchecked {
                     ++j;
                 }
@@ -335,7 +329,7 @@ contract ERC1155VaultImplementation is
     /**
      * @notice Handles the transfer of serials when a transfer operation is detected.
      * @dev    It transfers the last serial numbers from the sender to the receiver.
-     *         - Reverts with `InsufficientSerialNumbers()` if the sender doesn’t have enough serials.
+     *         - Reverts with `InsufficientSerialNumbers()` if the sender doesn't have enough serials.
      * @param from The address sending the tokens.
      * @param to The address receiving the tokens.
      * @param ids The token IDs being transferred.
@@ -401,19 +395,13 @@ contract ERC1155VaultImplementation is
     }
 
     /**
-     * @notice Retrieves a specific serial number from `_tokenSerials[tokenId][index]`.
-     * @dev    Reverts if the serial number is zero.
-     * @param tokenId The token ID that owns the serial.
-     * @param index The index of the serial within that token ID’s serial mapping.
-     * @return The serial number found at the given index.
-     *
-     * Reverts:
-     * - `InvalidSerialNumber()` if the serial at that index is zero.
+     * @notice Retrieves all serial numbers owned by an address for a given token ID.
+     * @param owner The address whose serials to retrieve.
+     * @param tokenId The token ID to get serials for.
+     * @return An array of serial numbers owned by the address for the token ID.
      */
-    function getSerial(uint256 tokenId, uint256 index) external view returns (uint256) {
-        uint256 serial = _tokenSerials[tokenId][index];
-        if (serial == 0) revert InvalidSerialNumber();
-        return serial;
+    function getSerials(address owner, uint256 tokenId) external view returns (uint256[] memory) {
+        return _ownerTokenSerials[owner][tokenId];
     }
 
     /**
@@ -525,11 +513,9 @@ contract ERC1155VaultImplementation is
      * @return beaconAddress The address stored in the beacon slot.
      */
     function beacon() external view returns (address) {
-        // EIP-1967 beacon slot
-        bytes32 slot = 0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50;
         address beaconAddress;
         assembly {
-            beaconAddress := sload(slot)
+            beaconAddress := sload(BEACON_SLOT)
         }
         return beaconAddress;
     }
