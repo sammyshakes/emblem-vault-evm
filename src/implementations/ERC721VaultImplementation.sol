@@ -314,8 +314,6 @@ contract ERC721VaultImplementation is
      * @param data Data to include in the `TokenBurned` event.
      */
     function _burnSingle(uint256 internalTokenId, bytes memory data) internal {
-        address owner = ownerOf(internalTokenId);
-
         uint256 externalTokenId = _externalTokenIdMap[internalTokenId];
         delete _reverseTokenIdMap[externalTokenId];
         delete _externalTokenIdMap[internalTokenId];
