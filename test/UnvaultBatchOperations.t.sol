@@ -202,8 +202,14 @@ contract UnvaultBatchOperationsTest is Test {
 
         // Mint tokens
         vm.startPrank(user1);
+        // Create an array with a single NFT address repeated for each token
+        address[] memory nftAddresses = new address[](batchSize);
+        for (uint256 i = 0; i < batchSize; i++) {
+            nftAddresses[i] = nftCollection;
+        }
+
         EmblemVaultMintFacet.BatchBuyParams memory mintParams = EmblemVaultMintFacet.BatchBuyParams({
-            nftAddress: nftCollection,
+            nftAddresses: nftAddresses,
             payment: address(0),
             prices: prices,
             to: user1,
@@ -220,14 +226,14 @@ contract UnvaultBatchOperationsTest is Test {
         vm.stopPrank();
 
         // Prepare unvault parameters
-        address[] memory nftAddresses = new address[](batchSize);
+        address[] memory unvaultNftAddresses = new address[](batchSize);
         address[] memory payments = new address[](batchSize);
         uint256[] memory unvaultPrices = new uint256[](batchSize);
         uint256[] memory unvaultNonces = new uint256[](batchSize);
         bytes[] memory unvaultSignatures = new bytes[](batchSize);
 
         for (uint256 j = 0; j < batchSize; j++) {
-            nftAddresses[j] = nftCollection;
+            unvaultNftAddresses[j] = nftCollection;
             payments[j] = address(0);
             unvaultPrices[j] = basePrice;
             unvaultNonces[j] = batchSize + j + 1; // Use different nonces than mint
@@ -252,7 +258,7 @@ contract UnvaultBatchOperationsTest is Test {
 
         EmblemVaultUnvaultFacet.BatchUnvaultParams memory params = EmblemVaultUnvaultFacet
             .BatchUnvaultParams({
-            nftAddresses: nftAddresses,
+            nftAddresses: unvaultNftAddresses,
             tokenIds: tokenIds,
             nonces: unvaultNonces,
             payments: payments,

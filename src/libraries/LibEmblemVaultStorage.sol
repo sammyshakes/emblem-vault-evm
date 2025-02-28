@@ -19,6 +19,7 @@ library LibEmblemVaultStorage {
     error ZeroAddress();
     error AlreadyUnvaulted();
     error UnvaultingDisabled();
+    error SignatureExpired();
 
     struct ReentrancyGuard {
         bool entered;
