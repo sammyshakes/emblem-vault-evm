@@ -208,6 +208,9 @@ contract UnvaultBatchOperationsTest is Test {
             nftAddresses[i] = nftCollection;
         }
 
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
+
         EmblemVaultMintFacet.BatchBuyParams memory mintParams = EmblemVaultMintFacet.BatchBuyParams({
             nftAddresses: nftAddresses,
             payment: address(0),
@@ -217,7 +220,8 @@ contract UnvaultBatchOperationsTest is Test {
             nonces: nonces,
             signatures: signatures,
             serialNumbers: serialNumbers,
-            amounts: amounts
+            amounts: amounts,
+            timestamp: timestamp
         });
 
         EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: totalPrice}(
@@ -256,6 +260,9 @@ contract UnvaultBatchOperationsTest is Test {
         // Test batch unvault
         uint256 gasStart = gasleft();
 
+        // Use timestamp 0 for signature verification in tests
+        uint256 unvaultTimestamp = 0;
+
         EmblemVaultUnvaultFacet.BatchUnvaultParams memory params = EmblemVaultUnvaultFacet
             .BatchUnvaultParams({
             nftAddresses: unvaultNftAddresses,
@@ -263,7 +270,8 @@ contract UnvaultBatchOperationsTest is Test {
             nonces: unvaultNonces,
             payments: payments,
             prices: unvaultPrices,
-            signatures: unvaultSignatures
+            signatures: unvaultSignatures,
+            timestamp: unvaultTimestamp
         });
 
         EmblemVaultUnvaultFacet(address(diamond)).batchUnvaultWithSignedPrice{value: totalPrice}(
@@ -334,6 +342,9 @@ contract UnvaultBatchOperationsTest is Test {
             )
         );
 
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
+
         EmblemVaultUnvaultFacet.BatchUnvaultParams memory params = EmblemVaultUnvaultFacet
             .BatchUnvaultParams({
             nftAddresses: nftAddresses,
@@ -341,7 +352,8 @@ contract UnvaultBatchOperationsTest is Test {
             nonces: nonces,
             payments: payments,
             prices: prices,
-            signatures: signatures
+            signatures: signatures,
+            timestamp: timestamp
         });
 
         EmblemVaultUnvaultFacet(address(diamond)).batchUnvaultWithSignedPrice(params);
@@ -372,6 +384,7 @@ contract UnvaultBatchOperationsTest is Test {
             _nonce,
             _amount,
             serialNumbers,
+            0, // timestamp
             block.chainid
         );
 
@@ -405,6 +418,7 @@ contract UnvaultBatchOperationsTest is Test {
             _nonce,
             _amount,
             serialNumbers,
+            0, // timestamp
             block.chainid
         );
 

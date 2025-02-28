@@ -69,7 +69,8 @@ contract BatchMixedCollectionMintTest is DiamondVaultTest {
             nonces[0],
             amounts[0],
             witnessPrivateKey,
-            serialNumbers[0]
+            serialNumbers[0],
+            0 // timestamp
         );
 
         // Sign for ERC1155 Collection
@@ -82,10 +83,12 @@ contract BatchMixedCollectionMintTest is DiamondVaultTest {
             nonces[1],
             amounts[1],
             witnessPrivateKey,
-            serialNumbers[1]
+            serialNumbers[1],
+            0 // timestamp
         );
 
-        // Create batch buy params
+        // Create batch buy params with timestamp 0 for tests
+        uint256 timestamp = 0;
         EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
             nftAddresses: nftAddresses,
             payment: address(0), // ETH payment
@@ -95,7 +98,8 @@ contract BatchMixedCollectionMintTest is DiamondVaultTest {
             nonces: nonces,
             signatures: signatures,
             serialNumbers: serialNumbers,
-            amounts: amounts
+            amounts: amounts,
+            timestamp: timestamp
         });
 
         // Execute batch mint

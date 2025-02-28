@@ -25,6 +25,8 @@ contract TestMint is Script {
 
         // Call buyWithSignedPrice on the diamond
         // Use payment token from API for signature verification
+        // Use current timestamp for signature verification
+        uint256 timestamp = block.timestamp;
         EmblemVaultMintFacet(diamond).buyWithSignedPrice{value: price}(
             nftAddress,
             payment, // Use payment token from API
@@ -34,7 +36,8 @@ contract TestMint is Script {
             nonce,
             signature,
             serialNumbers,
-            amount
+            amount,
+            timestamp
         );
 
         vm.stopBroadcast();

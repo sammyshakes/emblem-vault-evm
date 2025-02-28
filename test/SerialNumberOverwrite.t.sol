@@ -35,11 +35,14 @@ contract SerialNumberOverwriteTest is DiamondVaultTest {
             3, // nonce
             2, // amount
             witnessPrivateKey,
-            serials1
+            serials1,
+            0 // timestamp
         );
 
         // User1 mints tokenId=1 with serials [100,200]
         vm.prank(user1);
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 0.1 ether}(
             erc1155Collection,
             address(0),
@@ -49,7 +52,8 @@ contract SerialNumberOverwriteTest is DiamondVaultTest {
             3, // nonce
             sig1,
             serials1,
-            2 // amount
+            2, // amount
+            timestamp
         );
 
         // Verify User1's initial state
@@ -79,11 +83,14 @@ contract SerialNumberOverwriteTest is DiamondVaultTest {
             4, // nonce
             2, // amount
             witnessPrivateKey,
-            serials2
+            serials2,
+            0 // timestamp
         );
 
         // User2 mints same tokenId=1 with different serials [300,400]
         vm.prank(user2);
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp2 = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 0.1 ether}(
             erc1155Collection,
             address(0),
@@ -93,7 +100,8 @@ contract SerialNumberOverwriteTest is DiamondVaultTest {
             4, // nonce
             sig2,
             serials2,
-            2 // amount
+            2, // amount
+            timestamp2
         );
 
         // Verify User1's serials are still intact
@@ -150,12 +158,14 @@ contract SerialNumberOverwriteTest is DiamondVaultTest {
         serials1[1] = 200;
 
         bytes memory sig1 = createSignature(
-            erc1155Collection, address(0), 0.1 ether, user1, 1, 3, 2, witnessPrivateKey, serials1
+            erc1155Collection, address(0), 0.1 ether, user1, 1, 3, 2, witnessPrivateKey, serials1, 0
         );
 
         vm.prank(user1);
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 0.1 ether}(
-            erc1155Collection, address(0), 0.1 ether, user1, 1, 3, sig1, serials1, 2
+            erc1155Collection, address(0), 0.1 ether, user1, 1, 3, sig1, serials1, 2, timestamp
         );
 
         // User1 approves diamond for unvaulting
@@ -214,12 +224,14 @@ contract SerialNumberOverwriteTest is DiamondVaultTest {
         serials2[1] = 400;
 
         bytes memory sig2 = createSignature(
-            erc1155Collection, address(0), 0.1 ether, user2, 1, 4, 2, witnessPrivateKey, serials2
+            erc1155Collection, address(0), 0.1 ether, user2, 1, 4, 2, witnessPrivateKey, serials2, 0
         );
 
         vm.prank(user2);
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp2 = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 0.1 ether}(
-            erc1155Collection, address(0), 0.1 ether, user2, 1, 4, sig2, serials2, 2
+            erc1155Collection, address(0), 0.1 ether, user2, 1, 4, sig2, serials2, 2, timestamp2
         );
 
         // Verify new serials are properly stored
@@ -242,12 +254,14 @@ contract SerialNumberOverwriteTest is DiamondVaultTest {
         serials1[1] = 200;
 
         bytes memory sig1 = createSignature(
-            erc1155Collection, address(0), 0.1 ether, user1, 1, 3, 2, witnessPrivateKey, serials1
+            erc1155Collection, address(0), 0.1 ether, user1, 1, 3, 2, witnessPrivateKey, serials1, 0
         );
 
         vm.prank(user1);
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 0.1 ether}(
-            erc1155Collection, address(0), 0.1 ether, user1, 1, 3, sig1, serials1, 2
+            erc1155Collection, address(0), 0.1 ether, user1, 1, 3, sig1, serials1, 2, timestamp
         );
 
         // User1 transfers one token to User2
@@ -260,12 +274,14 @@ contract SerialNumberOverwriteTest is DiamondVaultTest {
         serials2[1] = 400;
 
         bytes memory sig2 = createSignature(
-            erc1155Collection, address(0), 0.1 ether, user2, 1, 4, 2, witnessPrivateKey, serials2
+            erc1155Collection, address(0), 0.1 ether, user2, 1, 4, 2, witnessPrivateKey, serials2, 0
         );
 
         vm.prank(user2);
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp2 = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 0.1 ether}(
-            erc1155Collection, address(0), 0.1 ether, user2, 1, 4, sig2, serials2, 2
+            erc1155Collection, address(0), 0.1 ether, user2, 1, 4, sig2, serials2, 2, timestamp2
         );
 
         // Verify balances

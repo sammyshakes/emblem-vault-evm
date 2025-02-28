@@ -93,6 +93,9 @@ contract TestMintPriorityCollections is Script {
             witnessPrivateKey, openCollection, address(0), 0, deployer, 1000, 5, 1, emptySerials
         );
 
+        // Use current timestamp for signature verification
+        uint256 timestamp = block.timestamp;
+
         console.log("\n1. Minting Rare Pepe token");
         diamond.buyWithSignedPrice{value: 0}(
             pepeCollection,
@@ -103,13 +106,14 @@ contract TestMintPriorityCollections is Script {
             1, // nonce
             pepeSignature,
             pepeSerials, // Array of serial numbers
-            1 // amount
+            1, // amount
+            timestamp
         );
         console.log("Minted token 1 to:", deployer);
 
         console.log("\n2. Minting Spells of Genesis token");
         diamond.buyWithSignedPrice{value: 0}(
-            sogCollection, address(0), 0, deployer, 1000, 2, sogSignature, sogSerials, 1
+            sogCollection, address(0), 0, deployer, 1000, 2, sogSignature, sogSerials, 1, timestamp
         );
         console.log("Minted token 1 to:", deployer);
 
@@ -123,7 +127,8 @@ contract TestMintPriorityCollections is Script {
             3,
             fakeRaresSignature,
             fakeRaresSerials,
-            1
+            1,
+            timestamp
         );
         console.log("Minted token 1 to:", deployer);
 
@@ -132,13 +137,31 @@ contract TestMintPriorityCollections is Script {
 
         console.log("\n4. Minting EmBells token");
         diamond.buyWithSignedPrice{value: 0}(
-            embellsCollection, address(0), 0, deployer, 1000, 4, embellsSignature, emptySerials, 1
+            embellsCollection,
+            address(0),
+            0,
+            deployer,
+            1000,
+            4,
+            embellsSignature,
+            emptySerials,
+            1,
+            timestamp
         );
         console.log("Minted token to:", deployer);
 
         console.log("\n5. Minting Emblem Open token");
         diamond.buyWithSignedPrice{value: 0}(
-            openCollection, address(0), 0, deployer, 1000, 5, openSignature, emptySerials, 1
+            openCollection,
+            address(0),
+            0,
+            deployer,
+            1000,
+            5,
+            openSignature,
+            emptySerials,
+            1,
+            timestamp
         );
         console.log("Minted token to:", deployer);
 
@@ -183,7 +206,7 @@ contract TestMintPriorityCollections is Script {
     ) internal view returns (bytes memory) {
         // Generate hash using LibSignature
         bytes32 hash = LibSignature.getStandardSignatureHash(
-            nftAddress, payment, price, to, tokenId, nonce, amount, serialNumbers, block.chainid
+            nftAddress, payment, price, to, tokenId, nonce, amount, serialNumbers, 0, block.chainid
         );
 
         // Sign the hash
