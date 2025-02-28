@@ -68,6 +68,7 @@ contract BatchVaultOperationsTest is Test {
         bytes[] memory signatures = new bytes[](oversizedBatch);
         uint256[][] memory serialNumbers = new uint256[][](oversizedBatch);
         uint256[] memory amounts = new uint256[](oversizedBatch);
+        address[] memory nftCollections = new address[](oversizedBatch);
 
         // Fill arrays with test data
         uint256 totalPrice = 0;
@@ -96,8 +97,14 @@ contract BatchVaultOperationsTest is Test {
             abi.encodeWithSelector(LibErrors.BatchSizeExceeded.selector, oversizedBatch, maxSize)
         );
 
+        // Create an array with a single NFT address repeated for each token
+        address[] memory nftAddresses = new address[](oversizedBatch);
+        for (uint256 j = 0; j < oversizedBatch; j++) {
+            nftAddresses[j] = nftCollection;
+        }
+
         EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
-            nftAddress: nftCollection,
+            nftAddresses: nftAddresses,
             payment: address(0),
             prices: prices,
             to: user1,
@@ -264,8 +271,14 @@ contract BatchVaultOperationsTest is Test {
             vm.startPrank(user1);
             uint256 gasBatchStart = gasleft();
 
+            // Create an array with a single NFT address repeated for each token
+            address[] memory nftAddresses = new address[](batchSize);
+            for (uint256 j = 0; j < batchSize; j++) {
+                nftAddresses[j] = nftCollection;
+            }
+
             EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
-                nftAddress: nftCollection,
+                nftAddresses: nftAddresses,
                 payment: address(0),
                 prices: prices,
                 to: user1,

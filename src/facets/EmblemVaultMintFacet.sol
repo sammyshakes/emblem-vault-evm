@@ -95,17 +95,17 @@ contract EmblemVaultMintFacet {
 
     /// @notice Batch buy NFTs using signed prices
     /// @dev Allows users to mint multiple NFTs in a batch using signed prices
-    /// @param _nftAddress Address of the NFT contract
-    /// @param _payment Payment token address (address(0) for ETH)
-    /// @param _prices Array of prices per token
-    /// @param _to Recipient address
-    /// @param _tokenIds Array of token IDs to mint
-    /// @param _nonces Array of unique nonces for the transactions
-    /// @param _signatures Array of signatures for verification
-    /// @param _serialNumbers Array of serial numbers for ERC1155 tokens
-    /// @param _amounts Array of amounts to mint for each token
+    /// @param nftAddresses Array of NFT contract addresses
+    /// @param payment Payment token address (address(0) for ETH)
+    /// @param prices Array of prices per token
+    /// @param to Recipient address
+    /// @param tokenIds Array of token IDs to mint
+    /// @param nonces Array of unique nonces for the transactions
+    /// @param signatures Array of signatures for verification
+    /// @param serialNumbers Array of serial numbers for ERC1155 tokens
+    /// @param amounts Array of amounts to mint for each token
     struct BatchBuyParams {
-        address nftAddress;
+        address[] nftAddresses;
         address payment;
         uint256[] prices;
         address to;
@@ -176,17 +176,13 @@ contract EmblemVaultMintFacet {
     /// @dev Allows users to mint multiple NFTs in a batch using signed prices
     /// @param params BatchBuyParams struct containing all minting parameters
     /// @dev Reverts if any of the following conditions are not met:
-    /// - The collection is invalid
+    /// - Any collection is invalid
     /// - The batch size exceeds the maximum allowed
     /// - The array lengths do not match
     /// - The serial numbers count does not match the amount for ERC1155 tokens
     /// - The payment transfer fails
     /// - The mint operation fails
-    function batchBuyWithSignedPrice(BatchBuyParams calldata params)
-        external
-        payable
-        onlyValidCollection(params.nftAddress)
-    {
+    function batchBuyWithSignedPrice(BatchBuyParams calldata params) external payable {
         LibEmblemVaultStorage.nonReentrantBefore();
 
         // Ensure the recipient is the transaction sender
@@ -194,6 +190,7 @@ contract EmblemVaultMintFacet {
 
         // Check batch size limit and array lengths
         LibErrors.revertIfBatchSizeExceeded(params.tokenIds.length, MAX_BATCH_SIZE);
+        LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.nftAddresses.length);
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.prices.length);
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.nonces.length);
         LibErrors.revertIfLengthMismatch(params.tokenIds.length, params.signatures.length);
@@ -203,11 +200,18 @@ contract EmblemVaultMintFacet {
         uint256 totalTokens;
         uint256 totalPrice;
         LibEmblemVaultStorage.VaultStorage storage vs = LibEmblemVaultStorage.vaultStorage();
-
-        // Determine if the NFT is ERC1155 (do this once to save gas)
-        bool isERC1155 = LibInterfaceIds.isERC1155(params.nftAddress);
+        LibErrors.revertIfFactoryNotSet(vs.vaultFactory);
 
         for (uint256 i = 0; i < params.tokenIds.length; i++) {
+            // Validate collection
+            LibErrors.revertIfInvalidCollection(
+                params.nftAddresses[i],
+                IVaultCollectionFactory(vs.vaultFactory).isCollection(params.nftAddresses[i])
+            );
+
+            // Check if the NFT is ERC1155 for this specific token
+            bool isERC1155 = LibInterfaceIds.isERC1155(params.nftAddresses[i]);
+
             // If ERC1155, check that the serial numbers count matches the amount
             if (isERC1155 && params.serialNumbers[i].length != params.amounts[i]) {
                 revert LibErrors.InvalidSerialNumbersCount();
@@ -221,7 +225,7 @@ contract EmblemVaultMintFacet {
             LibEmblemVaultStorage.enforceNotUsedNonce(params.nonces[i]);
 
             address signer = LibSignature.verifyStandardSignature(
-                params.nftAddress,
+                params.nftAddresses[i],
                 params.payment,
                 params.prices[i],
                 params.to,
@@ -249,7 +253,7 @@ contract EmblemVaultMintFacet {
 
         require(
             _batchMintRouter(
-                params.nftAddress,
+                params.nftAddresses,
                 params.to,
                 params.tokenIds,
                 params.amounts,
@@ -337,7 +341,7 @@ contract EmblemVaultMintFacet {
 
     /// @notice Internal router function to handle batch minting based on token type
     /// @dev Routes to appropriate batch mint function based on whether token is ERC1155 or ERC721A
-    /// @param nftAddress Address of the NFT contract
+    /// @param nftAddresses Array of NFT contract addresses
     /// @param to Recipient address
     /// @param tokenIds Array of token IDs to mint
     /// @param amounts Array of amounts to mint for each token
@@ -345,23 +349,31 @@ contract EmblemVaultMintFacet {
     /// @param data Additional data for the mint operation
     /// @return bool True if batch mint was successful
     function _batchMintRouter(
-        address nftAddress,
+        address[] memory nftAddresses,
         address to,
         uint256[] memory tokenIds,
         uint256[] memory amounts,
         uint256[][] memory serialNumbers,
         bytes memory data
     ) private returns (bool) {
-        if (LibInterfaceIds.isERC1155(nftAddress)) {
-            uint256 len = tokenIds.length;
-            for (uint256 i = 0; i < len; i++) {
+        uint256 len = tokenIds.length;
+
+        // Process each token with its corresponding NFT address
+        for (uint256 i = 0; i < len; i++) {
+            address nftAddress = nftAddresses[i];
+
+            if (LibInterfaceIds.isERC1155(nftAddress)) {
+                // For ERC1155, mint each token individually
                 IERC1155(nftAddress).mintWithSerial(to, tokenIds[i], amounts[i], serialNumbers[i]);
+            } else if (LibInterfaceIds.isERC721A(nftAddress)) {
+                // For ERC721A, mint each token individually
+                IERC721AVault(nftAddress).mint(to, tokenIds[i]);
+            } else {
+                // Unknown token type
+                return false;
             }
-            return true;
-        } else if (LibInterfaceIds.isERC721A(nftAddress)) {
-            IERC721AVault(nftAddress).batchMintWithData(to, tokenIds, data);
-            return true;
         }
-        return false;
+
+        return true;
     }
 }

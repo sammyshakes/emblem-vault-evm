@@ -69,8 +69,14 @@ contract MintPaymentValidationTest is DiamondVaultTest {
         }
 
         // Create batch params
+        // Create an array with a single NFT address repeated for each token
+        address[] memory nftAddresses = new address[](2);
+        for (uint256 i = 0; i < 2; i++) {
+            nftAddresses[i] = nftCollection;
+        }
+
         EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
-            nftAddress: nftCollection,
+            nftAddresses: nftAddresses,
             payment: address(0),
             prices: prices,
             to: user1,
@@ -155,8 +161,14 @@ contract MintPaymentValidationTest is DiamondVaultTest {
         }
 
         // Create batch params
+        // Create an array with a single NFT address repeated for each token
+        address[] memory nftAddresses = new address[](2);
+        for (uint256 i = 0; i < 2; i++) {
+            nftAddresses[i] = nftCollection;
+        }
+
         EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
-            nftAddress: nftCollection,
+            nftAddresses: nftAddresses,
             payment: address(0),
             prices: prices,
             to: user1,
