@@ -50,7 +50,6 @@ contract EmblemVaultMintFacet {
     }
 
     // Constants for gas optimization
-    uint256 private constant PRICE_TOLERANCE_BPS = 200; // 2%
     uint256 public constant MAX_BATCH_SIZE = 45; // Maximum batch size to stay under 4M gas
 
     /// @notice Emitted when a token is successfully minted
