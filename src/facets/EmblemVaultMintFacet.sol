@@ -257,8 +257,7 @@ contract EmblemVaultMintFacet {
                 params.to,
                 params.tokenIds,
                 params.amounts,
-                params.serialNumbers,
-                ""
+                params.serialNumbers
             ),
             "Batch mint failed"
         );
@@ -346,15 +345,13 @@ contract EmblemVaultMintFacet {
     /// @param tokenIds Array of token IDs to mint
     /// @param amounts Array of amounts to mint for each token
     /// @param serialNumbers Array of serial numbers for ERC1155 tokens
-    /// @param data Additional data for the mint operation
     /// @return bool True if batch mint was successful
     function _batchMintRouter(
         address[] memory nftAddresses,
         address to,
         uint256[] memory tokenIds,
         uint256[] memory amounts,
-        uint256[][] memory serialNumbers,
-        bytes memory data
+        uint256[][] memory serialNumbers
     ) private returns (bool) {
         uint256 len = tokenIds.length;
 

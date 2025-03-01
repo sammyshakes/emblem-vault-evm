@@ -68,7 +68,6 @@ contract BatchVaultOperationsTest is Test {
         bytes[] memory signatures = new bytes[](oversizedBatch);
         uint256[][] memory serialNumbers = new uint256[][](oversizedBatch);
         uint256[] memory amounts = new uint256[](oversizedBatch);
-        address[] memory nftCollections = new address[](oversizedBatch);
 
         // Fill arrays with test data
         uint256 totalPrice = 0;
