@@ -257,8 +257,7 @@ contract EmblemVaultMintFacet {
                 params.to,
                 params.tokenIds,
                 params.amounts,
-                params.serialNumbers,
-                ""
+                params.serialNumbers
             ),
             "Batch mint failed"
         );
@@ -346,31 +345,111 @@ contract EmblemVaultMintFacet {
     /// @param tokenIds Array of token IDs to mint
     /// @param amounts Array of amounts to mint for each token
     /// @param serialNumbers Array of serial numbers for ERC1155 tokens
-    /// @param data Additional data for the mint operation
     /// @return bool True if batch mint was successful
     function _batchMintRouter(
         address[] memory nftAddresses,
         address to,
         uint256[] memory tokenIds,
         uint256[] memory amounts,
-        uint256[][] memory serialNumbers,
-        bytes memory data
+        uint256[][] memory serialNumbers
     ) private returns (bool) {
         uint256 len = tokenIds.length;
 
-        // Process each token with its corresponding NFT address
-        for (uint256 i = 0; i < len; i++) {
-            address nftAddress = nftAddresses[i];
+        // Track which tokens we've already processed
+        bool[] memory processed = new bool[](len);
 
-            if (LibInterfaceIds.isERC1155(nftAddress)) {
-                // For ERC1155, mint each token individually
-                IERC1155(nftAddress).mintWithSerial(to, tokenIds[i], amounts[i], serialNumbers[i]);
-            } else if (LibInterfaceIds.isERC721A(nftAddress)) {
-                // For ERC721A, mint each token individually
-                IERC721AVault(nftAddress).mint(to, tokenIds[i]);
-            } else {
-                // Unknown token type
-                return false;
+        // First, handle ERC721A tokens by grouping them by contract address
+        for (uint256 i = 0; i < len; i++) {
+            // Skip if already processed or not ERC721A
+            if (processed[i] || !LibInterfaceIds.isERC721A(nftAddresses[i])) {
+                continue;
+            }
+
+            address currentContract = nftAddresses[i];
+
+            // Count how many tokens we have for this contract
+            uint256 tokenCount = 0;
+            for (uint256 j = i; j < len; j++) {
+                if (nftAddresses[j] == currentContract && !processed[j]) {
+                    tokenCount++;
+                }
+            }
+
+            // If only one token, mint it individually
+            if (tokenCount == 1) {
+                IERC721AVault(currentContract).mint(to, tokenIds[i]);
+                processed[i] = true;
+                continue;
+            }
+
+            // Prepare array for batch minting
+            uint256[] memory externalTokenIds = new uint256[](tokenCount);
+
+            // Fill the array
+            uint256 index = 0;
+            for (uint256 j = i; j < len; j++) {
+                if (nftAddresses[j] == currentContract && !processed[j]) {
+                    externalTokenIds[index] = tokenIds[j];
+                    processed[j] = true;
+                    index++;
+                }
+            }
+
+            // Batch mint all tokens for this contract
+            IERC721AVault(currentContract).batchMint(to, externalTokenIds);
+        }
+
+        // Now handle ERC1155 tokens by grouping them by contract address
+        for (uint256 i = 0; i < len; i++) {
+            // Skip if already processed or not ERC1155
+            if (processed[i] || !LibInterfaceIds.isERC1155(nftAddresses[i])) {
+                continue;
+            }
+
+            address currentContract = nftAddresses[i];
+
+            // Count how many tokens we have for this contract
+            uint256 tokenCount = 0;
+            for (uint256 j = i; j < len; j++) {
+                if (nftAddresses[j] == currentContract && !processed[j]) {
+                    tokenCount++;
+                }
+            }
+
+            // If only one token, mint it individually
+            if (tokenCount == 1) {
+                IERC1155(currentContract).mintWithSerial(
+                    to, tokenIds[i], amounts[i], serialNumbers[i]
+                );
+                processed[i] = true;
+                continue;
+            }
+
+            // Prepare arrays for batch minting
+            uint256[] memory ids = new uint256[](tokenCount);
+            uint256[] memory batchAmounts = new uint256[](tokenCount);
+            uint256[][] memory batchSerialNumbers = new uint256[][](tokenCount);
+
+            // Fill the arrays
+            uint256 index = 0;
+            for (uint256 j = i; j < len; j++) {
+                if (nftAddresses[j] == currentContract && !processed[j]) {
+                    ids[index] = tokenIds[j];
+                    batchAmounts[index] = amounts[j];
+                    batchSerialNumbers[index] = serialNumbers[j];
+                    processed[j] = true;
+                    index++;
+                }
+            }
+
+            // Batch mint all tokens for this contract
+            IERC1155(currentContract).mintBatch(to, ids, batchAmounts, batchSerialNumbers);
+        }
+
+        // Check if any tokens were not processed (unknown type)
+        for (uint256 i = 0; i < len; i++) {
+            if (!processed[i]) {
+                return false; // Unknown token type
             }
         }
 
