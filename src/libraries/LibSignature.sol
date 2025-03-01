@@ -7,10 +7,9 @@ pragma solidity ^0.8.19;
 library LibSignature {
     // Custom errors
     error InvalidSignature();
-    error SignatureExpired();
     error StaleSignature();
 
-    /// @notice Struct to hold signature parameters to avoid stack too deep errors
+    /// @notice Struct to hold signature parameters
     struct SignatureParams {
         address nftAddress;
         address payment;
