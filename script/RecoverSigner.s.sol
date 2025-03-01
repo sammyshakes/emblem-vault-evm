@@ -31,6 +31,7 @@ contract RecoverSigner is Script {
             nonce,
             amount,
             serialNumbers,
+            0, // timestamp
             1 // mainnet chainId
         );
         address signer = LibSignature.recoverSigner(hash, signature);
@@ -53,6 +54,7 @@ contract RecoverSigner is Script {
             nonce,
             amount,
             serialNumbers,
+            0, // timestamp
             1 // mainnet chainId
         );
         address originalSigner = LibSignature.recoverSigner(originalHash, signature);

@@ -7,6 +7,21 @@ pragma solidity ^0.8.19;
 library LibSignature {
     // Custom errors
     error InvalidSignature();
+    error StaleSignature();
+
+    /// @notice Struct to hold signature parameters
+    struct SignatureParams {
+        address nftAddress;
+        address payment;
+        uint256 price;
+        address to;
+        uint256 tokenId;
+        uint256 nonce;
+        uint256 amount;
+        uint256[] serialNumbers;
+        uint256 timestamp;
+        uint256 chainId;
+    }
 
     // Half of secp256k1n (the curve order) - used for signature malleability check
     uint256 constant SECP256K1_N_DIV_2 =
@@ -54,19 +69,44 @@ library LibSignature {
         uint256 nonce,
         uint256 amount,
         uint256[] memory serialNumbers,
+        uint256 timestamp,
         uint256 chainId
     ) internal pure returns (bytes32) {
+        SignatureParams memory params = SignatureParams({
+            nftAddress: nftAddress,
+            payment: payment,
+            price: price,
+            to: to,
+            tokenId: tokenId,
+            nonce: nonce,
+            amount: amount,
+            serialNumbers: serialNumbers,
+            timestamp: timestamp,
+            chainId: chainId
+        });
+
+        return _getStandardSignatureHash(params);
+    }
+
+    /// @notice Internal implementation of getStandardSignatureHash using struct
+    /// @return Hash to be signed
+    function _getStandardSignatureHash(SignatureParams memory params)
+        private
+        pure
+        returns (bytes32)
+    {
         return keccak256(
             abi.encodePacked(
-                nftAddress,
-                payment,
-                price,
-                to,
-                tokenId,
-                nonce,
-                amount,
-                keccak256(abi.encodePacked(serialNumbers)),
-                chainId
+                params.nftAddress,
+                params.payment,
+                params.price,
+                params.to,
+                params.tokenId,
+                params.nonce,
+                params.amount,
+                keccak256(abi.encodePacked(params.serialNumbers)),
+                params.timestamp,
+                params.chainId
             )
         );
     }
@@ -82,20 +122,45 @@ library LibSignature {
         uint256 nonce,
         uint256 amount,
         uint256[] memory serialNumbers,
+        uint256 timestamp,
         uint256 chainId
     ) internal pure returns (bytes32) {
+        SignatureParams memory params = SignatureParams({
+            nftAddress: nftAddress,
+            payment: payment,
+            price: price,
+            to: to,
+            tokenId: tokenId,
+            nonce: nonce,
+            amount: amount,
+            serialNumbers: serialNumbers,
+            timestamp: timestamp,
+            chainId: chainId
+        });
+
+        return _getLockedSignatureHash(params);
+    }
+
+    /// @notice Internal implementation of getLockedSignatureHash using struct
+    /// @return Hash to be signed
+    function _getLockedSignatureHash(SignatureParams memory params)
+        private
+        pure
+        returns (bytes32)
+    {
         return keccak256(
             abi.encodePacked(
-                nftAddress,
-                payment,
-                price,
-                to,
-                tokenId,
-                nonce,
-                amount,
-                keccak256(abi.encodePacked(serialNumbers)),
+                params.nftAddress,
+                params.payment,
+                params.price,
+                params.to,
+                params.tokenId,
+                params.nonce,
+                params.amount,
+                keccak256(abi.encodePacked(params.serialNumbers)),
                 true,
-                chainId
+                params.timestamp,
+                params.chainId
             )
         );
     }
@@ -111,11 +176,24 @@ library LibSignature {
         uint256 nonce,
         uint256 amount,
         uint256[] memory serialNumbers,
+        uint256 timestamp,
         bytes memory signature,
         uint256 chainId
-    ) internal pure returns (address) {
+    ) internal view returns (address) {
+        // Check if the signature is stale (older than 5 minutes)
+        if (block.timestamp > timestamp + 5 minutes) revert StaleSignature();
+
         bytes32 hash = getStandardSignatureHash(
-            nftAddress, payment, price, to, tokenId, nonce, amount, serialNumbers, chainId
+            nftAddress,
+            payment,
+            price,
+            to,
+            tokenId,
+            nonce,
+            amount,
+            serialNumbers,
+            timestamp,
+            chainId
         );
         return recoverSigner(hash, signature);
     }
@@ -131,11 +209,24 @@ library LibSignature {
         uint256 nonce,
         uint256 amount,
         uint256[] memory serialNumbers,
+        uint256 timestamp,
         bytes memory signature,
         uint256 chainId
-    ) internal pure returns (address) {
+    ) internal view returns (address) {
+        // Check if the signature is stale (older than 5 minutes)
+        if (block.timestamp > timestamp + 5 minutes) revert StaleSignature();
+
         bytes32 hash = getLockedSignatureHash(
-            nftAddress, payment, price, to, tokenId, nonce, amount, serialNumbers, chainId
+            nftAddress,
+            payment,
+            price,
+            to,
+            tokenId,
+            nonce,
+            amount,
+            serialNumbers,
+            timestamp,
+            chainId
         );
         return recoverSigner(hash, signature);
     }

@@ -16,7 +16,8 @@ contract MintPaymentValidationTest is DiamondVaultTest {
             2, // nonce
             1, // amount
             witnessPrivateKey,
-            serialNumbers
+            serialNumbers,
+            0 // timestamp
         );
 
         // Try to mint with more ETH than required
@@ -24,8 +25,10 @@ contract MintPaymentValidationTest is DiamondVaultTest {
         vm.expectRevert(
             abi.encodeWithSelector(LibErrors.IncorrectPayment.selector, 2 ether, 1 ether)
         );
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 2 ether}(
-            nftCollection, address(0), 1 ether, user1, 2, 2, signature, serialNumbers, 1
+            nftCollection, address(0), 1 ether, user1, 2, 2, signature, serialNumbers, 1, timestamp
         );
         vm.stopPrank();
     }
@@ -64,7 +67,8 @@ contract MintPaymentValidationTest is DiamondVaultTest {
                 nonces[i],
                 amounts[i],
                 witnessPrivateKey,
-                serialNumbers[i]
+                serialNumbers[i],
+                0 // timestamp
             );
         }
 
@@ -75,6 +79,9 @@ contract MintPaymentValidationTest is DiamondVaultTest {
             nftAddresses[i] = nftCollection;
         }
 
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
+
         EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
             nftAddresses: nftAddresses,
             payment: address(0),
@@ -84,7 +91,8 @@ contract MintPaymentValidationTest is DiamondVaultTest {
             nonces: nonces,
             signatures: signatures,
             serialNumbers: serialNumbers,
-            amounts: amounts
+            amounts: amounts,
+            timestamp: timestamp
         });
 
         // Try to mint with more ETH than required (total price is 2 ether)
@@ -108,13 +116,16 @@ contract MintPaymentValidationTest is DiamondVaultTest {
             2, // nonce
             1, // amount
             witnessPrivateKey,
-            serialNumbers
+            serialNumbers,
+            0 // timestamp
         );
 
         // Mint with exact ETH amount
         vm.startPrank(user1);
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, user1, 2, 2, signature, serialNumbers, 1
+            nftCollection, address(0), 1 ether, user1, 2, 2, signature, serialNumbers, 1, timestamp
         );
         vm.stopPrank();
 
@@ -156,7 +167,8 @@ contract MintPaymentValidationTest is DiamondVaultTest {
                 nonces[i],
                 amounts[i],
                 witnessPrivateKey,
-                serialNumbers[i]
+                serialNumbers[i],
+                0 // timestamp
             );
         }
 
@@ -167,6 +179,9 @@ contract MintPaymentValidationTest is DiamondVaultTest {
             nftAddresses[i] = nftCollection;
         }
 
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
+
         EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
             nftAddresses: nftAddresses,
             payment: address(0),
@@ -176,7 +191,8 @@ contract MintPaymentValidationTest is DiamondVaultTest {
             nonces: nonces,
             signatures: signatures,
             serialNumbers: serialNumbers,
-            amounts: amounts
+            amounts: amounts,
+            timestamp: timestamp
         });
 
         // Mint with exact ETH amount

@@ -158,6 +158,8 @@ contract MintTestVaults is Script {
         );
 
         // Mint vault through Diamond
+        // Use current timestamp for signature verification
+        uint256 timestamp = block.timestamp;
         EmblemVaultMintFacet(diamond).buyWithSignedPrice(
             collection, // NFT address
             address(0), // Payment token (ETH)
@@ -167,7 +169,8 @@ contract MintTestVaults is Script {
             nonce, // Nonce
             signature, // Signature
             serialNumbers, // Empty serial numbers array
-            amount // Amount (1 for ERC721)
+            amount, // Amount (1 for ERC721)
+            timestamp
         );
 
         vm.stopBroadcast();
@@ -193,7 +196,7 @@ contract MintTestVaults is Script {
     ) internal view returns (bytes memory) {
         // Create message hash using LibSignature
         bytes32 messageHash = LibSignature.getStandardSignatureHash(
-            nftAddress, payment, price, to, tokenId, nonce, amount, serialNumbers, block.chainid
+            nftAddress, payment, price, to, tokenId, nonce, amount, serialNumbers, 0, block.chainid
         );
 
         // Sign message hash

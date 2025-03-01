@@ -291,6 +291,7 @@ contract DiamondVaultTest is Test {
             1, // nonce
             1, // amount
             new uint256[](0),
+            0, // timestamp
             block.chainid
         );
 
@@ -302,6 +303,10 @@ contract DiamondVaultTest is Test {
         // Mint token through diamond
         vm.deal(tokenHolder, 1 ether); // Ensure tokenHolder has enough ETH
         vm.startPrank(tokenHolder);
+        // Use timestamp close to current block.timestamp to avoid StaleSignature error
+        uint256 timestamp = block.timestamp > 1 ? block.timestamp - 1 : 0;
+        console.log("Current block.timestamp:", block.timestamp);
+        console.log("Using timestamp:", timestamp);
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
             nftCollection,
             address(0),
@@ -311,7 +316,8 @@ contract DiamondVaultTest is Test {
             1, // nonce
             signature,
             new uint256[](0), // no serial number
-            1 // amount
+            1, // amount
+            timestamp
         );
         vm.stopPrank();
     }
@@ -326,11 +332,12 @@ contract DiamondVaultTest is Test {
         uint256 _nonce,
         uint256 _amount,
         uint256 _privateKey,
-        uint256[] memory _serialNumbers
+        uint256[] memory _serialNumbers,
+        uint256 _timestamp
     ) internal view returns (bytes memory) {
         console.log("chainid: ", block.chainid);
 
-        // Use LibSignature to generate hash
+        // Use LibSignature to generate hash with timestamp
         bytes32 hash = LibSignature.getStandardSignatureHash(
             _nftAddress,
             _payment,
@@ -340,6 +347,7 @@ contract DiamondVaultTest is Test {
             _nonce,
             _amount,
             _serialNumbers,
+            _timestamp,
             block.chainid
         );
 
@@ -359,9 +367,10 @@ contract DiamondVaultTest is Test {
         uint256 _nonce,
         uint256 _amount,
         uint256 _privateKey,
-        uint256[] memory _serialNumbers
+        uint256[] memory _serialNumbers,
+        uint256 _timestamp
     ) internal view returns (bytes memory) {
-        // Use LibSignature to generate hash
+        // Use LibSignature to generate hash with timestamp
         bytes32 hash = LibSignature.getLockedSignatureHash(
             _nftAddress,
             _payment,
@@ -371,6 +380,7 @@ contract DiamondVaultTest is Test {
             _nonce,
             _amount,
             _serialNumbers,
+            _timestamp,
             block.chainid
         );
 

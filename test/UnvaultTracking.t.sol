@@ -29,14 +29,26 @@ contract UnvaultTrackingTest is DiamondVaultTest {
             2, // new nonce
             1,
             witnessPrivateKey,
-            new uint256[](0)
+            new uint256[](0),
+            0 // timestamp
         );
 
         // Mint token through diamond
         vm.deal(tokenHolder, 1 ether);
         vm.startPrank(tokenHolder);
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            2,
+            signature,
+            new uint256[](0),
+            1,
+            timestamp
         );
 
         // Approve diamond
@@ -68,14 +80,26 @@ contract UnvaultTrackingTest is DiamondVaultTest {
             2,
             1,
             witnessPrivateKey,
-            new uint256[](0)
+            new uint256[](0),
+            0 // timestamp
         );
 
         // Mint token through diamond
         vm.deal(tokenHolder, 1 ether);
         vm.startPrank(tokenHolder);
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            2,
+            signature,
+            new uint256[](0),
+            1,
+            timestamp
         );
 
         // Approve diamond to manage tokens
@@ -97,14 +121,26 @@ contract UnvaultTrackingTest is DiamondVaultTest {
             2,
             1,
             witnessPrivateKey,
-            new uint256[](0)
+            new uint256[](0),
+            0 // timestamp
         );
 
         // Mint token through diamond
         vm.deal(tokenHolder, 1 ether);
         vm.startPrank(tokenHolder);
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            2,
+            signature,
+            new uint256[](0),
+            1,
+            timestamp
         );
 
         // Approve for all to diamond
@@ -159,14 +195,26 @@ contract UnvaultTrackingTest is DiamondVaultTest {
             2,
             1,
             witnessPrivateKey,
-            new uint256[](0)
+            new uint256[](0),
+            0 // timestamp
         );
 
         // Mint token through diamond
         vm.deal(tokenHolder, 1 ether);
         vm.startPrank(tokenHolder);
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            2,
+            signature,
+            new uint256[](0),
+            1,
+            timestamp
         );
 
         // Approve diamond
@@ -210,6 +258,7 @@ contract UnvaultTrackingTest is DiamondVaultTest {
             100,
             1,
             serialNumbers,
+            0, // timestamp
             block.chainid
         );
 
@@ -221,8 +270,19 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         // Mint token through diamond
         vm.deal(tokenHolder, 1 ether);
         vm.startPrank(tokenHolder);
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            erc1155Collection, address(0), 1 ether, tokenHolder, 1, 100, signature, serialNumbers, 1
+            erc1155Collection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            1,
+            100,
+            signature,
+            serialNumbers,
+            1,
+            timestamp
         );
 
         // Approve diamond to burn tokens
@@ -269,14 +329,26 @@ contract UnvaultTrackingTest is DiamondVaultTest {
             2,
             1,
             witnessPrivateKey,
-            new uint256[](0)
+            new uint256[](0),
+            0 // timestamp
         );
 
         // Mint token through diamond
         vm.deal(tokenHolder, 1 ether);
         vm.startPrank(tokenHolder);
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            2,
+            signature,
+            new uint256[](0),
+            1,
+            timestamp
         );
 
         // Approve and transfer to diamond
@@ -286,14 +358,25 @@ contract UnvaultTrackingTest is DiamondVaultTest {
 
         // Create unvault signature
         bytes memory unvaultSignature = createSignature(
-            nftCollection, address(0), 1 ether, user1, 2, 3, 1, witnessPrivateKey, new uint256[](0)
+            nftCollection,
+            address(0),
+            1 ether,
+            user1,
+            2,
+            3,
+            1,
+            witnessPrivateKey,
+            new uint256[](0),
+            0 // timestamp
         );
 
         // Should revert when trying to unvault with signed price
         vm.startPrank(user1);
         vm.expectRevert(LibEmblemVaultStorage.UnvaultingDisabled.selector);
+        // Use timestamp 0 for signature verification in tests
+        uint256 unvaultTimestamp = 0;
         EmblemVaultUnvaultFacet(address(diamond)).unvaultWithSignedPrice{value: 1 ether}(
-            nftCollection, 2, 3, address(0), 1 ether, unvaultSignature
+            nftCollection, 2, 3, address(0), 1 ether, unvaultSignature, unvaultTimestamp
         );
         vm.stopPrank();
     }
@@ -309,14 +392,16 @@ contract UnvaultTrackingTest is DiamondVaultTest {
             2,
             1,
             witnessPrivateKey,
-            new uint256[](0)
+            new uint256[](0),
+            0 // timestamp
         );
 
         // Mint token through diamond
         vm.deal(tokenHolder, 2 ether); // Add extra ETH
         vm.startPrank(tokenHolder);
+        // Use current timestamp for signature verification
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
+            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1, 0
         );
 
         // Approve diamond
@@ -341,7 +426,8 @@ contract UnvaultTrackingTest is DiamondVaultTest {
             3,
             1,
             witnessPrivateKey,
-            new uint256[](0)
+            new uint256[](0),
+            0 // timestamp
         );
 
         // Verify balances before unvault
@@ -349,9 +435,10 @@ contract UnvaultTrackingTest is DiamondVaultTest {
 
         // Unvault with signed price
         vm.startPrank(tokenHolder);
-
+        // Use timestamp 0 for signature verification in tests
+        uint256 unvaultTimestamp = 0;
         EmblemVaultUnvaultFacet(address(diamond)).unvaultWithSignedPrice{value: 1 ether}(
-            nftCollection, 2, 3, address(0), 1 ether, unvaultSignature
+            nftCollection, 2, 3, address(0), 1 ether, unvaultSignature, unvaultTimestamp
         );
 
         // Verify balances after unvault
@@ -379,14 +466,26 @@ contract UnvaultTrackingTest is DiamondVaultTest {
             2,
             1,
             witnessPrivateKey,
-            new uint256[](0)
+            new uint256[](0),
+            0 // timestamp
         );
 
         // Mint token through diamond
         vm.deal(tokenHolder, 1 ether);
         vm.startPrank(tokenHolder);
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            2,
+            signature,
+            new uint256[](0),
+            1,
+            timestamp
         );
 
         // Try to burn directly - should fail
@@ -412,7 +511,7 @@ contract UnvaultTrackingTest is DiamondVaultTest {
         vm.stopPrank();
 
         // Create signature for minting
-        bytes32 hash = LibSignature.getStandardSignatureHash(
+        bytes memory signature = createSignature(
             nftCollection,
             address(0),
             1 ether,
@@ -420,20 +519,27 @@ contract UnvaultTrackingTest is DiamondVaultTest {
             2,
             2,
             1,
+            witnessPrivateKey,
             new uint256[](0),
-            block.chainid
+            0 // timestamp
         );
-
-        // Sign with witness private key
-        bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(witnessPrivateKey, prefixedHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
 
         // Mint token through diamond
         vm.deal(tokenHolder, 1 ether);
         vm.startPrank(tokenHolder);
+        // Use timestamp 0 for signature verification in tests
+        uint256 mintTimestamp = 0;
         EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
-            nftCollection, address(0), 1 ether, tokenHolder, 2, 2, signature, new uint256[](0), 1
+            nftCollection,
+            address(0),
+            1 ether,
+            tokenHolder,
+            2,
+            2,
+            signature,
+            new uint256[](0),
+            1,
+            mintTimestamp
         );
 
         // Approve diamond
@@ -464,12 +570,15 @@ contract UnvaultTrackingTest is DiamondVaultTest {
                 i,
                 1,
                 witnessPrivateKey,
-                new uint256[](0)
+                new uint256[](0),
+                0 // timestamp
             );
 
             // Mint token through diamond
             vm.deal(tokenHolder, 1 ether);
             vm.startPrank(tokenHolder);
+            // Use timestamp 0 for signature verification in tests
+            uint256 timestamp = 0;
             EmblemVaultMintFacet(address(diamond)).buyWithSignedPrice{value: 1 ether}(
                 nftCollection,
                 address(0),
@@ -479,7 +588,8 @@ contract UnvaultTrackingTest is DiamondVaultTest {
                 i,
                 signature,
                 new uint256[](0),
-                1
+                1,
+                timestamp
             );
 
             // Approve diamond

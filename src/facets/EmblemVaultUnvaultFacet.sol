@@ -85,6 +85,7 @@ contract EmblemVaultUnvaultFacet {
         address[] payments;
         uint256[] prices;
         bytes[] signatures;
+        uint256 timestamp;
     }
 
     modifier onlyValidCollection(address collection) {
@@ -191,6 +192,7 @@ contract EmblemVaultUnvaultFacet {
                     params.nonces[i],
                     1,
                     new uint256[](0),
+                    params.timestamp,
                     params.signatures[i],
                     block.chainid
                 );
@@ -204,6 +206,7 @@ contract EmblemVaultUnvaultFacet {
                     params.nonces[i],
                     1,
                     new uint256[](0),
+                    params.timestamp,
                     params.signatures[i],
                     block.chainid
                 );
@@ -256,6 +259,7 @@ contract EmblemVaultUnvaultFacet {
     /// @param _payment The payment token address (address(0) for ETH)
     /// @param _price The price to pay for the unvault
     /// @param _signature The signature for verification
+    /// @param _timestamp Timestamp when the signature was created
     /// @dev Reverts if:
     /// - The collection is invalid
     /// - The nonce has been used
@@ -268,7 +272,8 @@ contract EmblemVaultUnvaultFacet {
         uint256 _nonce,
         address _payment,
         uint256 _price,
-        bytes calldata _signature
+        bytes calldata _signature,
+        uint256 _timestamp
     ) external payable onlyValidCollection(_nftAddress) {
         LibEmblemVaultStorage.nonReentrantBefore();
 
@@ -289,6 +294,7 @@ contract EmblemVaultUnvaultFacet {
                 _nonce,
                 1,
                 new uint256[](0),
+                _timestamp,
                 _signature,
                 block.chainid
             );
@@ -302,6 +308,7 @@ contract EmblemVaultUnvaultFacet {
                 _nonce,
                 1,
                 new uint256[](0),
+                _timestamp,
                 _signature,
                 block.chainid
             );

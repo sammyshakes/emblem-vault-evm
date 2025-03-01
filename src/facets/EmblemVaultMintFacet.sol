@@ -81,6 +81,7 @@ contract EmblemVaultMintFacet {
     /// @param signature Signature for verification
     /// @param serialNumbers Serial numbers for ERC1155 tokens
     /// @param amount Number of tokens to mint
+    /// @param timestamp Timestamp when the signature was created
     struct MintParams {
         address nftAddress;
         address payment;
@@ -91,6 +92,7 @@ contract EmblemVaultMintFacet {
         bytes signature;
         uint256[] serialNumbers;
         uint256 amount;
+        uint256 timestamp;
     }
 
     /// @notice Batch buy NFTs using signed prices
@@ -104,6 +106,7 @@ contract EmblemVaultMintFacet {
     /// @param signatures Array of signatures for verification
     /// @param serialNumbers Array of serial numbers for ERC1155 tokens
     /// @param amounts Array of amounts to mint for each token
+    /// @param timestamp Timestamp when the signatures were created
     struct BatchBuyParams {
         address[] nftAddresses;
         address payment;
@@ -114,6 +117,7 @@ contract EmblemVaultMintFacet {
         bytes[] signatures;
         uint256[][] serialNumbers;
         uint256[] amounts;
+        uint256 timestamp;
     }
 
     /// @notice Modifier to ensure the collection is valid
@@ -139,6 +143,7 @@ contract EmblemVaultMintFacet {
     /// @param _signature Signature for verification
     /// @param _serialNumbers Serial numbers for ERC1155 tokens
     /// @param _amount Number of tokens to mint
+    /// @param _timestamp Timestamp when the signature was created
     function buyWithSignedPrice(
         address _nftAddress,
         address _payment,
@@ -148,7 +153,8 @@ contract EmblemVaultMintFacet {
         uint256 _nonce,
         bytes calldata _signature,
         uint256[] calldata _serialNumbers,
-        uint256 _amount
+        uint256 _amount,
+        uint256 _timestamp
     ) external payable onlyValidCollection(_nftAddress) {
         LibEmblemVaultStorage.nonReentrantBefore();
 
@@ -164,7 +170,8 @@ contract EmblemVaultMintFacet {
             nonce: _nonce,
             signature: _signature,
             serialNumbers: _serialNumbers,
-            amount: _amount
+            amount: _amount,
+            timestamp: _timestamp
         });
 
         _processMint(params);
@@ -233,6 +240,7 @@ contract EmblemVaultMintFacet {
                 params.nonces[i],
                 params.amounts[i],
                 params.serialNumbers[i],
+                params.timestamp,
                 params.signatures[i],
                 block.chainid
             );
@@ -298,6 +306,7 @@ contract EmblemVaultMintFacet {
             params.nonce,
             params.amount,
             params.serialNumbers,
+            params.timestamp,
             params.signature,
             block.chainid
         );

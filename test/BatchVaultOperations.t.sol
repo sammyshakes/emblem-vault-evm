@@ -102,6 +102,9 @@ contract BatchVaultOperationsTest is Test {
             nftAddresses[j] = nftCollection;
         }
 
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
+
         EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
             nftAddresses: nftAddresses,
             payment: address(0),
@@ -111,7 +114,8 @@ contract BatchVaultOperationsTest is Test {
             nonces: nonces,
             signatures: signatures,
             serialNumbers: serialNumbers,
-            amounts: amounts
+            amounts: amounts,
+            timestamp: timestamp
         });
 
         EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: totalPrice}(params);
@@ -276,6 +280,9 @@ contract BatchVaultOperationsTest is Test {
                 nftAddresses[j] = nftCollection;
             }
 
+            // Use timestamp 0 for signature verification in tests
+            uint256 timestamp = 0;
+
             EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
                 nftAddresses: nftAddresses,
                 payment: address(0),
@@ -285,7 +292,8 @@ contract BatchVaultOperationsTest is Test {
                 nonces: nonces,
                 signatures: signatures,
                 serialNumbers: serialNumbers,
-                amounts: amounts
+                amounts: amounts,
+                timestamp: timestamp
             });
 
             EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: totalPrice}(
@@ -336,6 +344,7 @@ contract BatchVaultOperationsTest is Test {
             _nonce,
             _amount,
             serialNumbers,
+            0, // timestamp
             block.chainid
         );
 
