@@ -55,6 +55,15 @@ contract BatchVaultOperationsTest is Test {
     // Test batch sizes to analyze (staying within limit)
     uint256[] batchSizes = [1, 5, 10, 20, 40];
 
+    // Storage variables for batch parameters to reduce stack usage
+    uint256[] s_prices;
+    uint256[] s_tokenIds;
+    uint256[] s_nonces;
+    bytes[] s_signatures;
+    uint256[][] s_serialNumbers;
+    uint256[] s_amounts;
+    address[] s_nftAddresses;
+
     // Test for batch size limit
     function testBatchSizeLimitEnforcement() public {
         uint256 basePrice = 0.1 ether;
@@ -241,67 +250,11 @@ contract BatchVaultOperationsTest is Test {
         for (uint256 i = 0; i < batchSizes.length; i++) {
             uint256 batchSize = batchSizes[i];
 
-            // Prepare batch parameters
-            uint256[] memory prices = new uint256[](batchSize);
-            uint256[] memory tokenIds = new uint256[](batchSize);
-            uint256[] memory nonces = new uint256[](batchSize);
-            bytes[] memory signatures = new bytes[](batchSize);
-            uint256[][] memory serialNumbers = new uint256[][](batchSize);
-            uint256[] memory amounts = new uint256[](batchSize);
+            // Prepare batch parameters and get total price
+            uint256 totalPrice = prepareBatchParameters(batchSize, basePrice, i);
 
-            // Fill arrays with test data
-            uint256 totalPrice = 0;
-            for (uint256 j = 0; j < batchSize; j++) {
-                prices[j] = basePrice;
-                tokenIds[j] = (i * 1000) + j + 1; // Unique token ID for each operation across all batch sizes
-                nonces[j] = (i * 1000) + j + 1; // Unique nonce for each operation across all batch sizes
-                amounts[j] = 1;
-                signatures[j] = createSignature(
-                    nftCollection,
-                    address(0),
-                    basePrice,
-                    user1,
-                    tokenIds[j],
-                    nonces[j],
-                    amounts[j],
-                    witnessPrivateKey
-                );
-                serialNumbers[j] = new uint256[](0);
-                totalPrice += basePrice;
-            }
-
-            // Test batch minting
-            vm.startPrank(user1);
-            uint256 gasBatchStart = gasleft();
-
-            // Create an array with a single NFT address repeated for each token
-            address[] memory nftAddresses = new address[](batchSize);
-            for (uint256 j = 0; j < batchSize; j++) {
-                nftAddresses[j] = nftCollection;
-            }
-
-            // Use timestamp 0 for signature verification in tests
-            uint256 timestamp = 0;
-
-            EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
-                nftAddresses: nftAddresses,
-                payment: address(0),
-                prices: prices,
-                to: user1,
-                tokenIds: tokenIds,
-                nonces: nonces,
-                signatures: signatures,
-                serialNumbers: serialNumbers,
-                amounts: amounts,
-                timestamp: timestamp
-            });
-
-            EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: totalPrice}(
-                params
-            );
-
-            uint256 gasBatchUsed = gasBatchStart - gasleft();
-            vm.stopPrank();
+            // Execute batch mint and measure gas
+            uint256 gasBatchUsed = executeBatchMint(batchSize, totalPrice);
 
             // Log results
             emit log_named_uint(
@@ -318,6 +271,77 @@ contract BatchVaultOperationsTest is Test {
             // Reset state for next test
             vm.roll(block.number + 1);
         }
+    }
+
+    // Helper function to prepare batch parameters
+    function prepareBatchParameters(uint256 batchSize, uint256 basePrice, uint256 batchIndex)
+        private
+        returns (uint256 totalPrice)
+    {
+        // Initialize arrays in storage
+        s_prices = new uint256[](batchSize);
+        s_tokenIds = new uint256[](batchSize);
+        s_nonces = new uint256[](batchSize);
+        s_signatures = new bytes[](batchSize);
+        s_serialNumbers = new uint256[][](batchSize);
+        s_amounts = new uint256[](batchSize);
+        s_nftAddresses = new address[](batchSize);
+
+        // Fill arrays with test data
+        totalPrice = 0;
+        for (uint256 j = 0; j < batchSize; j++) {
+            s_prices[j] = basePrice;
+            s_tokenIds[j] = (batchIndex * 1000) + j + 1; // Unique token ID for each operation across all batch sizes
+            s_nonces[j] = (batchIndex * 1000) + j + 1; // Unique nonce for each operation across all batch sizes
+            s_amounts[j] = 1;
+            s_signatures[j] = createSignature(
+                nftCollection,
+                address(0),
+                basePrice,
+                user1,
+                s_tokenIds[j],
+                s_nonces[j],
+                s_amounts[j],
+                witnessPrivateKey
+            );
+            s_serialNumbers[j] = new uint256[](0);
+            s_nftAddresses[j] = nftCollection;
+            totalPrice += basePrice;
+        }
+
+        return totalPrice;
+    }
+
+    // Helper function to execute batch mint and measure gas
+    function executeBatchMint(uint256 batchSize, uint256 totalPrice)
+        private
+        returns (uint256 gasBatchUsed)
+    {
+        vm.startPrank(user1);
+        uint256 gasBatchStart = gasleft();
+
+        // Use timestamp 0 for signature verification in tests
+        uint256 timestamp = 0;
+
+        EmblemVaultMintFacet.BatchBuyParams memory params = EmblemVaultMintFacet.BatchBuyParams({
+            nftAddresses: s_nftAddresses,
+            payment: address(0),
+            prices: s_prices,
+            to: user1,
+            tokenIds: s_tokenIds,
+            nonces: s_nonces,
+            signatures: s_signatures,
+            serialNumbers: s_serialNumbers,
+            amounts: s_amounts,
+            timestamp: timestamp
+        });
+
+        EmblemVaultMintFacet(address(diamond)).batchBuyWithSignedPrice{value: totalPrice}(params);
+
+        gasBatchUsed = gasBatchStart - gasleft();
+        vm.stopPrank();
+
+        return gasBatchUsed;
     }
 
     // Helper function to create signature
