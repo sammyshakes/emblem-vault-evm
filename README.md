@@ -12,40 +12,6 @@ A modular and upgradeable vault system built on the EIP-2535 Diamond Standard, a
 - **Witness System**: Secure minting through verified signatures
 - **Gas Optimized**: Efficient proxy patterns and storage
 
-## Deployed Addresses
-
-### Ethereum Mainnet
-
-- **Diamond:** `0x12F084DE536F41bcd29Dfc7632Db0261CEC72C60`
-- **ERC721 Implementation:** `0xb4EcC165e3588DC33082fb658Bd166DB9889a848`
-- **ERC1155 Implementation:** `0xD35A23C5CFf0fe663F4357218c2B9b104399B659`
-
-### Base Mainnet
-
-- **Diamond:** `0x12F084DE536F41bcd29Dfc7632Db0261CEC72C60`
-- **ERC721 Implementation:** `0x15086dd99D696AA6b0A036424Fb6Ad4923508a94`
-- **ERC1155 Implementation:** `0xD35A23C5CFf0fe663F4357218c2B9b104399B659`
-
-### MerlinChain Mainnet
-
-- **Diamond:** `0x12F084DE536F41bcd29Dfc7632Db0261CEC72C60`
-- **ERC721 Implementation:** `0x15086dd99d696aa6b0a036424fb6ad4923508a94`
-- **ERC1155 Implementation:** `0xD35A23C5CFf0fe663F4357218c2B9b104399B659`
-
-### Arbitrum One Mainnet
-
-- **Diamond:** `0x5657a10c1AAe46Ae383342d7516290B4FecD9295`
-- **ERC721 Implementation:** `0xb1E84323091755162bAe7142B4126A3334B140db`
-- **ERC1155 Implementation:** `0xEB29df0b1E446E29845571cF3Abdd8c27444A1b7`
-
-### Latest Upgrades
-
-#### January 29, 2025 - Chain ID Verification
-
-- Added chainId verification to prevent cross-chain replay attacks
-- Upgraded MintFacet and UnvaultFacet with new signature verification
-- Transaction: `0xbcc0487a3f44bbe98f6f36a0d4e135aee7b4834fd7506f5d691b9d649ef8fc0c`
-
 ## Quick Start
 
 1. Install dependencies:
