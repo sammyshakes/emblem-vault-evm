@@ -20,7 +20,7 @@ forge script CreatePriorityCollections -vvvv --rpc-url base_mainnet --broadcast 
 
 ### Core Diamond System
 
-- Diamond: `0x12F084DE536F41bcd29Dfc7632Db0261CEC72C60`
+- Diamond: `0xF04a4B0CE209aF4017648Fa93D2bB348eCb116d6`
 - DiamondCutFacet: `0x4774d3b39993a6Bf414DF7bA3AF12d229d73fe39`
 - DiamondLoupeFacet: `0x50197F900Fed0E25Ccfc7Cc0c38354B2193572aB`
 - OwnershipFacet: `0x9f8c10D32B4db3BEceEA1Fe0B3b91F43ab26d733`
