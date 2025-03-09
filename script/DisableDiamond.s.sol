@@ -14,7 +14,7 @@ interface IDiamondLoupe {
     function facets() external view returns (Facet[] memory facets_);
 }
 
-contract DisableDiamondScript is Script {
+contract DisableDiamond is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
@@ -29,11 +29,19 @@ contract DisableDiamondScript is Script {
         // We need to keep DiamondCutFacet to be able to add facets back if needed
         IDiamondCut.FacetCut[] memory cut = new IDiamondCut.FacetCut[](facets.length - 1);
 
+        console2.log("Removing %d facets from diamond at %s", facets.length - 1, diamondAddress);
+
         uint256 cutIndex = 0;
         for (uint256 i = 0; i < facets.length; i++) {
             // Skip DiamondCutFacet
             bytes4[] memory selectors = facets[i].functionSelectors;
             bool isDiamondCutFacet = false;
+
+            console2.log("Facet %d: %s", i, facets[i].facetAddress);
+            console2.log("Function Selectors:");
+            for (uint256 j = 0; j < selectors.length; j++) {
+                console2.log("  - 0x%x", uint32(bytes4(selectors[j])));
+            }
 
             // Check if this facet contains the diamondCut function selector
             for (uint256 j = 0; j < selectors.length; j++) {
@@ -42,6 +50,8 @@ contract DisableDiamondScript is Script {
                     break;
                 }
             }
+
+            console.log("Is DiamondCutFacet: %s", isDiamondCutFacet ? "true" : "false");
 
             if (!isDiamondCutFacet) {
                 cut[cutIndex] = IDiamondCut.FacetCut({

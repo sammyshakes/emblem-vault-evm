@@ -35,7 +35,7 @@ contract UpgradeDiamondFacets is Script {
             if (_strEquals(facetName, "MintFacet")) {
                 totalCuts += 2; // Remove old + Add new
             } else if (_strEquals(facetName, "UnvaultFacet")) {
-                totalCuts += 1; // Replace (no function signature changes)
+                totalCuts += 3; // Remove changed functions + Replace unchanged + Add new functions
             } else if (_strEquals(facetName, "CoreFacet")) {
                 totalCuts += 1; // Replace (no function signature changes)
             }
@@ -53,20 +53,22 @@ contract UpgradeDiamondFacets is Script {
             if (_strEquals(facetName, "MintFacet")) {
                 EmblemVaultMintFacet newFacet = new EmblemVaultMintFacet();
 
-                // First remove old functions with bytes parameter
+                // First remove old functions
                 bytes4[] memory oldSelectors = new bytes4[](2);
-                // Use hardcoded selectors for the old functions that we calculated with cast sig
-                oldSelectors[0] = 0xebc7fd7c; // buyWithSignedPrice with bytes parameter
-                oldSelectors[1] = 0xa016e28e; // batchBuyWithSignedPrice with bytes[] parameter
+
+                // Using the selectors from the cast sig commands
+                oldSelectors[0] = 0xf9d07f9a; // buyWithSignedPrice without timestamp
+                oldSelectors[1] = 0xaf5e2738; // batchBuyWithSignedPrice with single nftAddress
+
                 cut[cutIndex++] = IDiamondCut.FacetCut({
                     facetAddress: address(0),
                     action: IDiamondCut.FacetCutAction.Remove,
                     functionSelectors: oldSelectors
                 });
 
-                // Then add new functions with uint256[] parameter
+                // Then add new functions with timestamp parameter and nftAddresses array
                 bytes4[] memory newSelectors = new bytes4[](2);
-                // Use the selectors from the contract for the new functions, like in the deploy script
+                // Use the selectors from the contract for the new functions
                 newSelectors[0] = EmblemVaultMintFacet.buyWithSignedPrice.selector;
                 newSelectors[1] = EmblemVaultMintFacet.batchBuyWithSignedPrice.selector;
                 cut[cutIndex++] = _createAddCut(address(newFacet), newSelectors);
@@ -75,18 +77,32 @@ contract UpgradeDiamondFacets is Script {
             } else if (_strEquals(facetName, "UnvaultFacet")) {
                 EmblemVaultUnvaultFacet newFacet = new EmblemVaultUnvaultFacet();
 
-                // Replace all functions (no signature changes)
-                bytes4[] memory selectors = new bytes4[](9);
-                selectors[0] = EmblemVaultUnvaultFacet.unvault.selector;
-                selectors[1] = EmblemVaultUnvaultFacet.unvaultWithSignedPrice.selector;
-                selectors[2] = EmblemVaultUnvaultFacet.setUnvaultingEnabled.selector;
-                selectors[3] = EmblemVaultUnvaultFacet.setBurnAddress.selector;
-                selectors[4] = EmblemVaultUnvaultFacet.isTokenUnvaulted.selector;
-                selectors[5] = EmblemVaultUnvaultFacet.getTokenUnvaulter.selector;
-                selectors[6] = EmblemVaultUnvaultFacet.getCollectionUnvaultCount.selector;
-                selectors[7] = EmblemVaultUnvaultFacet.getUnvaultVersion.selector;
-                selectors[8] = EmblemVaultUnvaultFacet.batchUnvaultWithSignedPrice.selector;
-                cut[cutIndex++] = _createReplaceCut(address(newFacet), selectors);
+                // 1. First remove functions with changed signatures
+                bytes4[] memory oldSelectors = new bytes4[](2);
+                oldSelectors[0] = 0xbceeecc5; // unvaultWithSignedPrice without timestamp
+                oldSelectors[1] = 0xbb439487; // batchUnvaultWithSignedPrice without timestamp
+                cut[cutIndex++] = IDiamondCut.FacetCut({
+                    facetAddress: address(0),
+                    action: IDiamondCut.FacetCutAction.Remove,
+                    functionSelectors: oldSelectors
+                });
+
+                // 2. Replace unchanged functions
+                bytes4[] memory unchangedSelectors = new bytes4[](7);
+                unchangedSelectors[0] = EmblemVaultUnvaultFacet.unvault.selector;
+                unchangedSelectors[1] = EmblemVaultUnvaultFacet.setUnvaultingEnabled.selector;
+                unchangedSelectors[2] = EmblemVaultUnvaultFacet.setBurnAddress.selector;
+                unchangedSelectors[3] = EmblemVaultUnvaultFacet.isTokenUnvaulted.selector;
+                unchangedSelectors[4] = EmblemVaultUnvaultFacet.getTokenUnvaulter.selector;
+                unchangedSelectors[5] = EmblemVaultUnvaultFacet.getCollectionUnvaultCount.selector;
+                unchangedSelectors[6] = EmblemVaultUnvaultFacet.getUnvaultVersion.selector;
+                cut[cutIndex++] = _createReplaceCut(address(newFacet), unchangedSelectors);
+
+                // 3. Add new functions with changed signatures
+                bytes4[] memory changedSelectors = new bytes4[](2);
+                changedSelectors[0] = EmblemVaultUnvaultFacet.unvaultWithSignedPrice.selector; // New signature with timestamp
+                changedSelectors[1] = EmblemVaultUnvaultFacet.batchUnvaultWithSignedPrice.selector; // New signature with timestamp
+                cut[cutIndex++] = _createAddCut(address(newFacet), changedSelectors);
 
                 emit FacetUpgraded("UnvaultFacet", address(newFacet));
             } else if (_strEquals(facetName, "CoreFacet")) {

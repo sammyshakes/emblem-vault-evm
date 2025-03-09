@@ -18,12 +18,31 @@ contract GenerateSignature is Script {
         uint256 tokenId = vm.envUint("TOKEN_ID");
         uint256 nonce = block.timestamp; // Using timestamp as nonce for testing
         uint256 amount = 1;
+        uint256 timestamp = block.timestamp;
+        uint256[] memory serialNumbers = new uint256[](1);
+        serialNumbers[0] = 12_345; // Example serial number
+        // uint256[] memory serialNumbers = new uint256[](0); // Empty array for non-ERC1155
 
         // Generate signature hash
         // Include chainId in signature hash for cross-chain replay protection
         uint256 chainId = block.chainid;
+        // Hash serial numbers array
+        bytes32 serialNumbersHash = keccak256(abi.encodePacked(serialNumbers));
+
+        // Generate signature hash
         bytes32 hash = keccak256(
-            abi.encodePacked(nftAddress, payment, price, to, tokenId, nonce, amount, chainId)
+            abi.encodePacked(
+                nftAddress,
+                payment,
+                price,
+                to,
+                tokenId,
+                nonce,
+                amount,
+                chainId,
+                timestamp,
+                serialNumbersHash
+            )
         );
 
         // Add Ethereum signed message prefix
@@ -46,6 +65,17 @@ contract GenerateSignature is Script {
         console.log("Token ID:", tokenId);
         console.log("Nonce:", nonce);
         console.log("Amount:", amount);
+        console.log("Timestamp:", timestamp);
+        if (serialNumbers.length > 0) {
+            console.log("Raw Serial Numbers:");
+            for (uint256 i = 0; i < serialNumbers.length; i++) {
+                console.log("  - ", serialNumbers[i]);
+            }
+            console.log("Hashed Serial Numbers:", vm.toString(serialNumbersHash));
+        } else {
+            console.log("Serial Numbers: []");
+            console.log("Hashed Serial Numbers:", vm.toString(serialNumbersHash));
+        }
 
         console.log("\nSignature Details:");
         console.log("Message Hash:", vm.toString(hash));
@@ -72,7 +102,13 @@ contract GenerateSignature is Script {
         console.log("  nonce: ", nonce, ",");
         console.log("  signature: '", vm.toString(signature), "',");
         console.log("  amount: ", amount, ",");
-        console.log("  chainId: ", chainId);
+        console.log("  chainId: ", chainId, ",");
+        console.log("  timestamp: ", timestamp, ",");
+        console.log("  serialNumbers: [");
+        for (uint256 i = 0; i < serialNumbers.length; i++) {
+            console.log("    ", serialNumbers[i], i < serialNumbers.length - 1 ? "," : "");
+        }
+        console.log("  ]");
         console.log("}");
     }
 }

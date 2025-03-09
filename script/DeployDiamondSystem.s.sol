@@ -190,14 +190,14 @@ contract DeployDiamondSystem is Script {
         // Log deployment summary
         console.log("\nDiamond System Deployment Summary:");
         console.log("--------------------------------");
-        console.log("Diamond:", address(diamond));
-        console.log("DiamondCutFacet:", address(diamondCutFacet));
-        console.log("DiamondLoupeFacet:", address(diamondLoupeFacet));
-        console.log("OwnershipFacet:", address(ownershipFacet));
-        console.log("VaultCoreFacet:", address(vaultCoreFacet));
-        console.log("UnvaultFacet:", address(unvaultFacet));
-        console.log("MintFacet:", address(mintFacet));
-        console.log("CollectionFacet:", address(collectionFacet));
-        console.log("InitFacet:", address(initFacet));
+        console.log("DIAMOND_ADDRESS=", address(diamond));
+        console.log("DIAMOND_CUT_FACET=", address(diamondCutFacet));
+        console.log("DIAMOND_LOUPE_FACET=", address(diamondLoupeFacet));
+        console.log("OWNERSHIP_FACET=", address(ownershipFacet));
+        console.log("CORE_FACET=", address(vaultCoreFacet));
+        console.log("UNVAULT_FACET=", address(unvaultFacet));
+        console.log("MINT_FACET=", address(mintFacet));
+        console.log("COLLECTION_FACET=", address(collectionFacet));
+        console.log("INIT_FACET=", address(initFacet));
     }
 }
