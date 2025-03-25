@@ -1,0 +1,39 @@
+{
+  "name": "emblem-vault-diamond",
+  "version": "1.0.0",
+  "description": "Emblem Vault Diamond implementation with Hardhat support",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:merlin": "hardhat run scripts/deploy-merlin.js --network merlin",
+    "verify:merlin": "hardhat run scripts/verify-merlin.js --network merlin"
+  },
+  "keywords": [
+    "ethereum",
+    "solidity",
+    "hardhat",
+    "foundry",
+    "emblem",
+    "vault",
+    "diamond"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.0",
+    "@nomicfoundation/hardhat-foundry": "^1.1.1",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
+    "@typechain/ethers-v6": "^0.5.0",
+    "@typechain/hardhat": "^9.0.0",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.7.1",
+    "hardhat": "^2.18.0",
+    "hardhat-deploy": "^0.11.43",
+    "hardhat-gas-reporter": "^1.0.9",
+    "solidity-coverage": "^0.8.5",
+    "ts-node": "^10.9.1",
+    "typechain": "^8.3.1",
+    "typescript": "^5.2.2"
+  }
+}

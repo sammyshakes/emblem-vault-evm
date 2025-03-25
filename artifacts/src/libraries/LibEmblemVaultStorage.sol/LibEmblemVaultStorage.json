@@ -1,0 +1,56 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "LibEmblemVaultStorage",
+  "sourceName": "src/libraries/LibEmblemVaultStorage.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "AlreadyInitialized",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AlreadyUnvaulted",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CollectionOwnerNotSet",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NonceAlreadyUsed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotInitialized",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotWitness",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ReentrantCall",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UnvaultingDisabled",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroAddress",
+      "type": "error"
+    }
+  ],
+  "bytecode": "0x6080806040523460175760399081601c823930815050f35b5f80fdfe5f80fdfea26469706673582212201759217e7d56241774e95fc9ffb04a6e5ed682d2ade1826f30d0b3f5b618949a64736f6c634300081c0033",
+  "deployedBytecode": "0x5f80fdfea26469706673582212201759217e7d56241774e95fc9ffb04a6e5ed682d2ade1826f30d0b3f5b618949a64736f6c634300081c0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

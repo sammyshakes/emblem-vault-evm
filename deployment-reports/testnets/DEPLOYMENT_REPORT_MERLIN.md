@@ -10,6 +10,8 @@ forge script DeployDiamondSystem -vvvv --rpc-url merlin_testnet --verifier block
 forge script DeployVaultImplementations -vvvv --rpc-url merlin_testnet --verifier blockscout --verifier-url https://scan.merlinchain.io/api/ --legacy --broadcast
 ```
 
+--verifier-url https://testnet-scan.merlinchain.io/api/
+
 ## Deployed Contracts
 
 ### Core Diamond System

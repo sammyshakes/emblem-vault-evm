@@ -49,6 +49,7 @@ contract CreatePriorityCollections is Script {
     uint256 constant ARBITRUM_MAINNET = 42_161;
     uint256 constant APECHAIN_MAINNET = 33_139;
 
+    uint256 constant SEPOLIA = 11_155_111;
     uint256 constant ABSTRACT_TESTNET = 11_124;
     uint256 constant BASE_TESTNET = 84_532;
     uint256 constant MERLIN_TESTNET = 686_868;
@@ -74,6 +75,7 @@ contract CreatePriorityCollections is Script {
         if (chainId == MERLIN_TESTNET) return "Merlin Testnet";
         if (chainId == ARBITRUM_TESTNET) return "Arbitrum Sepolia";
         if (chainId == APECHAIN_TESTNET) return "Apechain Curtis";
+        if (chainId == SEPOLIA) return "Ethereum Sepolia";
         return "Unknown Chain";
     }
 
@@ -82,7 +84,7 @@ contract CreatePriorityCollections is Script {
         return chainId == ABSTRACT_MAINNET || chainId == BASE_MAINNET || chainId == MERLIN_MAINNET
             || chainId == ARBITRUM_MAINNET || chainId == APECHAIN_MAINNET || chainId == ABSTRACT_TESTNET
             || chainId == BASE_TESTNET || chainId == MERLIN_TESTNET || chainId == ARBITRUM_TESTNET
-            || chainId == APECHAIN_TESTNET;
+            || chainId == APECHAIN_TESTNET || chainId == SEPOLIA;
     }
 
     function run() external {

@@ -16,36 +16,31 @@ contract GenerateSignature is Script {
         uint256 price = 0; // 0.00000000 ETH for testing
         address to = vm.envAddress("RECIPIENT_ADDRESS");
         uint256 tokenId = vm.envUint("TOKEN_ID");
-        uint256 nonce = block.timestamp; // Using timestamp as nonce for testing
+        uint256 nonce = 1; // Using timestamp as nonce for testing
         uint256 amount = 1;
-        uint256 timestamp = block.timestamp;
+        uint256 timestamp = 1_741_825_629;
         uint256[] memory serialNumbers = new uint256[](1);
-        serialNumbers[0] = 12_345; // Example serial number
+        serialNumbers[0] = 111; // Example serial number
         // uint256[] memory serialNumbers = new uint256[](0); // Empty array for non-ERC1155
 
-        // Generate signature hash
         // Include chainId in signature hash for cross-chain replay protection
-        uint256 chainId = block.chainid;
-        // Hash serial numbers array
-        bytes32 serialNumbersHash = keccak256(abi.encodePacked(serialNumbers));
+        uint256 chainId = 686_868;
 
-        // Generate signature hash
-        bytes32 hash = keccak256(
-            abi.encodePacked(
-                nftAddress,
-                payment,
-                price,
-                to,
-                tokenId,
-                nonce,
-                amount,
-                chainId,
-                timestamp,
-                serialNumbersHash
-            )
+        // Generate signature hash using the library function
+        bytes32 hash = LibSignature.getStandardSignatureHash(
+            nftAddress,
+            payment,
+            price,
+            to,
+            tokenId,
+            nonce,
+            amount,
+            serialNumbers,
+            timestamp,
+            chainId
         );
 
-        // Add Ethereum signed message prefix
+        // Add Ethereum signed message prefix (this is done inside recoverSigner, but we need it for vm.sign)
         bytes32 prefixedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
 
         // Sign the hash
@@ -71,9 +66,11 @@ contract GenerateSignature is Script {
             for (uint256 i = 0; i < serialNumbers.length; i++) {
                 console.log("  - ", serialNumbers[i]);
             }
+            bytes32 serialNumbersHash = keccak256(abi.encodePacked(serialNumbers));
             console.log("Hashed Serial Numbers:", vm.toString(serialNumbersHash));
         } else {
             console.log("Serial Numbers: []");
+            bytes32 serialNumbersHash = keccak256(abi.encodePacked(serialNumbers));
             console.log("Hashed Serial Numbers:", vm.toString(serialNumbersHash));
         }
 
@@ -85,7 +82,7 @@ contract GenerateSignature is Script {
         );
         console.log("Witness Address:", witness);
 
-        // Verify the signature
+        // Verify the signature using the library function
         address recoveredSigner = LibSignature.recoverSigner(hash, signature);
         console.log("\nSignature Verification:");
         console.log("Recovered Signer:", recoveredSigner);
