@@ -47,15 +47,15 @@ contract RaffleContractTest is Test {
         vm.prank(owner);
         raffleContract = new RaffleContract(owner, feeCollector, platformFee, address(mockUSDC));
 
-        // Mint tokens to owner for platform fees
+        // Mint tokens to owner (no longer needed for upfront platform fees, but keep for asset deposit)
         mockUSDC.mint(owner, 100 ether);
         mockOtherToken.mint(owner, 100 ether);
 
-        // Approve tokens for platform fees
+        // Approve tokens for asset deposit
         vm.prank(owner);
-        mockUSDC.approve(address(raffleContract), type(uint256).max);
+        mockUSDC.approve(address(raffleContract), type(uint256).max); // Still needed if owner buys tickets
         vm.prank(owner);
-        mockOtherToken.approve(address(raffleContract), type(uint256).max);
+        mockOtherToken.approve(address(raffleContract), type(uint256).max); // Still needed if owner buys tickets
 
         // Mint tokens to users
         mockERC721.mint(owner, erc721TokenId);
@@ -122,8 +122,8 @@ contract RaffleContractTest is Test {
         uint256 feeCollectorBalanceAfter = mockUSDC.balanceOf(feeCollector);
         assertEq(
             feeCollectorBalanceAfter - feeCollectorBalanceBefore,
-            platformFee,
-            "Platform fee should be collected at creation"
+            0, // Fee is NOT collected at creation anymore
+            "Platform fee should NOT be collected at creation"
         );
 
         assertEq(raffleId, 0, "First raffle ID should be 0");
@@ -141,7 +141,8 @@ contract RaffleContractTest is Test {
             uint256 ticketsSold,
             address winner,
             RaffleContract.RaffleStatus status,
-            bool isDeposited
+            bool isDeposited,
+            bool feePaid // Added feePaid
         ) = raffleContract.getRaffleInfo(raffleId);
 
         assertEq(assetContract, address(mockERC721), "Asset contract should match");
@@ -157,6 +158,7 @@ contract RaffleContractTest is Test {
             uint256(status), uint256(RaffleContract.RaffleStatus.Open), "Raffle should be open"
         );
         assertTrue(isDeposited, "Vault should be deposited");
+        assertFalse(feePaid, "Fee should not be paid yet");
 
         // Check token ownership
         assertEq(
@@ -186,8 +188,8 @@ contract RaffleContractTest is Test {
         uint256 feeCollectorBalanceAfter = mockOtherToken.balanceOf(feeCollector);
         assertEq(
             feeCollectorBalanceAfter - feeCollectorBalanceBefore,
-            platformFee,
-            "Platform fee should be collected at creation"
+            0, // Fee is NOT collected at creation anymore
+            "Platform fee should NOT be collected at creation"
         );
 
         assertEq(raffleId, 0, "First raffle ID should be 0");
@@ -205,7 +207,8 @@ contract RaffleContractTest is Test {
             ,
             ,
             ,
-            bool isDeposited
+            bool isDeposited,
+            bool feePaid // Added feePaid
         ) = raffleContract.getRaffleInfo(raffleId);
 
         assertEq(assetContract, address(mockERC1155), "Asset contract should match");
@@ -213,6 +216,7 @@ contract RaffleContractTest is Test {
         assertEq(amount, erc1155Amount, "Amount should match");
         assertEq(paymentToken, address(mockOtherToken), "Payment token should be OTHER");
         assertTrue(isDeposited, "Vault should be deposited");
+        assertFalse(feePaid, "Fee should not be paid yet");
 
         // Check token ownership
         assertEq(
@@ -224,7 +228,7 @@ contract RaffleContractTest is Test {
 
     function test_EthPaymentsDisabledByDefault() public {
         vm.prank(owner);
-        vm.expectRevert("ETH payments are disabled");
+        vm.expectRevert(RaffleContract.EthPaymentsDisabled.selector); // Expect custom error selector
         raffleContract.createRaffle(
             RaffleContract.AssetType.ERC721,
             address(mockERC721),
@@ -253,10 +257,9 @@ contract RaffleContractTest is Test {
         // Record fee collector balance before
         uint256 feeCollectorBalanceBefore = address(feeCollector).balance;
 
-        // Create raffle with ETH payment
-        vm.deal(owner, platformFee);
+        // Create raffle with ETH payment - NO value needed upfront
         vm.prank(owner);
-        uint256 raffleId = raffleContract.createRaffle{value: platformFee}(
+        uint256 raffleId = raffleContract.createRaffle( // No value sent
             RaffleContract.AssetType.ERC721,
             address(mockERC721),
             newTokenId,
@@ -271,13 +274,14 @@ contract RaffleContractTest is Test {
         uint256 feeCollectorBalanceAfter = address(feeCollector).balance;
         assertEq(
             feeCollectorBalanceAfter - feeCollectorBalanceBefore,
-            platformFee,
-            "Platform fee should be collected at creation"
+            0, // Fee is NOT collected at creation anymore
+            "Platform fee should NOT be collected at creation"
         );
 
         // Check payment token
-        (,,, address paymentToken,,,,,,,,) = raffleContract.getRaffleInfo(raffleId);
+        (,,, address paymentToken,,,,,,,,, bool feePaid) = raffleContract.getRaffleInfo(raffleId);
         assertEq(paymentToken, address(0), "Payment token should be ETH");
+        assertFalse(feePaid, "Fee should not be paid yet");
     }
 
     function test_BuyTicketsWithUSDC() public {
@@ -302,7 +306,7 @@ contract RaffleContractTest is Test {
         raffleContract.buyTicket(raffleId, 2);
 
         // Check ticket counts
-        (,,,,,,,, uint256 ticketsSold,,,) = raffleContract.getRaffleInfo(raffleId);
+        (,,,,,,,, uint256 ticketsSold,,,,) = raffleContract.getRaffleInfo(raffleId); // Adjusted destructuring
         assertEq(ticketsSold, 5, "Raffle should have 5 tickets sold");
 
         // Check ticket buyers
@@ -342,21 +346,21 @@ contract RaffleContractTest is Test {
         vm.prank(user2);
         raffleContract.buyTicket(raffleId, 2);
 
-        // Try to draw winner before end time
+        // Try to finalize before end time
         vm.prank(owner);
-        vm.expectRevert("Raffle end time has not passed yet");
-        raffleContract.drawWinner(raffleId);
+        vm.expectRevert(RaffleContract.RaffleStillOpen.selector); // Updated error
+        raffleContract.finalizeRaffle(raffleId);
 
         // Fast forward past raffle end time
         vm.warp(block.timestamp + raffleDuration + 1);
 
-        // Draw winner
+        // Finalize raffle (was drawWinner)
         vm.prank(owner);
-        raffleContract.drawWinner(raffleId);
+        raffleContract.finalizeRaffle(raffleId);
 
         // Check raffle status and winner
-        (,,,,,,,,, address winner, RaffleContract.RaffleStatus status,) =
-            raffleContract.getRaffleInfo(raffleId);
+        (,,,,,,,,, address winner, RaffleContract.RaffleStatus status,,) = // Adjusted destructuring
+         raffleContract.getRaffleInfo(raffleId);
 
         assertEq(
             uint256(status), uint256(RaffleContract.RaffleStatus.Closed), "Raffle should be closed"
@@ -388,12 +392,12 @@ contract RaffleContractTest is Test {
         // Fast forward past raffle end time
         vm.warp(block.timestamp + raffleDuration + 1);
 
-        // Draw winner
+        // Finalize raffle (was drawWinner)
         vm.prank(owner);
-        raffleContract.drawWinner(raffleId);
+        raffleContract.finalizeRaffle(raffleId);
 
         // Get the winner
-        (,,,,,,,,, address winner,,) = raffleContract.getRaffleInfo(raffleId);
+        (,,,,,,,,, address winner,,,) = raffleContract.getRaffleInfo(raffleId); // Adjusted destructuring
 
         // Claim vault as winner
         vm.prank(winner);
@@ -427,12 +431,12 @@ contract RaffleContractTest is Test {
         // Fast forward past raffle end time
         vm.warp(block.timestamp + raffleDuration + 1);
 
-        // Draw winner
+        // Finalize raffle (was drawWinner)
         vm.prank(owner);
-        raffleContract.drawWinner(raffleId);
+        raffleContract.finalizeRaffle(raffleId);
 
         // Get the winner
-        (,,,,,,,,, address winner,,) = raffleContract.getRaffleInfo(raffleId);
+        (,,,,,,,,, address winner,,,) = raffleContract.getRaffleInfo(raffleId); // Adjusted destructuring
 
         // Claim vault as winner
         vm.prank(winner);
@@ -440,7 +444,9 @@ contract RaffleContractTest is Test {
 
         // Record balances before withdrawal
         uint256 ownerBalanceBefore = mockUSDC.balanceOf(owner);
+        uint256 feeCollectorBalanceBefore = mockUSDC.balanceOf(feeCollector);
         uint256 contractBalanceBefore = mockUSDC.balanceOf(address(raffleContract));
+        uint256 expectedWithdrawal = contractBalanceBefore - platformFee;
 
         // Withdraw funds
         vm.prank(owner);
@@ -448,11 +454,17 @@ contract RaffleContractTest is Test {
 
         // Check balances after withdrawal
         uint256 ownerBalanceAfter = mockUSDC.balanceOf(owner);
+        uint256 feeCollectorBalanceAfter = mockUSDC.balanceOf(feeCollector);
 
         assertEq(
             ownerBalanceAfter - ownerBalanceBefore,
-            contractBalanceBefore,
-            "Owner should receive all funds"
+            expectedWithdrawal,
+            "Owner should receive funds minus platform fee"
+        );
+        assertEq(
+            feeCollectorBalanceAfter - feeCollectorBalanceBefore,
+            platformFee,
+            "Fee collector should receive platform fee"
         );
         assertEq(
             mockUSDC.balanceOf(address(raffleContract)),
@@ -503,8 +515,8 @@ contract RaffleContractTest is Test {
         vm.stopPrank();
 
         // Check ticket counts
-        (,,,,,,,, uint256 ticketsSold1,,,) = raffleContract.getRaffleInfo(raffleId1);
-        (,,,,,,,, uint256 ticketsSold2,,,) = raffleContract.getRaffleInfo(raffleId2);
+        (,,,,,,,, uint256 ticketsSold1,,,,) = raffleContract.getRaffleInfo(raffleId1); // Adjusted
+        (,,,,,,,, uint256 ticketsSold2,,,,) = raffleContract.getRaffleInfo(raffleId2); // Adjusted
 
         assertEq(ticketsSold1, 5, "Raffle 1 should have 5 tickets sold");
         assertEq(ticketsSold2, 5, "Raffle 2 should have 5 tickets sold");
@@ -512,16 +524,16 @@ contract RaffleContractTest is Test {
         // Fast forward past raffle end time
         vm.warp(block.timestamp + raffleDuration + 1);
 
-        // Draw winners for both raffles
+        // Finalize raffles (was drawWinner)
         vm.prank(owner);
-        raffleContract.drawWinner(raffleId1);
+        raffleContract.finalizeRaffle(raffleId1);
 
         vm.prank(owner);
-        raffleContract.drawWinner(raffleId2);
+        raffleContract.finalizeRaffle(raffleId2);
 
         // Get winners
-        (,,,,,,,,, address winner1,,) = raffleContract.getRaffleInfo(raffleId1);
-        (,,,,,,,,, address winner2,,) = raffleContract.getRaffleInfo(raffleId2);
+        (,,,,,,,,, address winner1,,,) = raffleContract.getRaffleInfo(raffleId1); // Adjusted
+        (,,,,,,,,, address winner2,,,) = raffleContract.getRaffleInfo(raffleId2); // Adjusted
 
         // Claim vaults
         vm.prank(winner1);
@@ -540,13 +552,43 @@ contract RaffleContractTest is Test {
             "Winner 2 should own the second ERC721 token"
         );
 
+        // Record balances before withdrawal
+        uint256 ownerUSDCBalanceBefore = mockUSDC.balanceOf(owner);
+        uint256 ownerOtherBalanceBefore = mockOtherToken.balanceOf(owner);
+        uint256 feeCollectorUSDCBalanceBefore = mockUSDC.balanceOf(feeCollector);
+        uint256 feeCollectorOtherBalanceBefore = mockOtherToken.balanceOf(feeCollector);
+        uint256 contractUSDCBalanceBefore = mockUSDC.balanceOf(address(raffleContract));
+        uint256 contractOtherBalanceBefore = mockOtherToken.balanceOf(address(raffleContract));
+        uint256 expectedUSDCWithdrawal = contractUSDCBalanceBefore - platformFee;
+        uint256 expectedOtherWithdrawal = contractOtherBalanceBefore - platformFee;
+
         // Withdraw funds from both raffles
         vm.startPrank(owner);
-        raffleContract.withdrawFunds(raffleId1);
-        raffleContract.withdrawFunds(raffleId2);
+        raffleContract.withdrawFunds(raffleId1); // Withdraws USDC
+        raffleContract.withdrawFunds(raffleId2); // Withdraws OTHER
         vm.stopPrank();
 
         // Check balances
+        assertEq(
+            mockUSDC.balanceOf(owner) - ownerUSDCBalanceBefore,
+            expectedUSDCWithdrawal,
+            "Owner should receive USDC funds minus fee"
+        );
+        assertEq(
+            mockOtherToken.balanceOf(owner) - ownerOtherBalanceBefore,
+            expectedOtherWithdrawal,
+            "Owner should receive OTHER funds minus fee"
+        );
+        assertEq(
+            mockUSDC.balanceOf(feeCollector) - feeCollectorUSDCBalanceBefore,
+            platformFee,
+            "Fee collector should receive USDC fee"
+        );
+        assertEq(
+            mockOtherToken.balanceOf(feeCollector) - feeCollectorOtherBalanceBefore,
+            platformFee,
+            "Fee collector should receive OTHER fee"
+        );
         assertEq(
             mockUSDC.balanceOf(address(raffleContract)),
             0,
@@ -559,7 +601,8 @@ contract RaffleContractTest is Test {
         );
     }
 
-    function test_CancelRaffle() public {
+    // Renamed from test_CancelRaffle to reflect new logic
+    function test_RaffleFailureAndRefund() public {
         // Create raffle
         vm.prank(owner);
         uint256 raffleId = raffleContract.createRaffle(
@@ -575,37 +618,59 @@ contract RaffleContractTest is Test {
 
         // Buy some tickets but not enough to meet minimum
         vm.prank(user1);
-        raffleContract.buyTicket(raffleId, 2);
+        raffleContract.buyTicket(raffleId, 2); // Buy only 2 tickets (less than minTickets=5)
+
+        // Record balances before
+        uint256 user1BalanceBefore = mockUSDC.balanceOf(user1);
+        uint256 contractBalanceBefore = mockUSDC.balanceOf(address(raffleContract));
+        uint256 feeCollectorBalanceBefore = mockUSDC.balanceOf(feeCollector);
 
         // Fast forward past raffle end time
         vm.warp(block.timestamp + raffleDuration + 1);
 
-        // Cancel raffle
+        // Finalize raffle (should fail)
         vm.prank(owner);
-        raffleContract.cancelRaffle(raffleId);
+        raffleContract.finalizeRaffle(raffleId);
 
         // Check raffle status
-        (,,,,,,,,, address winner, RaffleContract.RaffleStatus status,) =
-            raffleContract.getRaffleInfo(raffleId);
+        (,,,,,,,,, address winner, RaffleContract.RaffleStatus status,,) = // Adjusted
+         raffleContract.getRaffleInfo(raffleId);
 
         assertEq(
-            uint256(status), uint256(RaffleContract.RaffleStatus.Closed), "Raffle should be closed"
+            uint256(status), uint256(RaffleContract.RaffleStatus.Failed), "Raffle should be Failed"
         );
         assertEq(winner, address(0), "No winner should be set");
 
-        // Check token ownership
+        // Owner reclaims asset
+        vm.prank(owner);
+        raffleContract.reclaimAssetOnFailure(raffleId);
         assertEq(mockERC721.ownerOf(erc721TokenId), owner, "Owner should get the ERC721 token back");
 
-        // Withdraw funds
-        vm.prank(owner);
-        raffleContract.withdrawFunds(raffleId);
+        // User claims refund
+        vm.prank(user1);
+        raffleContract.claimRefund(raffleId);
 
-        // Check USDC balance
+        // Check balances after refund
+        uint256 user1BalanceAfter = mockUSDC.balanceOf(user1);
+        uint256 contractBalanceAfter = mockUSDC.balanceOf(address(raffleContract));
+        uint256 feeCollectorBalanceAfter = mockUSDC.balanceOf(feeCollector);
+
         assertEq(
-            mockUSDC.balanceOf(address(raffleContract)),
-            0,
-            "Contract should have 0 USDC balance after withdrawal"
+            user1BalanceAfter - user1BalanceBefore,
+            ticketPrice * 2,
+            "User1 should receive refund for 2 tickets"
         );
+        assertEq(contractBalanceAfter, 0, "Contract should have 0 USDC balance after refund");
+        assertEq(
+            feeCollectorBalanceAfter - feeCollectorBalanceBefore,
+            0,
+            "Fee collector balance should not change on failed raffle"
+        );
+
+        // Try withdrawing funds (should fail as raffle failed)
+        vm.prank(owner);
+        vm.expectRevert(RaffleContract.RaffleNotSuccessful.selector);
+        raffleContract.withdrawFunds(raffleId);
     }
 
     function test_SellMoreThanMinimumTickets() public {
@@ -630,19 +695,19 @@ contract RaffleContractTest is Test {
         raffleContract.buyTicket(raffleId, 4);
 
         // Check ticket count
-        (,,,,,,,, uint256 ticketsSold,,,) = raffleContract.getRaffleInfo(raffleId);
+        (,,,,,,,, uint256 ticketsSold,,,,) = raffleContract.getRaffleInfo(raffleId); // Adjusted
         assertEq(ticketsSold, 8, "Raffle should have 8 tickets sold");
 
         // Fast forward past raffle end time
         vm.warp(block.timestamp + raffleDuration + 1);
 
-        // Draw winner
+        // Finalize raffle (was drawWinner)
         vm.prank(owner);
-        raffleContract.drawWinner(raffleId);
+        raffleContract.finalizeRaffle(raffleId);
 
         // Check raffle status
-        (,,,,,,,,, address winner, RaffleContract.RaffleStatus status,) =
-            raffleContract.getRaffleInfo(raffleId);
+        (,,,,,,,,, address winner, RaffleContract.RaffleStatus status,,) = // Adjusted
+         raffleContract.getRaffleInfo(raffleId);
 
         assertEq(
             uint256(status), uint256(RaffleContract.RaffleStatus.Closed), "Raffle should be closed"
