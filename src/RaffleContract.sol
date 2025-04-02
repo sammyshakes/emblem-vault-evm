@@ -344,9 +344,10 @@ contract RaffleContract is IERC721Receiver, IERC1155Receiver, Ownable, Reentranc
                     )
                 )
             ) % raffle.participants.length;
-            raffle.winner = raffle.participants[randomIndex];
 
+            raffle.winner = raffle.participants[randomIndex];
             raffle.status = RaffleStatus.Closed; // Final state for successful raffle
+
             emit WinnerDrawn(_raffleId, raffle.winner);
         } else {
             // Raffle failed, mark for refunds
