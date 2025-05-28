@@ -30,10 +30,17 @@ contract CreateERC1155Collection is Script {
         // Note: For ERC1155, the second parameter is used as the URI instead of a symbol
         address erc1155Collection = diamond.createVaultCollection(
             "Diamond Hands Multi Collection",
-            "https://api.emblem.finance/erc1155/metadata/{id}.json",
+            "", // Initial URI can be empty, we will set it below
             ERC1155_TYPE
         );
         console.log("\nERC1155 Collection created at:", erc1155Collection);
+
+        // Construct and set the new URI
+        string memory newURI = string.concat(
+            "https://v2.emblemvault.io/v3/meta/", vm.toString(erc1155Collection), "/{id}.json"
+        );
+        diamond.setCollectionURI(erc1155Collection, newURI);
+        console.log("ERC1155 URI set to:", newURI);
 
         vm.stopBroadcast();
 
@@ -43,6 +50,6 @@ contract CreateERC1155Collection is Script {
         console.log("\nERC1155 Collection Creation Complete");
         console.log("--------------------------------");
         console.log("ERC1155 Collection:", erc1155Collection);
-        console.log("ERC1155 URI: https://api.emblem.finance/erc1155/metadata/{id}.json");
+        console.log("ERC1155 URI:", newURI);
     }
 }

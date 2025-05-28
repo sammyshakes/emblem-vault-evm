@@ -28,8 +28,14 @@ contract CreateERC721Collection is Script {
 
         // Create ERC721A Collection
         address erc721Collection =
-            diamond.createVaultCollection("Diamond Hands Collection", "DHC", ERC721_TYPE);
+            diamond.createVaultCollection("Taproot Wizards", "Taproot Wizards", ERC721_TYPE);
         console.log("\nERC721A Collection created at:", erc721Collection);
+
+        // Construct and set the new base URI
+        string memory newBaseURI =
+            string.concat("https://v2.emblemvault.io/v3/meta/", vm.toString(erc721Collection), "/");
+        diamond.setCollectionBaseURI(erc721Collection, newBaseURI);
+        console.log("ERC721A Base URI set to:", newBaseURI);
 
         vm.stopBroadcast();
 
@@ -39,6 +45,6 @@ contract CreateERC721Collection is Script {
         console.log("\nERC721A Collection Creation Complete");
         console.log("--------------------------------");
         console.log("ERC721A Collection:", erc721Collection);
-        console.log("ERC721A Base URI: https://v2.emblemvault.io/meta/ (default)");
+        console.log("ERC721A Base URI:", newBaseURI);
     }
 }
